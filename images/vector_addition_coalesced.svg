@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 580 400" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="580" height="400" fill="#fafafa"/>
+
+  <text x="290" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">合并访存（Coalesced Access）</text>
+  <text x="290" y="44" text-anchor="middle" font-size="11" fill="#888">warp 内 32 个 thread 访问连续地址 → 1 次 128B 事务搞定</text>
+
+  <!-- ===== Good: coalesced ===== -->
+  <text x="30" y="78" font-size="13" fill="#4a7a3a" font-weight="bold">✓ 合并访存（推荐）</text>
+
+  <!-- threads row -->
+  <text x="30" y="104" font-size="11" fill="#666">thread:</text>
+  <g font-size="10" fill="#333">
+    <rect x="90"  y="90" width="34" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="107" y="105" text-anchor="middle">t0</text>
+    <rect x="124" y="90" width="34" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="141" y="105" text-anchor="middle">t1</text>
+    <rect x="158" y="90" width="34" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="175" y="105" text-anchor="middle">t2</text>
+    <rect x="192" y="90" width="34" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="209" y="105" text-anchor="middle">t3</text>
+    <text x="234" y="105" font-size="11" fill="#888">... t31</text>
+  </g>
+
+  <!-- arrows down -->
+  <g stroke="#4a7a3a" stroke-width="1" filter="url(#rough2)">
+    <line x1="107" y1="114" x2="107" y2="140" marker-end="url(#arr)"/>
+    <line x1="141" y1="114" x2="141" y2="140" marker-end="url(#arr)"/>
+    <line x1="175" y1="114" x2="175" y2="140" marker-end="url(#arr)"/>
+    <line x1="209" y1="114" x2="209" y2="140" marker-end="url(#arr)"/>
+  </g>
+
+  <!-- memory: contiguous 128B -->
+  <text x="30" y="158" font-size="11" fill="#666">显存:</text>
+  <rect x="90" y="144" width="136" height="26" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="4" filter="url(#rough2)"/>
+  <text x="158" y="162" text-anchor="middle" font-size="11" fill="#333">A[0] A[1] A[2] A[3] ... A[31]  (128B 连续)</text>
+
+  <rect x="30" y="186" width="460" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="5" filter="url(#rough2)"/>
+  <text x="260" y="201" text-anchor="middle" font-size="11" fill="#333">→ 1 次内存事务（128B）服务整个 warp，带宽利用率最高</text>
+
+  <!-- ===== Bad: strided ===== -->
+  <line x1="20" y1="226" x2="560" y2="226" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="250" font-size="13" fill="#b85450" font-weight="bold">✗ 非合并访存（反例）</text>
+  <text x="30" y="266" font-size="10" fill="#888">thread 间隔读 → 地址跨大步，硬件要发多次事务</text>
+
+  <!-- threads strided -->
+  <text x="30" y="294" font-size="11" fill="#666">thread:</text>
+  <g font-size="10" fill="#333">
+    <rect x="90"  y="280" width="34" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="107" y="295" text-anchor="middle">t0</text>
+    <text x="140" y="295" font-size="11" fill="#888">↓ 跳到</text>
+    <rect x="200" y="280" width="34" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="217" y="295" text-anchor="middle">t1</text>
+    <text x="250" y="295" font-size="11" fill="#888">↓ 跳到</text>
+    <rect x="310" y="280" width="34" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="327" y="295" text-anchor="middle">t2</text>
+  </g>
+
+  <g stroke="#b85450" stroke-width="1" stroke-dasharray="3,3" filter="url(#rough2)">
+    <line x1="107" y1="304" x2="107" y2="330" marker-end="url(#arr)"/>
+    <line x1="217" y1="304" x2="217" y2="330" marker-end="url(#arr)"/>
+    <line x1="327" y1="304" x2="327" y2="330" marker-end="url(#arr)"/>
+  </g>
+
+  <!-- scattered memory -->
+  <text x="30" y="348" font-size="11" fill="#666">显存:</text>
+  <rect x="90"  y="334" width="34" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+  <text x="107" y="349" text-anchor="middle" font-size="10">A[0]</text>
+  <rect x="200" y="334" width="34" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+  <text x="217" y="349" text-anchor="middle" font-size="10">A[64]</text>
+  <rect x="310" y="334" width="34" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+  <text x="327" y="349" text-anchor="middle" font-size="10">A[128]</text>
+
+  <rect x="30" y="368" width="520" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="5" filter="url(#rough2)"/>
+  <text x="290" y="383" text-anchor="middle" font-size="11" fill="#333">→ 多次事务、每次只用到一小段 → 带宽浪费</text>
+</svg>

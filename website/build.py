@@ -2,8 +2,12 @@
 """
 Build the LeetGPU solution website from markdown files in leetgpu/.
 Generates:
-  - index.html: solution list page
-  - <slug>.html: individual solution pages
+  - index.html: solution list page (grouped by week/day)
+  - <slug>.html: individual solution pages (flat output)
+
+Solutions are organized under leetgpu/weekN/dayM/ (mirroring the daily
+tutorial structure). The sidebar groups them as an accordion:
+  week -> day -> solution.
 Uses relative paths so the site works when deployed under a repository
 path prefix (e.g. https://user.github.io/repo-name/leetgpu/).
 """
@@ -25,16 +29,100 @@ def parse_title(markdown_text: str) -> str:
     return match.group(1).strip() if match else "题解"
 
 
+def pretty_name(name: str) -> str:
+    """'day1' -> 'Day 1', 'week2' -> 'Week 2'."""
+    m = re.match(r"^([a-zA-Z]+)(\d+)$", name)
+    if m:
+        return f"{m.group(1).capitalize()} {m.group(2)}"
+    return name
+
+
+def sort_key_numeric(name: str) -> int:
+    m = re.search(r"(\d+)$", name)
+    return int(m.group(1)) if m else 0
+
+
 def build_nav(current_slug: Optional[str], solutions: List[Dict]) -> str:
+    """Build sidebar navigation as a week -> day accordion.
+
+    A day with a single solution becomes a direct link (like leetcode/daily).
+    A day with multiple solutions expands into a nested accordion.
+    """
     lines = []
 
     overview_class = "nav-link active" if current_slug is None else "nav-link"
     lines.append(f'<a class="{overview_class}" href="./index.html">📌 LeetGPU 题解</a>')
-
     lines.append('<div class="nav-section-title">题目</div>')
+
+    # Resolve current solution's [week, day] path for expand state
+    current_path: List[str] = []
+    if current_slug is not None:
+        for s in solutions:
+            if s["slug"] == current_slug:
+                if s["week"]:
+                    current_path = [s["week"]]
+                    if s["day"]:
+                        current_path.append(s["day"])
+                break
+
+    # Group: week -> day -> [solutions]
+    tree: Dict[str, Dict[str, List[Dict]]] = {}
     for s in solutions:
-        cls = "nav-link active" if current_slug == s["slug"] else "nav-link"
-        lines.append(f'<a class="{cls}" href="./{s["slug"]}.html">{s["title"]}</a>')
+        w = s["week"] or "未分组"
+        d = s["day"] or ""
+        tree.setdefault(w, {}).setdefault(d, []).append(s)
+
+    for w in sorted(tree.keys(), key=sort_key_numeric):
+        days = tree[w]
+        is_week_expanded = bool(current_path and current_path[0] == w)
+        expanded_cls = " is-expanded" if is_week_expanded else ""
+        aria_expanded = "true" if is_week_expanded else "false"
+        toggle_icon = "▼" if is_week_expanded else "▶"
+
+        lines.append(f'<div class="nav-accordion-item level-1{expanded_cls}">')
+        lines.append('  <div class="nav-accordion-header">')
+        lines.append(
+            f'    <span class="nav-link week-link">{pretty_name(w)}</span>'
+            f'<button class="nav-accordion-toggle" aria-label="收起/展开 {pretty_name(w)}" aria-expanded="{aria_expanded}">{toggle_icon}</button>'
+        )
+        lines.append('  </div>')
+        lines.append('  <div class="nav-accordion-content">')
+        lines.append('    <div class="nav-section">')
+
+        for d in sorted(days.keys(), key=sort_key_numeric):
+            day_solutions = days[d]
+            if not d:
+                for s in day_solutions:
+                    cls = "nav-link active" if current_slug == s["slug"] else "nav-link"
+                    lines.append(f'<a class="{cls}" href="./{s["slug"]}.html">{s["title"]}</a>')
+            elif len(day_solutions) == 1:
+                s = day_solutions[0]
+                cls = "nav-link active" if current_slug == s["slug"] else "nav-link"
+                lines.append(f'<a class="{cls}" href="./{s["slug"]}.html">{pretty_name(d)}</a>')
+            else:
+                is_day_expanded = bool(current_path[:2] == [w, d])
+                d_expanded_cls = " is-expanded" if is_day_expanded else ""
+                d_aria = "true" if is_day_expanded else "false"
+                d_icon = "▼" if is_day_expanded else "▶"
+                lines.append(f'<div class="nav-accordion-item level-2{d_expanded_cls}">')
+                lines.append('  <div class="nav-accordion-header">')
+                lines.append(
+                    f'    <span class="nav-link week-link">{pretty_name(d)}</span>'
+                    f'<button class="nav-accordion-toggle" aria-label="收起/展开 {pretty_name(d)}" aria-expanded="{d_aria}">{d_icon}</button>'
+                )
+                lines.append('  </div>')
+                lines.append('  <div class="nav-accordion-content">')
+                lines.append('    <div class="nav-section">')
+                for s in day_solutions:
+                    cls = "nav-link active" if current_slug == s["slug"] else "nav-link"
+                    lines.append(f'<a class="{cls}" href="./{s["slug"]}.html">{s["title"]}</a>')
+                lines.append('    </div>')
+                lines.append('  </div>')
+                lines.append('</div>')
+
+        lines.append('    </div>')
+        lines.append('  </div>')
+        lines.append('</div>')
 
     lines.append('<div class="nav-section-title">更多</div>')
     lines.append('<a class="nav-link" href="../index.html">← Week 1</a>')
@@ -123,37 +211,58 @@ def page_template(title: str, nav_html: str, markdown: str) -> str:
 
 
 def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
+    # Recursively find all leetgpu-*.md under leetgpu/ (excludes website/, images/, SKILL.md)
     md_files = sorted([
-        f for f in leetgpu_dir.iterdir()
-        if f.is_file() and f.suffix == ".md" and f.name.startswith("leetgpu-")
+        f for f in leetgpu_dir.rglob("leetgpu-*.md")
+        if f.is_file()
+        and "website" not in f.parts
+        and "images" not in f.parts
     ])
 
     solutions = []
     for md_file in md_files:
         markdown_text = md_file.read_text(encoding="utf-8")
-        # Markdown references images as "images/xxx.svg"; convert to relative path
         markdown_text = markdown_text.replace("](images/", "](./images/")
 
         title = parse_title(markdown_text)
-        slug = md_file.stem  # e.g. leetgpu-vector-add-solution
+        slug = md_file.stem  # e.g. leetgpu-vector-addition-solution
+
+        rel_parts = md_file.relative_to(leetgpu_dir).parts
+        week = None
+        day = None
+        if len(rel_parts) >= 3 and re.match(r"^week\d+$", rel_parts[0]) and re.match(r"^day\d+$", rel_parts[1]):
+            week = rel_parts[0]
+            day = rel_parts[1]
+
         solutions.append({
             "slug": slug,
             "title": title,
+            "week": week,
+            "day": day,
             "markdown": markdown_text,
         })
 
-    # Build overview page
-    cards_html = '<div class="day-cards">\n'
+    # Group by (week, day) for overview page
+    groups: Dict[tuple, List[Dict]] = {}
     for s in solutions:
-        cards_html += (
-            f'<a class="day-card" href="./{s["slug"]}.html">\n'
-            f'  <div class="day-card-number">LeetGPU</div>\n'
-            f'  <div class="day-card-title">{s["title"]}</div>\n'
-            f'</a>\n'
-        )
-    cards_html += '</div>\n'
+        key = (s["week"] or "未分组", s["day"] or "")
+        groups.setdefault(key, []).append(s)
 
-    overview_markdown = "# LeetGPU 题解\n\n> CUDA 编程挑战题解，配套每日教程的在线练习。\n\n## 题目列表\n\n" + cards_html
+    overview_markdown = "# LeetGPU 题解\n\n> CUDA 编程挑战题解，配套每日教程的在线练习。\n\n## 题目列表\n\n"
+    for key in sorted(groups.keys(), key=lambda k: (sort_key_numeric(k[0]), sort_key_numeric(k[1]))):
+        w, d = key
+        heading = pretty_name(w) if not d else f"{pretty_name(w)} · {pretty_name(d)}"
+        overview_markdown += f"### {heading}\n\n"
+        overview_markdown += '<div class="day-cards">\n'
+        for s in groups[key]:
+            card_label = pretty_name(d) if d else s["title"]
+            overview_markdown += (
+                f'<a class="day-card" href="./{s["slug"]}.html">\n'
+                f'  <div class="day-card-number">{card_label}</div>\n'
+                f'  <div class="day-card-title">{s["title"]}</div>\n'
+                f'</a>\n'
+            )
+        overview_markdown += '</div>\n\n'
 
     overview_html = page_template(
         title="LeetGPU 题解",
@@ -163,7 +272,6 @@ def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
     (output_dir / "index.html").write_text(overview_html, encoding="utf-8")
     print(f"Generated: {output_dir / 'index.html'}")
 
-    # Build solution pages
     for s in solutions:
         html = page_template(
             title=s["title"],
