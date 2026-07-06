@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 440" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="620" height="440" fill="#fafafa"/>
+
+  <text x="310" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">消除分支：三种写法对比</text>
+
+  <!-- ===== Approach 1: if-else ===== -->
+  <rect x="30" y="48" width="560" height="92" fill="#fce4ec" stroke="#b85450" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="44" y="70" font-size="12" fill="#b85450" font-weight="bold">① if-else 分支写法（有 divergence 风险）</text>
+  <rect x="44" y="78" width="380" height="22" fill="#fff" stroke="#ddd" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="54" y="93" font-family="monospace" font-size="11" fill="#333">if (x &lt; 0.0f) out = 0.0f;  else out = x;</text>
+  <text x="44" y="116" font-size="10" fill="#555">• 编译器可能生成真正的分支指令（bra / join）</text>
+  <text x="44" y="130" font-size="10" fill="#555">• 正负混杂的 warp 会串行执行两个分支 → 2× 指令开销</text>
+
+  <!-- ===== Approach 2: ternary ===== -->
+  <rect x="30" y="152" width="560" height="92" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="44" y="174" font-size="12" fill="#d6a040" font-weight="bold">② 三元运算符（编译器可能生成 predication）</text>
+  <rect x="44" y="182" width="380" height="22" fill="#fff" stroke="#ddd" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="54" y="197" font-family="monospace" font-size="11" fill="#333">out = (x &lt; 0.0f) ? 0.0f : x;</text>
+  <text x="44" y="220" font-size="10" fill="#555">• 现代编译器（nvcc -O3）通常把它编译成 predicate（谓词）指令</text>
+  <text x="44" y="234" font-size="10" fill="#555">• 两条指令都执行，靠 predicate 掩码决定写不写回 → 无 divergence</text>
+
+  <!-- ===== Approach 3: fmaxf ===== -->
+  <rect x="30" y="256" width="560" height="92" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
+  <text x="44" y="278" font-size="12" fill="#4a7a3a" font-weight="bold">③ fmaxf 内置函数（推荐 ★）</text>
+  <rect x="44" y="286" width="380" height="22" fill="#fff" stroke="#ddd" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="54" y="301" font-family="monospace" font-size="11" fill="#333">out = fmaxf(0.0f, x);</text>
+  <text x="44" y="324" font-size="10" fill="#555">• 直接映射到 1 条 GPU 硬件指令（VMAX.F32 或类似）</text>
+  <text x="44" y="338" font-size="10" fill="#555">• 无分支、无 predicate 开销，语义最清晰、性能最优</text>
+
+  <!-- ===== Summary ===== -->
+  <line x1="20" y1="364" x2="600" y2="364" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="386" font-size="12" fill="#446688" font-weight="bold">对比：</text>
+  <g font-size="11" fill="#333">
+    <text x="30"  y="406">if-else</text>
+    <rect x="100" y="396" width="120" height="16" fill="#b85450" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="230" y="406" fill="#b85450">有分支，可能 divergence</text>
+
+    <text x="30"  y="424">fmaxf</text>
+    <rect x="100" y="414" width="40" height="16" fill="#4a7a3a" stroke="#4a7a3a" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="150" y="424" fill="#4a7a3a">单条指令，最优（条越短越好）</text>
+  </g>
+  <text x="310" y="424" font-size="11" fill="#888" font-style="italic">→ elementwise kernel 通用经验：能用数学函数/内置函数就别写 if</text>
+</svg>

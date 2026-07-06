@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 500" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="500" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Block 两级归约：多 block → 每 block 一个部分和 → 汇总</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">N=4M 远超单 block 处理能力，需 grid 级并行 + 二次归约</text>
+
+  <!-- ===== Input array ===== -->
+  <text x="30" y="74" font-size="12" fill="#446688" font-weight="bold">输入数组 N = 4,194,304</text>
+  <g font-size="9" fill="#888">
+    <rect x="30" y="82" width="560" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="60"  y="97" font-size="9">input[0]</text>
+    <text x="310" y="97" font-size="9" text-anchor="middle">... 4M 个 float ...</text>
+    <text x="560" y="97" font-size="9">input[N-1]</text>
+  </g>
+
+  <!-- divide into chunks -->
+  <g stroke="#888" stroke-width="1" fill="none" filter="url(#rough2)">
+    <line x1="180" y1="82" x2="180" y2="104"/>
+    <line x1="320" y1="82" x2="320" y2="104"/>
+    <line x1="460" y1="82" x2="460" y2="104"/>
+  </g>
+  <text x="105" y="118" text-anchor="middle" font-size="9" fill="#888">block 0 负责</text>
+  <text x="250" y="118" text-anchor="middle" font-size="9" fill="#888">block 1</text>
+  <text x="390" y="118" text-anchor="middle" font-size="9" fill="#888">block 2</text>
+  <text x="530" y="118" text-anchor="middle" font-size="9" fill="#888">block M-1</text>
+
+  <path d="M 105 124 L 105 144" stroke="#888" stroke-width="1" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <path d="M 250 124 L 250 144" stroke="#888" stroke-width="1" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <path d="M 390 124 L 390 144" stroke="#888" stroke-width="1" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <path d="M 530 124 L 530 144" stroke="#888" stroke-width="1" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- ===== Level 1: per-block reduction ===== -->
+  <text x="30" y="146" font-size="12" fill="#4a7a3a" font-weight="bold">① 每个 block 内部归约（grid-stride 读 + warp shuffle 归约）</text>
+
+  <!-- block 0 detail -->
+  <g font-size="9" fill="#333">
+    <rect x="50" y="158" width="120" height="120" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3" rx="6" filter="url(#rough2)"/>
+    <text x="110" y="174" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">block 0</text>
+    <text x="60" y="190" font-size="9" fill="#666">256 threads</text>
+    <text x="60" y="206" font-size="9" fill="#666">grid-stride 读</text>
+    <text x="60" y="220" font-size="9" fill="#666">→ 每线程累加</text>
+    <text x="60" y="234" font-size="9" fill="#666">→ warp shuffle 归约</text>
+    <text x="60" y="248" font-size="9" fill="#666">→ shared[0] = 部分和</text>
+    <text x="60" y="266" font-size="9" fill="#4a7a3a" font-weight="bold">partial[0] ✓</text>
+  </g>
+
+  <g font-size="9" fill="#333">
+    <rect x="190" y="158" width="120" height="120" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3" rx="6" filter="url(#rough2)"/>
+    <text x="250" y="174" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">block 1</text>
+    <text x="200" y="190" font-size="9" fill="#666">256 threads</text>
+    <text x="200" y="206" font-size="9" fill="#666">同样归约流程</text>
+    <text x="200" y="266" font-size="9" fill="#4a7a3a" font-weight="bold">partial[1] ✓</text>
+  </g>
+
+  <g font-size="9" fill="#333">
+    <rect x="330" y="158" width="120" height="120" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3" rx="6" filter="url(#rough2)"/>
+    <text x="390" y="174" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">block 2</text>
+    <text x="340" y="190" font-size="9" fill="#666">256 threads</text>
+    <text x="390" y="266" font-size="9" fill="#4a7a3a" font-weight="bold">partial[2] ✓</text>
+  </g>
+
+  <text x="470" y="218" font-size="14" fill="#888">...</text>
+
+  <g font-size="9" fill="#333">
+    <rect x="490" y="158" width="120" height="120" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3" rx="6" filter="url(#rough2)"/>
+    <text x="550" y="174" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">block M-1</text>
+    <text x="500" y="190" font-size="9" fill="#666">256 threads</text>
+    <text x="550" y="266" font-size="9" fill="#4a7a3a" font-weight="bold">partial[M-1] ✓</text>
+  </g>
+
+  <!-- ===== partial sums array ===== -->
+  <path d="M 110 280 L 110 296" stroke="#888" stroke-width="1" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <path d="M 250 280 L 250 296" stroke="#888" stroke-width="1" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <path d="M 390 280 L 390 296" stroke="#888" stroke-width="1" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <path d="M 550 280 L 550 296" stroke="#888" stroke-width="1" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <text x="30" y="304" font-size="11" fill="#666" font-weight="bold">partial[] (M 个部分和，存 global)</text>
+  <g font-size="9" fill="#333">
+    <rect x="90"  y="310" width="40" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="110" y="325" text-anchor="middle">p[0]</text>
+    <rect x="230" y="310" width="40" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="250" y="325" text-anchor="middle">p[1]</text>
+    <rect x="370" y="310" width="40" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="390" y="325" text-anchor="middle">p[2]</text>
+    <text x="430" y="325" font-size="11" fill="#888">...</text>
+    <rect x="530" y="310" width="40" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="550" y="325" text-anchor="middle">p[M-1]</text>
+  </g>
+
+  <!-- ===== Level 2: final reduction ===== -->
+  <line x1="20" y1="348" x2="620" y2="348" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="372" font-size="12" fill="#d6a040" font-weight="bold">② 第二遍 kernel：对 partial[] 再做一次归约 → 最终结果</text>
+
+  <path d="M 320 332 L 320 352" stroke="#888" stroke-width="1" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- final block -->
+  <rect x="220" y="380" width="200" height="70" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
+  <text x="320" y="400" text-anchor="middle" font-size="11" fill="#b85450" font-weight="bold">最终归约 kernel</text>
+  <text x="320" y="416" text-anchor="middle" font-size="10" fill="#666">读 partial[M] → warp shuffle 归约</text>
+  <text x="320" y="432" text-anchor="middle" font-size="10" fill="#666">M 很小（≤ 数千）→ 单 block 搞定</text>
+  <text x="320" y="446" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">→ output[0] = sum ✓</text>
+
+  <!-- ===== Why two-pass ===== -->
+  <rect x="30" y="464" width="580" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="6" filter="url(#rough2)"/>
+  <text x="320" y="482" text-anchor="middle" font-size="11" fill="#444" font-weight="bold">为何两遍？单遍用 atomicAdd 会有竞争；两遍 kernel 各自独立归约，无锁、高效</text>
+</svg>

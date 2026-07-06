@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 440" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="440" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">朴素转置的困境：读合并则写跨步</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">out[j][i] = in[i][j] —— 行主序下，i 连续意味着读连续，但写分散</text>
+
+  <!-- ===== Input matrix A (rows x cols), row-major ===== -->
+  <text x="30" y="74" font-size="12" fill="#446688" font-weight="bold">输入 A (rows × cols)，行主序</text>
+  <text x="30" y="90" font-size="10" fill="#888">同一行的元素在内存中连续</text>
+
+  <!-- 4x4 grid representing A -->
+  <g font-size="10" fill="#333">
+    <!-- row 0: blue, contiguous -->
+    <rect x="40"  y="100" width="44" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="62"  y="119" text-anchor="middle">A[0][0]</text>
+    <rect x="84"  y="100" width="44" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="106" y="119" text-anchor="middle">A[0][1]</text>
+    <rect x="128" y="100" width="44" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="150" y="119" text-anchor="middle">A[0][2]</text>
+    <rect x="172" y="100" width="44" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="194" y="119" text-anchor="middle">A[0][3]</text>
+
+    <!-- row 1: green -->
+    <rect x="40"  y="130" width="44" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="62"  y="149" text-anchor="middle">A[1][0]</text>
+    <rect x="84"  y="130" width="44" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="106" y="149" text-anchor="middle">A[1][1]</text>
+    <rect x="128" y="130" width="44" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="150" y="149" text-anchor="middle">A[1][2]</text>
+    <rect x="172" y="130" width="44" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="194" y="149" text-anchor="middle">A[1][3]</text>
+
+    <!-- row 2: orange -->
+    <rect x="40"  y="160" width="44" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="62"  y="179" text-anchor="middle">A[2][0]</text>
+    <rect x="84"  y="160" width="44" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="106" y="179" text-anchor="middle">A[2][1]</text>
+    <rect x="128" y="160" width="44" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="150" y="179" text-anchor="middle">A[2][2]</text>
+    <rect x="172" y="160" width="44" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="194" y="179" text-anchor="middle">A[2][3]</text>
+
+    <!-- row 3: red -->
+    <rect x="40"  y="190" width="44" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="62"  y="209" text-anchor="middle">A[3][0]</text>
+    <rect x="84"  y="190" width="44" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="106" y="209" text-anchor="middle">A[3][1]</text>
+    <rect x="128" y="190" width="44" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="150" y="209" text-anchor="middle">A[3][2]</text>
+    <rect x="172" y="190" width="44" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="194" y="209" text-anchor="middle">A[3][3]</text>
+  </g>
+
+  <!-- read arrow: row 0 contiguous -->
+  <text x="220" y="119" font-size="10" fill="#4a7a3a" font-weight="bold">← 读第 0 行：连续！✓</text>
+  <text x="220" y="149" font-size="10" fill="#4a7a3a" font-weight="bold">← 读第 1 行：连续！✓</text>
+
+  <!-- ===== Output matrix A^T (cols x rows), row-major ===== -->
+  <text x="420" y="74" font-size="12" fill="#b85450" font-weight="bold">输出 A^T (cols × rows)，行主序</text>
+  <text x="420" y="90" font-size="10" fill="#888">同一列的 A 元素 → A^T 的同一行，但 A 中不连续</text>
+
+  <!-- A^T 4x4: column 0 of A becomes row 0 of A^T -->
+  <g font-size="9" fill="#333">
+    <!-- row 0 of A^T = col 0 of A: scattered colors -->
+    <rect x="430" y="100" width="44" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="452" y="119" text-anchor="middle">A[0][0]</text>
+    <rect x="474" y="100" width="44" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="496" y="119" text-anchor="middle">A[1][0]</text>
+    <rect x="518" y="100" width="44" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="540" y="119" text-anchor="middle">A[2][0]</text>
+    <rect x="562" y="100" width="44" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="584" y="119" text-anchor="middle">A[3][0]</text>
+
+    <rect x="430" y="130" width="44" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="452" y="149" text-anchor="middle">A[0][1]</text>
+    <rect x="474" y="130" width="44" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="496" y="149" text-anchor="middle">A[1][1]</text>
+    <rect x="518" y="130" width="44" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="540" y="149" text-anchor="middle">A[2][1]</text>
+    <rect x="562" y="130" width="44" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="584" y="149" text-anchor="middle">A[3][1]</text>
+  </g>
+  <text x="430" y="178" font-size="10" fill="#888">...（略去后两行）</text>
+
+  <!-- write arrow: scattered -->
+  <text x="430" y="119" font-size="9" fill="#b85450" font-weight="bold" opacity="0"></text>
+  <text x="430" y="210" font-size="10" fill="#b85450" font-weight="bold">↑ 写 A^T 第 0 行 = A 的第 0 列</text>
+  <text x="430" y="224" font-size="10" fill="#b85450" font-weight="bold">  → A 中跨 4 行，地址跨步 = cols ✗</text>
+
+  <!-- ===== Summary ===== -->
+  <line x1="20" y1="248" x2="620" y2="248" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <text x="30" y="272" font-size="12" fill="#444" font-weight="bold">矛盾本质：</text>
+
+  <rect x="30" y="284" width="280" height="56" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="304" font-size="11" fill="#333" font-weight="bold">若按行读 A（合并 ✓）</text>
+  <text x="44" y="320" font-size="10" fill="#666">→ 写 A^T 的同一列 → 跨步写 ✗</text>
+  <text x="44" y="334" font-size="10" fill="#666">→ 每 warp 发 cols 个写事务</text>
+
+  <rect x="330" y="284" width="280" height="56" fill="#fce4ec" stroke="#b85450" stroke-width="1.3" rx="6" filter="url(#rough2)"/>
+  <text x="344" y="304" font-size="11" fill="#333" font-weight="bold">若按列读 A（合并 ✗）</text>
+  <text x="344" y="320" font-size="10" fill="#666">→ 写 A^T 的同一行 → 合并写 ✓</text>
+  <text x="344" y="334" font-size="10" fill="#666">→ 但读跨步，每 warp 发 cols 个读事务</text>
+
+  <rect x="30" y="356" width="580" height="36" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="320" y="372" text-anchor="middle" font-size="12" fill="#444" font-weight="bold">无论怎么排，读和写必有一个不合并 → 带宽利用率减半</text>
+  <text x="320" y="386" text-anchor="middle" font-size="10" fill="#888">破局：用 shared memory 做"中转站"，让读和写都合并</text>
+
+  <!-- formula -->
+  <rect x="30" y="404" width="580" height="24" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="320" y="420" text-anchor="middle" font-family="monospace" font-size="11" fill="#333">朴素：out[j*rows + i] = in[i*cols + j]    // i 连续 → 读合并, 写跨步</text>
+</svg>

@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 460" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="620" height="460" fill="#fafafa"/>
+
+  <text x="310" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Warp Divergence（线程束分化）</text>
+  <text x="310" y="44" text-anchor="middle" font-size="11" fill="#888">同一 warp 内线程走不同分支 → GPU 被迫串行执行两个分支</text>
+
+  <!-- ===== Warp of 8 threads (simplified from 32) ===== -->
+  <text x="30" y="78" font-size="12" fill="#446688" font-weight="bold">一个 warp 的 8 个 thread（输入值各异）</text>
+
+  <g font-size="10" fill="#333">
+    <!-- t0..t7, alternating signs -->
+    <rect x="30"  y="88" width="60" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="60"  y="100" text-anchor="middle">t0</text><text x="60" y="113" text-anchor="middle" font-size="9">x=-3</text>
+
+    <rect x="92"  y="88" width="60" height="30" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="122" y="100" text-anchor="middle">t1</text><text x="122" y="113" text-anchor="middle" font-size="9">x=2</text>
+
+    <rect x="154" y="88" width="60" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="184" y="100" text-anchor="middle">t2</text><text x="184" y="113" text-anchor="middle" font-size="9">x=-1</text>
+
+    <rect x="216" y="88" width="60" height="30" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="246" y="100" text-anchor="middle">t3</text><text x="246" y="113" text-anchor="middle" font-size="9">x=5</text>
+
+    <rect x="278" y="88" width="60" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="308" y="100" text-anchor="middle">t4</text><text x="308" y="113" text-anchor="middle" font-size="9">x=-4</text>
+
+    <rect x="340" y="88" width="60" height="30" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="370" y="100" text-anchor="middle">t5</text><text x="370" y="113" text-anchor="middle" font-size="9">x=1</text>
+
+    <rect x="402" y="88" width="60" height="30" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="432" y="100" text-anchor="middle">t6</text><text x="432" y="113" text-anchor="middle" font-size="9">x=8</text>
+
+    <rect x="464" y="88" width="60" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="494" y="100" text-anchor="middle">t7</text><text x="494" y="113" text-anchor="middle" font-size="9">x=-2</text>
+  </g>
+  <text x="540" y="107" font-size="10" fill="#888">红=负, 绿=正</text>
+
+  <!-- code -->
+  <rect x="30" y="132" width="540" height="26" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="44" y="150" font-family="monospace" font-size="11" fill="#333">if (x &lt; 0) out = 0;     else out = x;   // 两个分支</text>
+
+  <!-- ===== Branch A: x < 0 ===== -->
+  <text x="30" y="182" font-size="12" fill="#b85450" font-weight="bold">① 先执行 if 分支 (x &lt; 0)</text>
+  <g font-size="10" fill="#333">
+    <!-- active threads -->
+    <rect x="30"  y="190" width="60" height="26" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="60"  y="207" text-anchor="middle">t0 ✓</text>
+    <rect x="92"  y="190" width="60" height="26" fill="#f0f0f0" stroke="#ccc" stroke-width="1" stroke-dasharray="2,2" rx="3" filter="url(#rough2)"/>
+    <text x="122" y="207" text-anchor="middle" fill="#bbb">t1 ✗</text>
+    <rect x="154" y="190" width="60" height="26" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="184" y="207" text-anchor="middle">t2 ✓</text>
+    <rect x="216" y="190" width="60" height="26" fill="#f0f0f0" stroke="#ccc" stroke-width="1" stroke-dasharray="2,2" rx="3" filter="url(#rough2)"/>
+    <text x="246" y="207" text-anchor="middle" fill="#bbb">t3 ✗</text>
+    <rect x="278" y="190" width="60" height="26" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="308" y="207" text-anchor="middle">t4 ✓</text>
+    <rect x="340" y="190" width="60" height="26" fill="#f0f0f0" stroke="#ccc" stroke-width="1" stroke-dasharray="2,2" rx="3" filter="url(#rough2)"/>
+    <text x="370" y="207" text-anchor="middle" fill="#bbb">t5 ✗</text>
+    <rect x="402" y="190" width="60" height="26" fill="#f0f0f0" stroke="#ccc" stroke-width="1" stroke-dasharray="2,2" rx="3" filter="url(#rough2)"/>
+    <text x="432" y="207" text-anchor="middle" fill="#bbb">t6 ✗</text>
+    <rect x="464" y="190" width="60" height="26" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="494" y="207" text-anchor="middle">t7 ✓</text>
+  </g>
+  <text x="540" y="207" font-size="10" fill="#888">正数线程 idle</text>
+
+  <!-- ===== Branch B: else ===== -->
+  <text x="30" y="238" font-size="12" fill="#4a7a3a" font-weight="bold">② 再执行 else 分支 (x ≥ 0)</text>
+  <g font-size="10" fill="#333">
+    <rect x="30"  y="246" width="60" height="26" fill="#f0f0f0" stroke="#ccc" stroke-width="1" stroke-dasharray="2,2" rx="3" filter="url(#rough2)"/>
+    <text x="60"  y="263" text-anchor="middle" fill="#bbb">t0 ✗</text>
+    <rect x="92"  y="246" width="60" height="26" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="122" y="263" text-anchor="middle">t1 ✓</text>
+    <rect x="154" y="246" width="60" height="26" fill="#f0f0f0" stroke="#ccc" stroke-width="1" stroke-dasharray="2,2" rx="3" filter="url(#rough2)"/>
+    <text x="184" y="263" text-anchor="middle" fill="#bbb">t2 ✗</text>
+    <rect x="216" y="246" width="60" height="26" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="246" y="263" text-anchor="middle">t3 ✓</text>
+    <rect x="278" y="246" width="60" height="26" fill="#f0f0f0" stroke="#ccc" stroke-width="1" stroke-dasharray="2,2" rx="3" filter="url(#rough2)"/>
+    <text x="308" y="263" text-anchor="middle" fill="#bbb">t4 ✗</text>
+    <rect x="340" y="246" width="60" height="26" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="370" y="263" text-anchor="middle">t5 ✓</text>
+    <rect x="402" y="246" width="60" height="26" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="432" y="263" text-anchor="middle">t6 ✓</text>
+    <rect x="464" y="246" width="60" height="26" fill="#f0f0f0" stroke="#ccc" stroke-width="1" stroke-dasharray="2,2" rx="3" filter="url(#rough2)"/>
+    <text x="494" y="263" text-anchor="middle" fill="#bbb">t7 ✗</text>
+  </g>
+  <text x="540" y="263" font-size="10" fill="#888">负数线程 idle</text>
+
+  <!-- cost -->
+  <line x1="20" y1="294" x2="600" y2="294" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <rect x="30" y="306" width="560" height="36" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="6" filter="url(#rough2)"/>
+  <text x="310" y="324" text-anchor="middle" font-size="12" fill="#444" font-weight="bold">代价：warp 串行跑完两个分支，相当于 2× 指令开销</text>
+  <text x="310" y="338" text-anchor="middle" font-size="10" fill="#888">（实际 ReLU 分支极轻，divergence 影响有限，但在更复杂的 kernel 里代价显著）</text>
+
+  <!-- why it happens -->
+  <text x="30" y="368" font-size="12" fill="#446688" font-weight="bold">为什么？</text>
+  <text x="30" y="388" font-size="11" fill="#555">• SIMT 执行模型：同一 warp 的 32 个 thread 共用 PC（程序计数器），同一时刻只能执行一条指令</text>
+  <text x="30" y="406" font-size="11" fill="#555">• 遇到 if/else 分叉时，硬件让两个分支排队轮流执行，不满足条件的线程用 predicate 掩码屏蔽</text>
+  <text x="30" y="424" font-size="11" fill="#555">• 解决思路：消除分支（fmaxf / 三元 → 编译器生成 predicate），让所有线程走同一条指令路径</text>
+  <text x="30" y="442" font-size="11" fill="#4a7a3a" font-weight="bold">→ 见下一张图：无分支写法</text>
+</svg>
