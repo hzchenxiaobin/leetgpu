@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="620" viewBox="0 0 980 620" font-family="'Comic Sans MS','Marker Felt','Segoe UI',cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="8" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#3a3a3a"/>
+    </marker>
+    <marker id="arA" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#3a7d8c"/>
+    </marker>
+    <marker id="arB" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#c98a2b"/>
+    </marker>
+    <marker id="arC" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#4a8e4a"/>
+    </marker>
+  </defs>
+  <rect width="980" height="620" fill="#fdfcf7"/>
+  <text x="490" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">Shared Memory Tiling：分块加载 + K 维复用</text>
+  <path d="M 290 42 Q 490 50 690 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- ===== Matrix A (M×K) with tile ===== -->
+  <text x="170" y="78" text-anchor="middle" font-size="13" font-weight="bold" fill="#3a7d8c">A (M×K)</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="90" width="220" height="200" fill="none" stroke="#2b2b2b" stroke-width="1.8"/>
+  </g>
+  <g stroke="#d4d4d4" stroke-width="0.7" filter="url(#sk)">
+    <line x1="60" y1="130" x2="280" y2="130"/>
+    <line x1="60" y1="170" x2="280" y2="170"/>
+    <line x1="60" y1="210" x2="280" y2="210"/>
+    <line x1="60" y1="250" x2="280" y2="250"/>
+    <line x1="110" y1="90" x2="110" y2="290"/>
+    <line x1="160" y1="90" x2="160" y2="290"/>
+    <line x1="210" y1="90" x2="210" y2="290"/>
+  </g>
+  <!-- A tile highlight (3x3) -->
+  <g filter="url(#sk)">
+    <rect x="110" y="130" width="100" height="80" fill="#3a7d8c" opacity="0.4" stroke="#2b6470" stroke-width="1.4"/>
+  </g>
+  <text x="160" y="174" text-anchor="middle" font-size="11" fill="#fff" font-weight="bold">A tile</text>
+  <text x="160" y="306" text-anchor="middle" font-size="10" fill="#3a7d8c" font-weight="bold">K 维度分块</text>
+
+  <!-- ===== Matrix B (K×N) with tile ===== -->
+  <text x="490" y="78" text-anchor="middle" font-size="13" font-weight="bold" fill="#c98a2b">B (K×N)</text>
+  <g filter="url(#sk)">
+    <rect x="380" y="90" width="220" height="200" fill="none" stroke="#2b2b2b" stroke-width="1.8"/>
+  </g>
+  <g stroke="#d4d4d4" stroke-width="0.7" filter="url(#sk)">
+    <line x1="380" y1="130" x2="600" y2="130"/>
+    <line x1="380" y1="170" x2="600" y2="170"/>
+    <line x1="380" y1="210" x2="600" y2="210"/>
+    <line x1="380" y1="250" x2="600" y2="250"/>
+    <line x1="430" y1="90" x2="430" y2="290"/>
+    <line x1="480" y1="90" x2="480" y2="290"/>
+    <line x1="530" y1="90" x2="530" y2="290"/>
+  </g>
+  <!-- B tile highlight (3x3) -->
+  <g filter="url(#sk)">
+    <rect x="430" y="130" width="100" height="80" fill="#c98a2b" opacity="0.4" stroke="#a66f1f" stroke-width="1.4"/>
+  </g>
+  <text x="480" y="174" text-anchor="middle" font-size="11" fill="#fff" font-weight="bold">B tile</text>
+  <text x="480" y="306" text-anchor="middle" font-size="10" fill="#c98a2b" font-weight="bold">K 维度分块</text>
+
+  <!-- ===== Matrix C (M×N) with tile ===== -->
+  <text x="810" y="78" text-anchor="middle" font-size="13" font-weight="bold" fill="#4a8e4a">C (M×N)</text>
+  <g filter="url(#sk)">
+    <rect x="700" y="90" width="220" height="200" fill="none" stroke="#2b2b2b" stroke-width="1.8"/>
+  </g>
+  <g stroke="#d4d4d4" stroke-width="0.7" filter="url(#sk)">
+    <line x1="700" y1="130" x2="920" y2="130"/>
+    <line x1="700" y1="170" x2="920" y2="170"/>
+    <line x1="700" y1="210" x2="920" y2="210"/>
+    <line x1="700" y1="250" x2="920" y2="250"/>
+    <line x1="750" y1="90" x2="750" y2="290"/>
+    <line x1="800" y1="90" x2="800" y2="290"/>
+    <line x1="850" y1="90" x2="850" y2="290"/>
+  </g>
+  <!-- C tile highlight (3x3) -->
+  <g filter="url(#sk)">
+    <rect x="750" y="130" width="100" height="80" fill="#4a8e4a" opacity="0.4" stroke="#2e6e2e" stroke-width="1.4"/>
+  </g>
+  <text x="800" y="174" text-anchor="middle" font-size="11" fill="#fff" font-weight="bold">C tile</text>
+
+  <!-- ===== Shared Memory boxes ===== -->
+  <g filter="url(#sk)">
+    <rect x="240" y="420" width="200" height="70" rx="8" fill="#3a7d8c" opacity="0.85" stroke="#2b6470" stroke-width="1.8"/>
+  </g>
+  <text x="340" y="448" text-anchor="middle" font-size="12" fill="#fff" font-weight="bold">s_A[TILE][TILE]</text>
+  <text x="340" y="468" text-anchor="middle" font-size="10" fill="#eafdfd">Shared Memory</text>
+
+  <g filter="url(#sk)">
+    <rect x="540" y="420" width="200" height="70" rx="8" fill="#c98a2b" opacity="0.85" stroke="#a66f1f" stroke-width="1.8"/>
+  </g>
+  <text x="640" y="448" text-anchor="middle" font-size="12" fill="#fff" font-weight="bold">s_B[TILE][TILE]</text>
+  <text x="640" y="468" text-anchor="middle" font-size="10" fill="#fdf3e0">Shared Memory</text>
+
+  <!-- arrows: A tile -> s_A -->
+  <path d="M 160 212 Q 200 320 300 418" stroke="#3a7d8c" stroke-width="2.2" fill="none" marker-end="url(#arA)" filter="url(#sk)"/>
+  <!-- arrows: B tile -> s_B -->
+  <path d="M 480 212 Q 520 320 620 418" stroke="#c98a2b" stroke-width="2.2" fill="none" marker-end="url(#arB)" filter="url(#sk)"/>
+  <!-- arrows: shared mem -> C tile -->
+  <path d="M 440 455 Q 600 380 760 214" stroke="#4a8e4a" stroke-width="2.2" fill="none" marker-end="url(#arC)" filter="url(#sk)" stroke-dasharray="6 3"/>
+
+  <!-- step box -->
+  <g filter="url(#sk)">
+    <rect x="120" y="530" width="760" height="74" rx="10" fill="#fffdf3" stroke="#9e9e9e" stroke-width="1.5"/>
+  </g>
+  <text x="140" y="554" font-size="12" fill="#2b2b2b" font-weight="bold">① Block 协作把 A/B 的 TILE 加载到 Shared Memory（一次 load，全 block 复用）</text>
+  <text x="140" y="574" font-size="12" fill="#2b2b2b" font-weight="bold">② 每个线程用 s_A 的一行 × s_B 的一列累加部分和（register 累加器）</text>
+  <text x="140" y="594" font-size="12" fill="#2b2b2b" font-weight="bold">③ 沿 K 维滑动 tile，重复 ①② → 累加，直到 K 遍历完成</text>
+</svg>
