@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 440" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="440" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">前缀和（Prefix Sum）：每个输出依赖前面所有输入</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">out[i] = in[0] + in[1] + ... + in[i] —— 天然串行依赖，并行化的难点</text>
+
+  <!-- ===== Input ===== -->
+  <text x="30" y="74" font-size="12" fill="#446688" font-weight="bold">输入 input[]</text>
+  <g font-size="11" fill="#333">
+    <rect x="40"  y="84" width="60" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="70"  y="104" text-anchor="middle">1</text>
+    <rect x="100" y="84" width="60" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="104" text-anchor="middle">2</text>
+    <rect x="160" y="84" width="60" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="190" y="104" text-anchor="middle">3</text>
+    <rect x="220" y="84" width="60" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="250" y="104" text-anchor="middle">4</text>
+    <rect x="280" y="84" width="60" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="310" y="104" text-anchor="middle">5</text>
+    <rect x="340" y="84" width="60" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="370" y="104" text-anchor="middle">6</text>
+    <rect x="400" y="84" width="60" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="430" y="104" text-anchor="middle">7</text>
+    <rect x="460" y="84" width="60" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="490" y="104" text-anchor="middle">8</text>
+  </g>
+
+  <!-- arrows showing accumulation -->
+  <g stroke="#888" stroke-width="1" fill="none" filter="url(#rough2)">
+    <path d="M 70 116 L 70 126" marker-end="url(#arr)"/>
+    <path d="M 130 116 L 130 126" marker-end="url(#arr)"/>
+    <path d="M 190 116 L 190 126" marker-end="url(#arr)"/>
+    <path d="M 250 116 L 250 126" marker-end="url(#arr)"/>
+    <path d="M 310 116 L 310 126" marker-end="url(#arr)"/>
+    <path d="M 370 116 L 370 126" marker-end="url(#arr)"/>
+    <path d="M 430 116 L 430 126" marker-end="url(#arr)"/>
+    <path d="M 490 116 L 490 126" marker-end="url(#arr)"/>
+  </g>
+
+  <!-- ===== Output ===== -->
+  <text x="30" y="146" font-size="12" fill="#b85450" font-weight="bold">输出 output[]（前缀和）</text>
+  <g font-size="11" fill="#333">
+    <rect x="40"  y="156" width="60" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="70"  y="176" text-anchor="middle">1</text>
+    <rect x="100" y="156" width="60" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="176" text-anchor="middle">3</text>
+    <rect x="160" y="156" width="60" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="190" y="176" text-anchor="middle">6</text>
+    <rect x="220" y="156" width="60" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="250" y="176" text-anchor="middle">10</text>
+    <rect x="280" y="156" width="60" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="310" y="176" text-anchor="middle">15</text>
+    <rect x="340" y="156" width="60" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="370" y="176" text-anchor="middle">21</text>
+    <rect x="400" y="156" width="60" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="430" y="176" text-anchor="middle">28</text>
+    <rect x="460" y="156" width="60" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="490" y="176" text-anchor="middle">36</text>
+  </g>
+
+  <!-- formula under each -->
+  <g font-size="9" fill="#888">
+    <text x="70"  y="202" text-anchor="middle">=1</text>
+    <text x="130" y="202" text-anchor="middle">=1+2</text>
+    <text x="190" y="202" text-anchor="middle">=1+2+3</text>
+    <text x="250" y="202" text-anchor="middle">=...+4</text>
+    <text x="310" y="202" text-anchor="middle">=...+5</text>
+    <text x="370" y="202" text-anchor="middle">=...+6</text>
+    <text x="430" y="202" text-anchor="middle">=...+7</text>
+    <text x="490" y="202" text-anchor="middle">=...+8</text>
+  </g>
+
+  <!-- ===== Dependency problem ===== -->
+  <line x1="20" y1="220" x2="620" y2="220" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <text x="30" y="244" font-size="12" fill="#b85450" font-weight="bold">⚠️ 难点：串行依赖</text>
+  <text x="30" y="264" font-size="11" fill="#555">CPU 串行：out[i] = out[i-1] + in[i]，必须等 out[i-1] 算完才能算 out[i]</text>
+  <text x="30" y="280" font-size="11" fill="#555">→ 看似无法并行：每个输出都依赖前一个</text>
+
+  <!-- serial chain visualization -->
+  <g font-size="10" fill="#333">
+    <rect x="40" y="294" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="65" y="310" text-anchor="middle">out[0]</text>
+    <text x="98" y="310" font-size="14" fill="#888">→</text>
+    <rect x="110" y="294" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="135" y="310" text-anchor="middle">out[1]</text>
+    <text x="168" y="310" font-size="14" fill="#888">→</text>
+    <rect x="180" y="294" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="205" y="310" text-anchor="middle">out[2]</text>
+    <text x="238" y="310" font-size="14" fill="#888">→</text>
+    <text x="250" y="310" font-size="10" fill="#888">... 串行链，N 步</text>
+  </g>
+  <text x="30" y="336" font-size="11" fill="#b85450" font-weight="bold">串行复杂度 O(N)，N=250K 时单核仍慢</text>
+
+  <!-- ===== Parallel insight ===== -->
+  <line x1="20" y1="352" x2="620" y2="352" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <text x="30" y="376" font-size="12" fill="#4a7a3a" font-weight="bold">💡 破局：树形扫描（parallel scan）</text>
+  <text x="30" y="396" font-size="11" fill="#555">• 局部先并行算：warp 内用 __shfl_up_sync 做 scan（log₂32=5 步）</text>
+  <text x="30" y="412" font-size="11" fill="#555">• 跨 warp/block 用三阶段：局部 scan → 求块前缀 → 加回偏移</text>
+  <text x="30" y="428" font-size="11" fill="#4a7a3a" font-weight="bold">→ 把 O(N) 串行链拆成 O(log N) 深度的并行树</text>
+</svg>
