@@ -13,6 +13,7 @@ path prefix (e.g. https://user.github.io/repo-name/leetgpu/).
 """
 
 import re
+import shutil
 from pathlib import Path
 from typing import List, Dict, Optional
 
@@ -211,6 +212,14 @@ def page_template(title: str, nav_html: str, markdown: str) -> str:
 
 
 def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
+    # Copy shared images from leetgpu/images/ to website/images/ so that
+    # local preview of website/*.html resolves ./images/xxx.svg without
+    # needing the root build.py to copy them separately.
+    images_src = leetgpu_dir / "images"
+    images_dst = output_dir / "images"
+    if images_src.exists():
+        shutil.copytree(images_src, images_dst, dirs_exist_ok=True)
+
     # Recursively find all leetgpu-*.md under leetgpu/ (excludes website/, images/, SKILL.md)
     md_files = sorted([
         f for f in leetgpu_dir.rglob("leetgpu-*.md")
