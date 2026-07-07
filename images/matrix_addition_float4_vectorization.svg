@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 460" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="460" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">float4 向量化：4 条 4B 事务合并为 1 条 16B 事务</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">每 thread 一次处理 4 个 float，内存事务数减 4×，带宽利用率提升 1.5-2×</text>
+
+  <!-- ===== Left: naive (1 element per thread) ===== -->
+  <text x="30" y="76" font-size="12" fill="#b85450" font-weight="bold">朴素版：1 thread = 1 float（4B 事务）</text>
+
+  <g font-size="9" fill="#333">
+    <rect x="30" y="84" width="270" height="240" fill="none" stroke="#b85450" stroke-width="1" rx="6" filter="url(#rough2)"/>
+
+    <!-- threads -->
+    <text x="44" y="104" font-size="9" fill="#888">threads:</text>
+    <rect x="40" y="110" width="30" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="55" y="123" text-anchor="middle" font-size="8">t0</text>
+    <rect x="74" y="110" width="30" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="89" y="123" text-anchor="middle" font-size="8">t1</text>
+    <rect x="108" y="110" width="30" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="123" y="123" text-anchor="middle" font-size="8">t2</text>
+    <rect x="142" y="110" width="30" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="157" y="123" text-anchor="middle" font-size="8">t3</text>
+    <text x="190" y="123" font-size="9" fill="#888">...</text>
+
+    <!-- 4 separate 4B transactions -->
+    <text x="44" y="148" font-size="9" fill="#b85450">4 条独立 4B load 事务：</text>
+
+    <rect x="50" y="156" width="40" height="14" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="70" y="167" text-anchor="middle" font-size="8">A[0]</text>
+    <text x="100" y="167" font-size="8" fill="#888">4B</text>
+
+    <rect x="50" y="174" width="40" height="14" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="70" y="185" text-anchor="middle" font-size="8">A[1]</text>
+    <text x="100" y="185" font-size="8" fill="#888">4B</text>
+
+    <rect x="50" y="192" width="40" height="14" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="70" y="203" text-anchor="middle" font-size="8">A[2]</text>
+    <text x="100" y="203" font-size="8" fill="#888">4B</text>
+
+    <rect x="50" y="210" width="40" height="14" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="70" y="221" text-anchor="middle" font-size="8">A[3]</text>
+    <text x="100" y="221" font-size="8" fill="#888">4B</text>
+
+    <!-- summary -->
+    <rect x="40" y="240" width="250" height="68" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="4" filter="url(#rough2)"/>
+    <text x="165" y="260" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">每 4 元素 = 4 条事务</text>
+    <text x="165" y="276" text-anchor="middle" font-size="9" fill="#555">地址计算 4 次，事务开销 4×</text>
+    <text x="165" y="294" text-anchor="middle" font-size="9" fill="#b85450">带宽利用率 ~55%</text>
+  </g>
+
+  <!-- arrow -->
+  <text x="320" y="200" text-anchor="middle" font-size="20" fill="#4a7a3a" font-weight="bold">→</text>
+  <text x="320" y="220" text-anchor="middle" font-size="9" fill="#4a7a3a">float4</text>
+
+  <!-- ===== Right: float4 (4 elements per thread) ===== -->
+  <text x="370" y="76" font-size="12" fill="#4a7a3a" font-weight="bold">float4 版：1 thread = 4 float（16B 事务）</text>
+
+  <g font-size="9" fill="#333">
+    <rect x="370" y="84" width="240" height="240" fill="none" stroke="#4a7a3a" stroke-width="1" rx="6" filter="url(#rough2)"/>
+
+    <!-- thread -->
+    <text x="384" y="104" font-size="9" fill="#888">thread:</text>
+    <rect x="380" y="110" width="50" height="18" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="405" y="123" text-anchor="middle" font-size="8" fill="#4a7a3a" font-weight="bold">t0</text>
+    <text x="445" y="123" font-size="9" fill="#888">处理 4 个 float</text>
+
+    <!-- 1 combined 16B transaction -->
+    <text x="384" y="148" font-size="9" fill="#4a7a3a">1 条 16B load 事务：</text>
+
+    <rect x="390" y="156" width="160" height="20" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="2" filter="url(#rough2)"/>
+    <text x="470" y="170" text-anchor="middle" font-size="9" fill="#4a7a3a" font-weight="bold">A[0..3] (float4)</text>
+    <text x="560" y="170" font-size="8" fill="#4a7a3a">16B</text>
+
+    <!-- 4 floats in register -->
+    <text x="384" y="196" font-size="9" fill="#888">寄存器内拆分 + 加法：</text>
+    <g font-size="8">
+      <rect x="390" y="202" width="35" height="14" fill="#fff8e1" stroke="#d6a040" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+      <text x="407" y="213" text-anchor="middle">.x</text>
+      <rect x="427" y="202" width="35" height="14" fill="#fff8e1" stroke="#d6a040" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+      <text x="444" y="213" text-anchor="middle">.y</text>
+      <rect x="464" y="202" width="35" height="14" fill="#fff8e1" stroke="#d6a040" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+      <text x="481" y="213" text-anchor="middle">.z</text>
+      <rect x="501" y="202" width="35" height="14" fill="#fff8e1" stroke="#d6a040" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+      <text x="518" y="213" text-anchor="middle">.w</text>
+    </g>
+
+    <!-- summary -->
+    <rect x="380" y="240" width="220" height="68" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="4" filter="url(#rough2)"/>
+    <text x="490" y="260" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">每 4 元素 = 1 条事务</text>
+    <text x="490" y="276" text-anchor="middle" font-size="9" fill="#555">地址计算 1 次，事务开销 1×</text>
+    <text x="490" y="294" text-anchor="middle" font-size="9" fill="#4a7a3a">带宽利用率 ~85%</text>
+  </g>
+
+  <!-- ===== Bottom: code ===== -->
+  <line x1="20" y1="340" x2="620" y2="340" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <rect x="30" y="350" width="580" height="96" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="370" font-family="monospace" font-size="10" fill="#b85450">// 朴素：4 次 4B load</text>
+  <text x="44" y="384" font-family="monospace" font-size="10" fill="#333">C[i] = A[i] + B[i];   // 每 thread 1 个 float，3 条 4B 事务</text>
+  <text x="44" y="406" font-family="monospace" font-size="10" fill="#4a7a3a">// float4：1 次 16B load</text>
+  <text x="44" y="420" font-family="monospace" font-size="10" fill="#333">float4 a = reinterpret_cast&lt;const float4*&gt;(A)[i];  // 1 条 16B</text>
+  <text x="44" y="434" font-family="monospace" font-size="10" fill="#333">c.x=a.x+b.x; c.y=a.y+b.y; c.z=a.z+b.z; c.w=a.w+b.w;  // 寄存器内算</text>
+</svg>
