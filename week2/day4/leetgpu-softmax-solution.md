@@ -381,7 +381,7 @@ Pass 2 算完 `exp(x - max)` 后，若每 thread 处理的元素数固定（如 
 
 #### 优化 5：大 N 的多 block 分块
 
-当 `N` 极大（如 `N > 65536`，单 block 处理效率低），可将一行拆给多个 block，每个 block 算局部 max/sum，再用二次 kernel 归约全局 max/sum，最后各 block 加偏移归一化。结构类似 [Prefix Sum 的三阶段](../week1/day5/leetgpu-prefix-sum-solution.md)。本题 `B×N ≤ 1M`，单 block 足够。
+当 `N` 极大（如 `N > 65536`，单 block 处理效率低），可将一行拆给多个 block，每个 block 算局部 max/sum，再用二次 kernel 归约全局 max/sum，最后各 block 加偏移归一化。结构类似 [Prefix Sum 的三阶段](../day1/leetgpu-prefix-sum-solution.md)。本题 `B×N ≤ 1M`，单 block 足够。
 
 > 💡 优化 1（online softmax）和 2（shared 缓存）是性价比最高的。两者结合——**一遍读 global 到 shared，online softmax 在 shared 上单遍算 max+sum**——即可把 global 读降到 1 次，逼近 memory-bound 带宽上限。这也是 FlashAttention tiling 的核心模式。
 

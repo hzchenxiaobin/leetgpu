@@ -277,7 +277,7 @@ ncu --kernel-name regex:matadd_kernel \
 
 1. **`float8` / `float16` 更宽向量**：部分架构支持 256-bit（`float8`）或更宽加载。但 `float4`（128-bit）已匹配大多数 GPU 的内存事务粒度，更宽向量收益递减。
 2. **`__ldg`（read-only cache）**：用 `__ldg(A+i)` 提示只读，走 L1 read-only cache 路径。element-wise 数据无复用，L1 命中率为 0，收益有限。
-3. **kernel 融合**：若 Matrix Addition 是某流水线的中间步骤（如 `C = (A+B) * scale`），可融合成单 kernel 避免 `C` 的中间写读。类似 [Dot Product #17](../week2/day1/leetgpu-dot-product-solution.md) 的融合思想。
+3. **kernel 融合**：若 Matrix Addition 是某流水线的中间步骤（如 `C = (A+B) * scale`），可融合成单 kernel 避免 `C` 的中间写读。类似 Dot Product #17 的融合思想。
 4. **CUDA Streams 流水线**：极大矩阵可分块多 stream，H2D/compute/D2H 重叠（[Day 3](../../aiinfra/week2/day3/README.md) 主题）。本题单 kernel 已够快，streams 适合 host-device 流水线场景。
 5. **unroll**：`#pragma unroll` 展开 grid-stride 循环，减少循环开销。本题循环体简单，收益小。
 
