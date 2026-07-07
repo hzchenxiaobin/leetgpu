@@ -271,7 +271,7 @@ leetgpu/
 
 ## 4. 图片风格：手绘 sketch 风（Excalidraw-like）
 
-**所有插图统一为手绘 sketch 风**，与每日教程（`docs/skills/daily-tutorial/SKILL.md`）和 LeetCode 题解保持一致。具体要求：
+**所有插图统一为手绘 sketch 风**，与每日教程（`aiinfra/daily-tutorial/SKILL.md`）和 LeetCode 题解保持一致。具体要求：
 
 ### 4.1 视觉特征
 
