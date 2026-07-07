@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 500" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="500" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Register Tiling：每 thread 计算 TM×TN 个输出</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">不止让 block 复用 shared，还让单个 thread 用寄存器累积多个输出 → 减少线程数、提升算术强度</text>
+
+  <!-- ===== Left: naive 1 thread = 1 element ===== -->
+  <text x="30" y="74" font-size="12" fill="#b85450" font-weight="bold">朴素 tiling：1 thread = 1 个 C 元素</text>
+  <g font-size="9" fill="#333">
+    <!-- C tile 4x4, each cell one color -->
+    <rect x="30" y="84" width="160" height="120" fill="none" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <!-- 4x4 grid, each cell different thread -->
+    <g>
+      <rect x="30"  y="84"  width="40" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="70"  y="84"  width="40" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="110" y="84"  width="40" height="30" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="150" y="84"  width="40" height="30" fill="#fff8e1" stroke="#d6a040" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="30"  y="114" width="40" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="70"  y="114" width="40" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="110" y="114" width="40" height="30" fill="#fff8e1" stroke="#d6a040" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="150" y="114" width="40" height="30" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="30"  y="144" width="40" height="30" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="70"  y="144" width="40" height="30" fill="#fff8e1" stroke="#d6a040" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="110" y="144" width="40" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="150" y="144" width="40" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="30"  y="174" width="40" height="30" fill="#fff8e1" stroke="#d6a040" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="70"  y="174" width="40" height="30" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="110" y="174" width="40" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+      <rect x="150" y="174" width="40" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    </g>
+  </g>
+  <text x="110" y="226" text-anchor="middle" font-size="10" fill="#888">16 个 thread × 1 个 C = 16 个输出</text>
+  <text x="110" y="240" text-anchor="middle" font-size="10" fill="#b85450">每 thread 从 shared 读 2×TILE 次</text>
+
+  <!-- arrow -->
+  <text x="230" y="150" text-anchor="middle" font-size="20" fill="#d6a040" font-weight="bold">→</text>
+  <text x="230" y="170" text-anchor="middle" font-size="10" fill="#888">改进</text>
+
+  <!-- ===== Right: register tiling, 1 thread = TM×TN ===== -->
+  <text x="290" y="74" font-size="12" fill="#4a7a3a" font-weight="bold">Register tiling：1 thread = TM×TN 个 C 元素</text>
+  <g font-size="9" fill="#333">
+    <rect x="290" y="84" width="160" height="120" fill="none" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <!-- 4 threads, each owns 2x2 block (TM=2, TN=2) -->
+    <!-- thread 0: top-left 2x2 -->
+    <rect x="290" y="84"  width="80" height="60" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <text x="330" y="118" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">thread 0</text>
+    <text x="330" y="132" text-anchor="middle" font-size="8" fill="#4a7a3a">2×2=4 个 C</text>
+    <!-- thread 1: top-right 2x2 -->
+    <rect x="370" y="84"  width="80" height="60" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <text x="410" y="118" text-anchor="middle" font-size="10" fill="#446688" font-weight="bold">thread 1</text>
+    <text x="410" y="132" text-anchor="middle" font-size="8" fill="#446688">2×2=4 个 C</text>
+    <!-- thread 2: bottom-left -->
+    <rect x="290" y="144" width="80" height="60" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <text x="330" y="178" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">thread 2</text>
+    <text x="330" y="192" text-anchor="middle" font-size="8" fill="#d6a040">2×2=4 个 C</text>
+    <!-- thread 3: bottom-right -->
+    <rect x="370" y="144" width="80" height="60" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <text x="410" y="178" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">thread 3</text>
+    <text x="410" y="192" text-anchor="middle" font-size="8" fill="#b85450">2×2=4 个 C</text>
+  </g>
+  <text x="370" y="226" text-anchor="middle" font-size="10" fill="#888">4 个 thread × 4 个 C = 16 个输出</text>
+  <text x="370" y="240" text-anchor="middle" font-size="10" fill="#4a7a3a">线程减少 4×，每 thread 读 shared 后在寄存器里累加</text>
+
+  <!-- ===== Benefits ===== -->
+  <line x1="20" y1="266" x2="620" y2="266" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="290" font-size="12" fill="#446688" font-weight="bold">Register tiling 的三大好处：</text>
+
+  <rect x="30" y="302" width="180" height="70" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="322" font-size="11" fill="#4a7a3a" font-weight="bold">① 减少 shared 访问</text>
+  <text x="44" y="340" font-size="10" fill="#555">A_tile 的行被同一</text>
+  <text x="44" y="354" font-size="10" fill="#555">thread 的 TN 个输出</text>
+  <text x="44" y="368" font-size="10" fill="#555">复用 → 读一次用 TN 次</text>
+
+  <rect x="230" y="302" width="180" height="70" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="244" y="322" font-size="11" fill="#d6a040" font-weight="bold">② 提升算术强度</text>
+  <text x="244" y="340" font-size="10" fill="#555">每次从 shared 读</text>
+  <text x="244" y="354" font-size="10" fill="#555">2 个值，做 TM×TN 次</text>
+  <text x="244" y="368" font-size="10" fill="#555">乘加 → 算力/访存比↑</text>
+
+  <rect x="430" y="302" width="180" height="70" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="444" y="322" font-size="11" fill="#446688" font-weight="bold">③ 减少线程数</text>
+  <text x="444" y="340" font-size="10" fill="#555">同样 TILE² 输出只需</text>
+  <text x="444" y="354" font-size="10" fill="#555">TILE²/(TM×TN) 个线程</text>
+  <text x="444" y="368" font-size="10" fill="#555">→ occupancy 更灵活</text>
+
+  <!-- code snippet -->
+  <rect x="30" y="390" width="580" height="64" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="410" font-family="monospace" font-size="11" fill="#333">// 每 thread 在寄存器里累积 TM×TN 个输出（不落 global）</text>
+  <text x="44" y="426" font-family="monospace" font-size="11" fill="#333">float sum[TM][TN] = {0};   // 寄存器数组</text>
+  <text x="44" y="442" font-family="monospace" font-size="11" fill="#333">for (k...) sum[i][j] += a_reg[i] * b_reg[j];  // 全在寄存器里算</text>
+
+  <!-- summary -->
+  <rect x="30" y="466" width="580" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="6" filter="url(#rough2)"/>
+  <text x="320" y="482" text-anchor="middle" font-size="11" fill="#444" font-weight="bold">GPU GEMM 性能 = shared tiling × register tiling × 向量化（float4）× 双缓冲</text>
+</svg>

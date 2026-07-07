@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 520" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="520" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Shared Memory Tiling：分块加载复用</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">把 A 的 TILE×TILE 子块和 B 的 TILE×TILE 子块加载到 shared memory，让整个 block 复用</text>
+
+  <!-- ===== A matrix with tile ===== -->
+  <text x="30" y="72" font-size="12" fill="#446688" font-weight="bold">A (M × N)，行主序</text>
+  <g font-size="9" fill="#888">
+    <rect x="30" y="80" width="200" height="160" fill="none" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <!-- grid lines -->
+    <line x1="100" y1="80" x2="100" y2="240" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+    <line x1="170" y1="80" x2="170" y2="240" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+    <line x1="30" y1="135" x2="230" y2="135" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+    <line x1="30" y1="190" x2="230" y2="190" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+    <!-- highlighted tile -->
+    <rect x="30" y="80" width="70" height="55" fill="#e8f0fe" stroke="#446688" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="65" y="112" text-anchor="middle" font-size="9" fill="#446688" font-weight="bold">A_tile</text>
+    <text x="65" y="124" text-anchor="middle" font-size="8" fill="#446688">TILE×TILE</text>
+  </g>
+  <text x="30" y="256" font-size="10" fill="#4a7a3a">① 合并读 A_tile → shared</text>
+
+  <!-- ===== B matrix with tile ===== -->
+  <text x="410" y="72" font-size="12" fill="#4a7a3a" font-weight="bold">B (N × K)，行主序</text>
+  <g font-size="9" fill="#888">
+    <rect x="410" y="80" width="200" height="160" fill="none" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <line x1="480" y1="80" x2="480" y2="240" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+    <line x1="550" y1="80" x2="550" y2="240" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+    <line x1="410" y1="135" x2="610" y2="135" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+    <line x1="410" y1="190" x2="610" y2="190" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+    <rect x="410" y="80" width="70" height="55" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="445" y="112" text-anchor="middle" font-size="9" fill="#4a7a3a" font-weight="bold">B_tile</text>
+    <text x="445" y="124" text-anchor="middle" font-size="8" fill="#4a7a3a">TILE×TILE</text>
+  </g>
+  <text x="410" y="256" font-size="10" fill="#4a7a3a">① 合并读 B_tile → shared</text>
+
+  <!-- arrows to shared memory -->
+  <path d="M 100 140 Q 200 200 270 230" stroke="#446688" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <path d="M 480 140 Q 380 200 310 230" stroke="#4a7a3a" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- ===== Shared memory ===== -->
+  <text x="270" y="270" font-size="12" fill="#d6a040" font-weight="bold">② Shared Memory（block 共享）</text>
+  <rect x="200" y="278" width="180" height="60" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
+  <text x="290" y="300" text-anchor="middle" font-family="monospace" font-size="10" fill="#333">__shared__ float</text>
+  <text x="290" y="316" text-anchor="middle" font-family="monospace" font-size="10" fill="#d6a040" font-weight="bold">A_tile[TILE][TILE]</text>
+  <text x="290" y="332" text-anchor="middle" font-family="monospace" font-size="10" fill="#4a7a3a" font-weight="bold">B_tile[TILE][TILE]</text>
+
+  <!-- syncthreads -->
+  <rect x="400" y="288" width="120" height="40" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="460" y="306" text-anchor="middle" font-size="11" fill="#444" font-weight="bold">__syncthreads()</text>
+  <text x="460" y="320" text-anchor="middle" font-size="9" fill="#888">等 tile 全加载完</text>
+
+  <!-- arrow down -->
+  <path d="M 290 340 L 290 360" stroke="#666" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- ===== Compute: tile multiply accumulate ===== -->
+  <text x="30" y="378" font-size="12" fill="#b85450" font-weight="bold">③ Block 内 TILE² 个 thread 各自从 shared 读数据，做乘加</text>
+
+  <rect x="80" y="390" width="480" height="56" fill="#fce4ec" stroke="#b85450" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="100" y="410" font-family="monospace" font-size="11" fill="#333">float sum = 0;</text>
+  <text x="100" y="426" font-family="monospace" font-size="11" fill="#333">for (int k = 0; k &lt; TILE; k++)</text>
+  <text x="100" y="442" font-family="monospace" font-size="11" fill="#333">    sum += A_tile[ty][k] * B_tile[k][tx];   // 从 shared 读，极快</text>
+
+  <!-- loop over tiles -->
+  <rect x="30" y="460" width="580" height="44" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="320" y="478" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">④ 沿 K 维滑动 tile，累加所有 tile 的结果</text>
+  <text x="320" y="494" text-anchor="middle" font-size="10" fill="#666">每次只加载 TILE×TILE，但被 TILE² 个线程复用 → 访存降为 MNK/TILE</text>
+</svg>

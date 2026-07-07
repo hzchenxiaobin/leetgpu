@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="480" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">朴素 GEMM：每个输出元素独立计算 → 访存爆炸</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">C[i][j] = Σ A[i][k] × B[k][j]，每算一个 C[i][j] 要重读整行 A 和整列 B</text>
+
+  <!-- ===== Matrix A (M×N) ===== -->
+  <text x="30" y="74" font-size="12" fill="#446688" font-weight="bold">A (M × N)</text>
+  <g font-size="9" fill="#333">
+    <rect x="30" y="82" width="160" height="120" fill="none" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <!-- row i highlighted -->
+    <rect x="32" y="82" width="156" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <text x="110" y="98" text-anchor="middle" font-size="10" fill="#446688" font-weight="bold">A[i][0..N-1]（整行）</text>
+    <text x="110" y="160" text-anchor="middle" font-size="9" fill="#888">M 行</text>
+  </g>
+  <text x="30" y="220" font-size="10" fill="#666">每算一个 C[i][j]，</text>
+  <text x="30" y="234" font-size="10" fill="#b85450" font-weight="bold">都要读 A 整行 N 个元素</text>
+
+  <!-- ===== multiply symbol ===== -->
+  <text x="230" y="150" text-anchor="middle" font-size="20" fill="#d6a040" font-weight="bold">×</text>
+
+  <!-- ===== Matrix B (N×K) ===== -->
+  <text x="270" y="74" font-size="12" fill="#4a7a3a" font-weight="bold">B (N × K)</text>
+  <g font-size="9" fill="#333">
+    <rect x="270" y="82" width="160" height="120" fill="none" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <!-- col j highlighted -->
+    <rect x="392" y="84" width="24" height="116" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <text x="404" y="150" text-anchor="middle" font-size="9" fill="#4a7a3a" font-weight="bold" transform="rotate(-90 404 150)">B[0..N-1][j]</text>
+    <text x="350" y="160" text-anchor="middle" font-size="9" fill="#888">K 列</text>
+  </g>
+  <text x="270" y="220" font-size="10" fill="#666">每算一个 C[i][j]，</text>
+  <text x="270" y="234" font-size="10" fill="#b85450" font-weight="bold">都要读 B 整列 N 个元素</text>
+
+  <!-- ===== equals ===== -->
+  <text x="470" y="150" text-anchor="middle" font-size="20" fill="#d6a040" font-weight="bold">=</text>
+
+  <!-- ===== Matrix C (M×K) ===== -->
+  <text x="510" y="74" font-size="12" fill="#b85450" font-weight="bold">C (M × K)</text>
+  <g font-size="9" fill="#333">
+    <rect x="510" y="82" width="100" height="120" fill="none" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <!-- one element highlighted -->
+    <rect x="512" y="84" width="20" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="522" y="98" text-anchor="middle" font-size="8" fill="#b85450" font-weight="bold">C[i][j]</text>
+  </g>
+  <text x="510" y="220" font-size="10" fill="#666">一个输出元素</text>
+  <text x="510" y="234" font-size="10" fill="#b85450" font-weight="bold">需 2N 次访存 + N 次乘加</text>
+
+  <!-- ===== Cost analysis ===== -->
+  <line x1="20" y1="260" x2="620" y2="260" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="284" font-size="12" fill="#b85450" font-weight="bold">⚠️ 访存浪费分析</text>
+
+  <rect x="30" y="296" width="580" height="56" fill="#fce4ec" stroke="#b85450" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="40" y="316" font-size="11" fill="#333">• C 有 M×K 个元素，每个需读 A 行(N) + B 列(N) = 2N 次访存</text>
+  <text x="40" y="334" font-size="11" fill="#333">• 总访存量 = M × K × 2N = 2MNK 次（但实际数据只有 M×N + N×K）</text>
+  <text x="40" y="350" font-size="11" fill="#b85450" font-weight="bold">→ A 的每个元素被重复读 K 次，B 的每个元素被重复读 M 次！</text>
+
+  <!-- numerical example -->
+  <rect x="30" y="368" width="580" height="56" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="40" y="388" font-size="11" fill="#444" font-weight="bold">数值示例（性能测试规模 M=8192, N=6144, K=4096）：</text>
+  <text x="40" y="406" font-size="11" fill="#555">• 实际数据量 = (8192×6144 + 6144×4096) × 4B ≈ 353 MB</text>
+  <text x="40" y="422" font-size="11" fill="#555">• 朴素总访存 = 2 × 8192 × 6144 × 4096 × 4B ≈ 1.6 TB → 重复读 ~4600×</text>
+
+  <!-- solution hint -->
+  <rect x="30" y="440" width="580" height="30" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="320" y="459" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">💡 破局：用 shared memory 缓存 tile，让多个线程复用同一块数据</text>
+</svg>
