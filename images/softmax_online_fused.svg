@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 520" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="520" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Online Softmax：max 与 sum 融合（FlashAttention 基石）</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">边扫边修正：遇到更大的 max 时，旧 sum 缩放 exp(old_m - new_m)</text>
+
+  <!-- ===== Left: three-pass (3 reads) ===== -->
+  <text x="30" y="76" font-size="12" fill="#b85450" font-weight="bold">三遍版：3 次 global 读</text>
+  <g font-size="9" fill="#333">
+    <rect x="30" y="84" width="240" height="180" fill="none" stroke="#b85450" stroke-width="1" rx="6" filter="url(#rough2)"/>
+
+    <rect x="40" y="94" width="220" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" rx="3" filter="url(#rough2)"/>
+    <text x="150" y="110" text-anchor="middle" fill="#b85450" font-weight="bold">Pass 1：读 input → 求 max</text>
+
+    <rect x="40" y="126" width="220" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" rx="3" filter="url(#rough2)"/>
+    <text x="150" y="142" text-anchor="middle" fill="#b85450" font-weight="bold">Pass 2：读 input → 求 sum</text>
+
+    <rect x="40" y="158" width="220" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" rx="3" filter="url(#rough2)"/>
+    <text x="150" y="174" text-anchor="middle" fill="#b85450" font-weight="bold">Pass 3：读 input → 写 output</text>
+
+    <text x="150" y="206" text-anchor="middle" font-size="10" fill="#888">global 读 ×3 + 写 ×1</text>
+    <text x="150" y="222" text-anchor="middle" font-size="10" fill="#b85450">= 16N 字节</text>
+    <text x="150" y="246" text-anchor="middle" font-size="9" fill="#888">同一数据读 3 遍，冗余</text>
+  </g>
+
+  <!-- arrow -->
+  <text x="300" y="170" text-anchor="middle" font-size="20" fill="#d6a040" font-weight="bold">→</text>
+  <text x="300" y="190" text-anchor="middle" font-size="10" fill="#888">融合</text>
+
+  <!-- ===== Right: online (2 reads) ===== -->
+  <text x="340" y="76" font-size="12" fill="#4a7a3a" font-weight="bold">Online 版：2 次 global 读</text>
+  <g font-size="9" fill="#333">
+    <rect x="340" y="84" width="270" height="180" fill="none" stroke="#4a7a3a" stroke-width="1" rx="6" filter="url(#rough2)"/>
+
+    <rect x="350" y="94" width="250" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.8" rx="3" filter="url(#rough2)"/>
+    <text x="475" y="110" text-anchor="middle" fill="#4a7a3a" font-weight="bold">Pass 1：读 input → max + sum 融合</text>
+
+    <rect x="350" y="126" width="250" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.8" rx="3" filter="url(#rough2)"/>
+    <text x="475" y="142" text-anchor="middle" fill="#4a7a3a" font-weight="bold">Pass 2：读 input → 写 output</text>
+
+    <text x="475" y="174" text-anchor="middle" font-size="10" fill="#888">global 读 ×2 + 写 ×1</text>
+    <text x="475" y="190" text-anchor="middle" font-size="10" fill="#4a7a3a">= 12N 字节（省 25%）</text>
+    <text x="475" y="214" text-anchor="middle" font-size="9" fill="#888">配合 shared 缓存可降到读 ×1</text>
+    <text x="475" y="230" text-anchor="middle" font-size="9" fill="#888">= 8N 字节（省 50%）</text>
+    <text x="475" y="252" text-anchor="middle" font-size="9" fill="#4a7a3a" font-weight="bold">→ 逼近带宽上限</text>
+  </g>
+
+  <!-- ===== Online algorithm detail ===== -->
+  <line x1="20" y1="284" x2="620" y2="284" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="308" font-size="12" fill="#446688" font-weight="bold">Online softmax 核心公式：遇到更大的 max 时修正 sum</text>
+
+  <!-- step-by-step example -->
+  <text x="30" y="330" font-size="10" fill="#888">示例：扫描 [1.0, 3.0, 2.0, 4.0]，维护 (m, s) = (running max, running sum)</text>
+
+  <!-- table header -->
+  <rect x="30" y="338" width="60" height="22" fill="#f6f6f6" stroke="#ccc" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+  <text x="60" y="353" text-anchor="middle" font-size="10" fill="#444" font-weight="bold">step</text>
+  <rect x="90" y="338" width="60" height="22" fill="#f6f6f6" stroke="#ccc" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+  <text x="120" y="353" text-anchor="middle" font-size="10" fill="#444" font-weight="bold">x</text>
+  <rect x="150" y="338" width="70" height="22" fill="#f6f6f6" stroke="#ccc" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+  <text x="185" y="353" text-anchor="middle" font-size="10" fill="#444" font-weight="bold">m_old</text>
+  <rect x="220" y="338" width="70" height="22" fill="#f6f6f6" stroke="#ccc" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+  <text x="255" y="353" text-anchor="middle" font-size="10" fill="#444" font-weight="bold">m_new</text>
+  <rect x="290" y="338" width="180" height="22" fill="#f6f6f6" stroke="#ccc" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+  <text x="380" y="353" text-anchor="middle" font-size="10" fill="#444" font-weight="bold">s 更新</text>
+  <rect x="470" y="338" width="100" height="22" fill="#f6f6f6" stroke="#ccc" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+  <text x="520" y="353" text-anchor="middle" font-size="10" fill="#444" font-weight="bold">结果 (m, s)</text>
+
+  <!-- step 0: x=1.0 -->
+  <g font-size="9" fill="#333">
+    <rect x="30" y="360" width="60" height="20" fill="#fff" stroke="#eee" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="60" y="374" text-anchor="middle">0</text>
+    <rect x="90" y="360" width="60" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="120" y="374" text-anchor="middle">1.0</text>
+    <rect x="150" y="360" width="70" height="20" fill="#fff" stroke="#eee" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="185" y="374" text-anchor="middle">-∞</text>
+    <rect x="220" y="360" width="70" height="20" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="255" y="374" text-anchor="middle">1.0</text>
+    <rect x="290" y="360" width="180" height="20" fill="#fff" stroke="#eee" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="380" y="374" text-anchor="middle" font-family="monospace">s = 0·e⁻¹ + e⁰ = 1.0</text>
+    <rect x="470" y="360" width="100" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="520" y="374" text-anchor="middle">(1.0, 1.0)</text>
+  </g>
+
+  <!-- step 1: x=3.0, max changes! -->
+  <g font-size="9" fill="#333">
+    <rect x="30" y="380" width="60" height="20" fill="#fff" stroke="#eee" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="60" y="394" text-anchor="middle">1</text>
+    <rect x="90" y="380" width="60" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="120" y="394" text-anchor="middle">3.0</text>
+    <rect x="150" y="380" width="70" height="20" fill="#fff" stroke="#eee" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="185" y="394" text-anchor="middle">1.0</text>
+    <rect x="220" y="380" width="70" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="255" y="394" text-anchor="middle" fill="#b85450" font-weight="bold">3.0</text>
+    <rect x="290" y="380" width="180" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="380" y="394" text-anchor="middle" font-family="monospace" fill="#b85450">s = 1.0·e⁻² + e⁰ = 1.14</text>
+    <rect x="470" y="380" width="100" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="520" y="394" text-anchor="middle">(3.0, 1.14)</text>
+  </g>
+
+  <!-- step 2: x=2.0 -->
+  <g font-size="9" fill="#333">
+    <rect x="30" y="400" width="60" height="20" fill="#fff" stroke="#eee" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="60" y="414" text-anchor="middle">2</text>
+    <rect x="90" y="400" width="60" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="120" y="414" text-anchor="middle">2.0</text>
+    <rect x="150" y="400" width="70" height="20" fill="#fff" stroke="#eee" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="185" y="414" text-anchor="middle">3.0</text>
+    <rect x="220" y="400" width="70" height="20" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="255" y="414" text-anchor="middle">3.0</text>
+    <rect x="290" y="400" width="180" height="20" fill="#fff" stroke="#eee" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="380" y="414" text-anchor="middle" font-family="monospace">s = 1.14 + e⁻¹ = 1.51</text>
+    <rect x="470" y="400" width="100" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="520" y="414" text-anchor="middle">(3.0, 1.51)</text>
+  </g>
+
+  <!-- step 3: x=4.0, max changes again! -->
+  <g font-size="9" fill="#333">
+    <rect x="30" y="420" width="60" height="20" fill="#fff" stroke="#eee" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="60" y="434" text-anchor="middle">3</text>
+    <rect x="90" y="420" width="60" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="120" y="434" text-anchor="middle">4.0</text>
+    <rect x="150" y="420" width="70" height="20" fill="#fff" stroke="#eee" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="185" y="434" text-anchor="middle">3.0</text>
+    <rect x="220" y="420" width="70" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="255" y="434" text-anchor="middle" fill="#b85450" font-weight="bold">4.0</text>
+    <rect x="290" y="420" width="180" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="380" y="434" text-anchor="middle" font-family="monospace" fill="#b85450">s = 1.51·e⁻¹ + e⁰ = 1.555</text>
+    <rect x="470" y="420" width="100" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="520" y="434" text-anchor="middle" font-weight="bold">(4.0, 1.555)</text>
+  </g>
+
+  <!-- key insight -->
+  <rect x="30" y="452" width="580" height="56" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="44" y="472" font-size="11" fill="#4a7a3a" font-weight="bold">关键：当 m_new &gt; m_old 时，旧 sum 乘 exp(m_old - m_new) 缩放：</text>
+  <text x="60" y="490" font-family="monospace" font-size="11" fill="#333">s ← s × exp(m_old - m_new) + exp(x - m_new)</text>
+  <text x="44" y="504" font-size="10" fill="#555">单遍扫描即可得到最终 (m, s) → FlashAttention 在 tiling 内用此增量更新，避免物化 N×N 矩阵</text>
+</svg>

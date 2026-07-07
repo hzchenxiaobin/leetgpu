@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 460" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="460" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">朴素卷积：相邻输出重复读邻域，global 访存爆炸</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">每个 thread 独立读 K×K 邻域，相邻输出的邻域高度重叠 → 同一元素被读 K² 次</text>
+
+  <!-- ===== input grid with overlapping neighborhoods ===== -->
+  <text x="30" y="76" font-size="12" fill="#446688" font-weight="bold">input[H][W]（每个 cell 一个元素）</text>
+
+  <g font-size="9" fill="#333">
+    <!-- grid 8x6 -->
+    <rect x="30" y="84" width="320" height="180" fill="none" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+    <!-- grid lines -->
+    <g stroke="#eee" stroke-width="0.6" filter="url(#rough2)">
+      <line x1="70" y1="84" x2="70" y2="264"/>
+      <line x1="110" y1="84" x2="110" y2="264"/>
+      <line x1="150" y1="84" x2="150" y2="264"/>
+      <line x1="190" y1="84" x2="190" y2="264"/>
+      <line x1="230" y1="84" x2="230" y2="264"/>
+      <line x1="270" y1="84" x2="270" y2="264"/>
+      <line x1="310" y1="84" x2="310" y2="264"/>
+      <line x1="30" y1="114" x2="350" y2="114"/>
+      <line x1="30" y1="144" x2="350" y2="144"/>
+      <line x1="30" y1="174" x2="350" y2="174"/>
+      <line x1="30" y1="204" x2="350" y2="204"/>
+      <line x1="30" y1="234" x2="350" y2="234"/>
+    </g>
+
+    <!-- thread 0 neighborhood (red, K=3, R=1) centered at [1][1] -->
+    <rect x="70" y="114" width="90" height="90" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="2" opacity="0.5" filter="url(#rough2)"/>
+    <text x="115" y="162" text-anchor="middle" font-size="9" fill="#b85450" font-weight="bold">t0 邻域</text>
+    <text x="115" y="176" text-anchor="middle" font-size="8" fill="#b85450">3×3</text>
+
+    <!-- thread 1 neighborhood (blue) centered at [1][2] - overlaps! -->
+    <rect x="110" y="114" width="90" height="90" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="2" opacity="0.5" filter="url(#rough2)"/>
+    <text x="155" y="156" text-anchor="middle" font-size="9" fill="#446688" font-weight="bold">t1 邻域</text>
+    <text x="155" y="170" text-anchor="middle" font-size="8" fill="#446688">3×3</text>
+
+    <!-- overlap region highlight -->
+    <rect x="110" y="114" width="50" height="90" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" stroke-dasharray="3,2" rx="1" opacity="0.7" filter="url(#rough2)"/>
+    <text x="135" y="240" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold">重叠区</text>
+    <text x="135" y="252" text-anchor="middle" font-size="7" fill="#d6a040">被两个 thread 重复读</text>
+  </g>
+
+  <!-- annotation -->
+  <text x="380" y="100" font-size="11" fill="#444" font-weight="bold">问题：</text>
+  <text x="380" y="118" font-size="10" fill="#555">t0 读 9 个 input（3×3）</text>
+  <text x="380" y="134" font-size="10" fill="#555">t1 读 9 个 input（3×3）</text>
+  <text x="380" y="150" font-size="10" fill="#b85450" font-weight="bold">但 6 个是重复的！</text>
+
+  <rect x="380" y="162" width="240" height="80" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="394" y="182" font-size="11" fill="#b85450" font-weight="bold">K=5 时更夸张：</text>
+  <text x="394" y="200" font-size="10" fill="#555">每元素被周围 5×5=25 个</text>
+  <text x="394" y="216" font-size="10" fill="#555">thread 重复读</text>
+  <text x="394" y="234" font-size="10" fill="#b85450" font-weight="bold">→ global 读次数 = H×W×K²</text>
+
+  <!-- ===== Bottom: read count comparison ===== -->
+  <line x1="20" y1="290" x2="620" y2="290" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="314" font-size="12" fill="#444" font-weight="bold">global 读次数对比（H=W=4096, K=5）：</text>
+
+  <!-- naive bar -->
+  <rect x="30" y="324" width="280" height="26" fill="#b85450" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+  <text x="170" y="341" text-anchor="middle" font-size="10" fill="#fff" font-weight="bold">朴素：H×W×K² = 4.2 亿次读</text>
+
+  <text x="320" y="341" text-anchor="middle" font-size="11" fill="#d6a040" font-weight="bold">24×</text>
+
+  <!-- tiling bar -->
+  <rect x="350" y="324" width="40" height="26" fill="#4a7a3a" stroke="#4a7a3a" stroke-width="1" rx="2" filter="url(#rough2)"/>
+  <text x="400" y="341" font-size="10" fill="#4a7a3a" font-weight="bold">tiling：~H×W×2.25 = 1.7 千万次读</text>
+
+  <!-- code -->
+  <rect x="30" y="366" width="580" height="76" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="386" font-family="monospace" font-size="10" fill="#b85450">// 朴素：每 thread 独立从 global 读 K×K</text>
+  <text x="44" y="402" font-family="monospace" font-size="10" fill="#333">for (ky...) for (kx...) sum += input[...] * kernel[...];  // global 读 K² 次/thread</text>
+  <text x="44" y="424" font-family="monospace" font-size="10" fill="#4a7a3a">// tiling：block 协作把含 halo 的 tile 一次性读到 shared，复用</text>
+  <text x="44" y="438" font-family="monospace" font-size="10" fill="#333">sTile[...] = input[...];  // 每 cell 只读 1 次（含 halo 冗余 ~1.5×）</text>
+</svg>

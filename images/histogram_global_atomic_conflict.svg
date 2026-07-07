@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 460" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="460" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Global atomic：10M 线程争抢 256 桶，冲突严重串行化</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">同地址 atomicAdd 在 L2 cache 排队执行，吞吐从并行退化为串行</text>
+
+  <!-- ===== Input array (many threads) ===== -->
+  <text x="30" y="76" font-size="12" fill="#446688" font-weight="bold">input[N] (N=10M 线程各读 1 个)</text>
+  <g font-size="9" fill="#333">
+    <rect x="30" y="84" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="45" y="98" text-anchor="middle" font-size="8">v=3</text>
+    <rect x="62" y="84" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="77" y="98" text-anchor="middle" font-size="8">v=1</text>
+    <rect x="94" y="84" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="109" y="98" text-anchor="middle" font-size="8">v=3</text>
+    <rect x="126" y="84" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="141" y="98" text-anchor="middle" font-size="8">v=0</text>
+    <rect x="158" y="84" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="173" y="98" text-anchor="middle" font-size="8">v=3</text>
+    <rect x="190" y="84" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="205" y="98" text-anchor="middle" font-size="8">v=1</text>
+    <text x="240" y="98" font-size="10" fill="#888">...</text>
+    <rect x="260" y="84" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="275" y="98" text-anchor="middle" font-size="8">v=3</text>
+    <text x="300" y="98" font-size="9" fill="#888">(10M 个)</text>
+  </g>
+
+  <!-- all threads atomicAdd to global hist -->
+  <text x="30" y="130" font-size="11" fill="#b85450" font-weight="bold">所有线程 → atomicAdd(&hist[v], 1)</text>
+  <g>
+    <!-- many arrows converging to few buckets -->
+    <path d="M 45 106 L 280 180" stroke="#b85450" stroke-width="0.6" fill="none" opacity="0.5" filter="url(#rough2)"/>
+    <path d="M 77 106 L 120 180" stroke="#b85450" stroke-width="0.6" fill="none" opacity="0.5" filter="url(#rough2)"/>
+    <path d="M 109 106 L 280 180" stroke="#b85450" stroke-width="0.6" fill="none" opacity="0.5" filter="url(#rough2)"/>
+    <path d="M 141 106 L 50 180" stroke="#b85450" stroke-width="0.6" fill="none" opacity="0.5" filter="url(#rough2)"/>
+    <path d="M 173 106 L 280 180" stroke="#b85450" stroke-width="0.6" fill="none" opacity="0.5" filter="url(#rough2)"/>
+    <path d="M 205 106 L 120 180" stroke="#b85450" stroke-width="0.6" fill="none" opacity="0.5" filter="url(#rough2)"/>
+    <path d="M 275 106 L 280 180" stroke="#b85450" stroke-width="0.6" fill="none" opacity="0.5" filter="url(#rough2)"/>
+  </g>
+
+  <!-- ===== hist array (B=256 buckets) ===== -->
+  <text x="30" y="178" font-size="12" fill="#b85450" font-weight="bold">hist[B] (B=256 桶，全局)</text>
+  <g font-size="9" fill="#333">
+    <rect x="30" y="184" width="40" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="50" y="200" text-anchor="middle" font-size="8" fill="#b85450">[0]</text>
+    <rect x="74" y="184" width="40" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="94" y="200" text-anchor="middle" font-size="8" fill="#b85450">[1]</text>
+    <rect x="118" y="184" width="40" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="138" y="200" text-anchor="middle" font-size="8" fill="#b85450">[2]</text>
+    <rect x="162" y="184" width="40" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <text x="182" y="200" text-anchor="middle" font-size="8" fill="#b85450" font-weight="bold">[3]</text>
+    <text x="220" y="200" font-size="10" fill="#888">...</text>
+    <rect x="240" y="184" width="40" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <text x="260" y="200" text-anchor="middle" font-size="8" fill="#b85450" font-weight="bold">[3]</text>
+    <text x="290" y="200" font-size="9" fill="#888">(256 桶)</text>
+  </g>
+
+  <!-- conflict highlight on bucket [3] -->
+  <rect x="162" y="180" width="40" height="32" fill="none" stroke="#d6a040" stroke-width="2" stroke-dasharray="3,2" rx="3" filter="url(#rough2)"/>
+  <text x="182" y="232" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold">冲突！</text>
+  <text x="182" y="244" text-anchor="middle" font-size="7" fill="#d6a040">39000 次</text>
+  <text x="182" y="254" text-anchor="middle" font-size="7" fill="#d6a040">串行排队</text>
+
+  <!-- ===== Problem summary ===== -->
+  <line x1="20" y1="276" x2="620" y2="276" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="300" font-size="12" fill="#444" font-weight="bold">问题：多对少写，天然高冲突</text>
+
+  <rect x="30" y="310" width="180" height="64" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="330" font-size="10" fill="#b85450" font-weight="bold">输入：N = 10M 线程</text>
+  <text x="44" y="346" font-size="9" fill="#555">每线程 1 次 atomicAdd</text>
+  <text x="44" y="360" font-size="9" fill="#555">共 10M 次全局 atomic</text>
+
+  <text x="230" y="346" font-size="20" fill="#b85450" font-weight="bold">→</text>
+  <text x="230" y="366" font-size="9" fill="#888">争抢</text>
+
+  <rect x="270" y="310" width="180" height="64" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="284" y="330" font-size="10" fill="#d6a040" font-weight="bold">输出：B = 256 桶</text>
+  <text x="284" y="346" font-size="9" fill="#555">每桶平均 39000 次写</text>
+  <text x="284" y="360" font-size="9" fill="#555">同桶写串行执行</text>
+
+  <rect x="470" y="310" width="140" height="64" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="484" y="330" font-size="10" fill="#446688" font-weight="bold">L2 atomic unit</text>
+  <text x="484" y="346" font-size="9" fill="#555">同地址排队</text>
+  <text x="484" y="360" font-size="9" fill="#555">吞吐 = 串行</text>
+
+  <!-- code -->
+  <rect x="30" y="388" width="580" height="56" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="408" font-family="monospace" font-size="10" fill="#b85450">// 朴素：10M 线程对 256 桶做 global atomicAdd</text>
+  <text x="44" y="424" font-family="monospace" font-size="10" fill="#333">if (idx &lt; N) atomicAdd(&amp;hist[input[idx]], 1);   // 同桶排队，吞吐退化</text>
+  <text x="44" y="438" font-size="9" fill="#888">→ 破局：每 block 一份私有直方图，冲突域从全 grid 降到 block 内</text>
+</svg>

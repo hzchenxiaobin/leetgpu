@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 500" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="500" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">FlashAttention 分块：Q tile 驻留，K/V tile 滑动</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">每步算 S 片段（BM×BN）在 SRAM，online softmax 融合进 O，不落 HBM</text>
+
+  <!-- ===== Q matrix ===== -->
+  <text x="30" y="76" font-size="12" fill="#446688" font-weight="bold">Q (M×d)</text>
+  <g font-size="9" fill="#333">
+    <rect x="30" y="84" width="100" height="240" fill="none" stroke="#446688" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <!-- Q tile highlighted -->
+    <rect x="30" y="84" width="100" height="60" fill="#e8f0fe" stroke="#446688" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="80" y="118" text-anchor="middle" font-size="9" fill="#446688" font-weight="bold">Q tile</text>
+    <text x="80" y="130" text-anchor="middle" font-size="8" fill="#446688">BM×d</text>
+    <!-- rest rows -->
+    <line x1="30" y1="144" x2="130" y2="144" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+    <line x1="30" y1="204" x2="130" y2="204" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+    <line x1="30" y1="264" x2="130" y2="264" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+    <text x="80" y="220" text-anchor="middle" font-size="9" fill="#888">...</text>
+  </g>
+  <text x="30" y="340" font-size="9" fill="#888">驻留 SRAM</text>
+  <text x="30" y="354" font-size="9" fill="#888">(整个 tile)</text>
+
+  <!-- ===== K and V matrices (sliding) ===== -->
+  <text x="220" y="76" font-size="12" fill="#4a7a3a" font-weight="bold">K, V (N×d) — tile 滑动</text>
+  <g font-size="9" fill="#333">
+    <rect x="220" y="84" width="180" height="240" fill="none" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <!-- K tile 0 -->
+    <rect x="220" y="84" width="180" height="50" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="310" y="104" text-anchor="middle" font-size="9" fill="#4a7a3a" font-weight="bold">K/V tile 0</text>
+    <text x="310" y="118" text-anchor="middle" font-size="8" fill="#4a7a3a">BN×d  (kv_start=0)</text>
+    <!-- K tile 1 -->
+    <rect x="220" y="138" width="180" height="50" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <text x="310" y="158" text-anchor="middle" font-size="9" fill="#d6a040" font-weight="bold">K/V tile 1</text>
+    <text x="310" y="172" text-anchor="middle" font-size="8" fill="#d6a040">BN×d  (kv_start=BN)</text>
+    <!-- ellipsis -->
+    <text x="310" y="210" text-anchor="middle" font-size="14" fill="#888">...</text>
+    <!-- K tile last -->
+    <rect x="220" y="224" width="180" height="50" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <text x="310" y="244" text-anchor="middle" font-size="9" fill="#b85450" font-weight="bold">K/V tile (N/BN-1)</text>
+    <text x="310" y="258" text-anchor="middle" font-size="8" fill="#b85450">BN×d  (kv_start=N-BN)</text>
+    <text x="310" y="308" text-anchor="middle" font-size="9" fill="#888">逐块滑入 SRAM</text>
+  </g>
+
+  <!-- arrow Q tile -> SRAM -->
+  <path d="M 130 114 L 200 114" stroke="#446688" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="165" y="108" text-anchor="middle" font-size="8" fill="#446688">load</text>
+
+  <!-- arrows K/V tiles -> SRAM (sliding) -->
+  <path d="M 400 109 Q 430 109 440 109" stroke="#4a7a3a" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <path d="M 400 163 Q 420 130 440 113" stroke="#d6a040" stroke-width="1.2" fill="none" stroke-dasharray="3,2" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <path d="M 400 249 Q 420 180 440 116" stroke="#b85450" stroke-width="1.2" fill="none" stroke-dasharray="3,2" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="430" y="100" font-size="8" fill="#888">滑入</text>
+
+  <!-- ===== SRAM ===== -->
+  <text x="450" y="76" font-size="12" fill="#d6a040" font-weight="bold">SRAM (shared memory)</text>
+  <g font-size="9" fill="#333">
+    <rect x="450" y="84" width="160" height="160" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+
+    <rect x="460" y="94" width="140" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="3" filter="url(#rough2)"/>
+    <text x="530" y="110" text-anchor="middle" font-size="9" fill="#446688" font-weight="bold">sQ[BM][d]</text>
+
+    <rect x="460" y="124" width="140" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.8" rx="3" filter="url(#rough2)"/>
+    <text x="530" y="140" text-anchor="middle" font-size="9" fill="#4a7a3a" font-weight="bold">sK[BN][d]</text>
+
+    <rect x="460" y="154" width="140" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.8" rx="3" filter="url(#rough2)"/>
+    <text x="530" y="170" text-anchor="middle" font-size="9" fill="#4a7a3a" font-weight="bold">sV[BN][d]</text>
+
+    <text x="530" y="196" text-anchor="middle" font-size="8" fill="#888">S 片段 = sQ·sKᵀ</text>
+    <text x="530" y="210" text-anchor="middle" font-size="8" fill="#888">(BM×BN，在寄存器算)</text>
+    <text x="530" y="228" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold">不写回 HBM！</text>
+  </g>
+
+  <!-- ===== Loop description ===== -->
+  <line x1="20" y1="270" x2="620" y2="270" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="294" font-size="12" fill="#444" font-weight="bold">滑动循环（每个 Q tile）：</text>
+
+  <rect x="30" y="304" width="580" height="120" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="324" font-family="monospace" font-size="10" fill="#333">for (kv_start = 0; kv_start &lt; N; kv_start += BN) {</text>
+  <text x="60" y="340" font-family="monospace" font-size="10" fill="#4a7a3a">  load K[kv_start:kv_start+BN][:] → sK   // 滑入新 tile</text>
+  <text x="60" y="356" font-family="monospace" font-size="10" fill="#4a7a3a">  load V[kv_start:kv_start+BN][:] → sV</text>
+  <text x="60" y="372" font-family="monospace" font-size="10" fill="#446688">  s_vals[j] = sQ[i] · sK[j] / √d       // S 片段（BM×BN，寄存器）</text>
+  <text x="60" y="388" font-family="monospace" font-size="10" fill="#d6a040">  update (m_i, l_i, acc_o) with s_vals   // online softmax</text>
+  <text x="60" y="404" font-family="monospace" font-size="10" fill="#b85450">  acc_o += exp(s_vals - m_new) · sV      // O 累加（不落 HBM）</text>
+  <text x="44" y="418" font-family="monospace" font-size="10" fill="#333">}</text>
+
+  <!-- summary -->
+  <rect x="30" y="436" width="580" height="48" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="44" y="456" font-size="11" fill="#4a7a3a" font-weight="bold">关键：S 片段只在 SRAM/寄存器里存活一瞬间，立即融合进 acc_o，从不写 HBM</text>
+  <text x="44" y="472" font-size="10" fill="#555">Q tile 驻留整轮，K/V tile 滑动 N/BN 次 → HBM 只读 Q+K+V，只写 O</text>
+</svg>

@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 500" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="500" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Halo Tiling：block 加载含光晕的 tile</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">中间 TILE×TILE 是核心区，四周 R 圈是 halo，供边界输出卷积时读取邻域</text>
+
+  <!-- ===== Left: input with tile region ===== -->
+  <text x="30" y="76" font-size="12" fill="#446688" font-weight="bold">input[H][W]</text>
+  <g font-size="9" fill="#333">
+    <rect x="30" y="84" width="280" height="280" fill="none" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <!-- grid -->
+    <g stroke="#eee" stroke-width="0.5" filter="url(#rough2)">
+      <line x1="100" y1="84" x2="100" y2="364"/>
+      <line x1="170" y1="84" x2="170" y2="364"/>
+      <line x1="240" y1="84" x2="240" y2="364"/>
+      <line x1="30" y1="154" x2="310" y2="154"/>
+      <line x1="30" y1="224" x2="310" y2="224"/>
+      <line x1="30" y1="294" x2="310" y2="294"/>
+    </g>
+
+    <!-- halo region (orange, around tile) -->
+    <rect x="70" y="124" width="200" height="200" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+
+    <!-- core tile (green) -->
+    <rect x="100" y="154" width="140" height="140" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="170" y="220" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">核心区</text>
+    <text x="170" y="236" text-anchor="middle" font-size="9" fill="#4a7a3a">TILE×TILE</text>
+    <text x="170" y="250" text-anchor="middle" font-size="8" fill="#4a7a3a">= 16×16 输出</text>
+
+    <!-- halo labels -->
+    <text x="170" y="138" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold">halo 上 (R 行)</text>
+    <text x="170" y="344" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold">halo 下 (R 行)</text>
+    <text x="50" y="224" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold" transform="rotate(-90 50 224)">halo 左</text>
+    <text x="290" y="224" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold" transform="rotate(-90 290 224)">halo 右</text>
+  </g>
+
+  <text x="30" y="384" font-size="9" fill="#888">block 负责 TILE×TILE 输出</text>
+  <text x="30" y="398" font-size="9" fill="#888">需读 (TILE+2R)² 个 input</text>
+
+  <!-- arrow -->
+  <path d="M 320 220 L 360 220" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="340" y="210" text-anchor="middle" font-size="9" fill="#666">load</text>
+
+  <!-- ===== Right: shared memory tile ===== -->
+  <text x="380" y="76" font-size="12" fill="#d6a040" font-weight="bold">shared memory sTile</text>
+  <g font-size="9" fill="#333">
+    <rect x="380" y="84" width="240" height="240" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+
+    <!-- core in shared -->
+    <rect x="420" y="124" width="160" height="160" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <text x="500" y="200" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">sTile 核心</text>
+    <text x="500" y="216" text-anchor="middle" font-size="9" fill="#4a7a3a">[R..R+TILE][R..R+TILE]</text>
+
+    <!-- halo in shared -->
+    <text x="500" y="108" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold">halo 圈（含越界 0）</text>
+
+    <!-- dimensions -->
+    <text x="500" y="340" text-anchor="middle" font-size="9" fill="#555">(TILE+2R) × (TILE+2R)</text>
+    <text x="500" y="354" text-anchor="middle" font-size="8" fill="#888">K=5,R=2,TILE=16 → 20×20 = 400 cell</text>
+  </g>
+
+  <!-- ===== Bottom: compute flow ===== -->
+  <line x1="20" y1="408" x2="620" y2="408" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <rect x="30" y="418" width="580" height="68" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="438" font-size="11" fill="#444" font-weight="bold">计算流程（每 thread）：</text>
+  <text x="60" y="456" font-family="monospace" font-size="10" fill="#4a7a3a">① 协作加载 sTile（含 halo，越界填 0）→ __syncthreads()</text>
+  <text x="60" y="472" font-family="monospace" font-size="10" fill="#446688">② sum = Σ sTile[ty+ky][tx+kx] * c_kernel[ky][kx]   // 全从 shared 读，K² 次</text>
+  <text x="60" y="484" font-family="monospace" font-size="10" fill="#b85450">③ output[gy][gx] = sum   // 每元素只读 1 次 global（加载时）</text>
+</svg>

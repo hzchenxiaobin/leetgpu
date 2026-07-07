@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="480" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">朴素三步 vs FlashAttention 融合：HBM 访存量对比</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">朴素物化 S/P（M×N），FlashAttention 用 SRAM 融合，S/P 不落 HBM</text>
+
+  <!-- ===== Left: naive 3-kernel ===== -->
+  <text x="30" y="76" font-size="12" fill="#b85450" font-weight="bold">朴素三步（S/P 物化到 HBM）</text>
+
+  <g font-size="9" fill="#333">
+    <rect x="30" y="84" width="280" height="280" fill="none" stroke="#b85450" stroke-width="1" rx="6" filter="url(#rough2)"/>
+
+    <!-- kernel 1 -->
+    <rect x="40" y="94" width="260" height="34" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="4" filter="url(#rough2)"/>
+    <text x="50" y="110" font-size="10" fill="#b85450" font-weight="bold">① S = Q·Kᵀ / √d</text>
+    <text x="50" y="122" font-size="9" fill="#888">读 Q,K → 写 S[M×N]</text>
+
+    <!-- S in HBM -->
+    <rect x="90" y="134" width="160" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="170" y="149" text-anchor="middle" font-size="9" fill="#d6a040" font-weight="bold">S[M×N] 物化到 HBM（4MB）</text>
+
+    <!-- kernel 2 -->
+    <rect x="40" y="162" width="260" height="34" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="4" filter="url(#rough2)"/>
+    <text x="50" y="178" font-size="10" fill="#b85450" font-weight="bold">② P = softmax(S)</text>
+    <text x="50" y="190" font-size="9" fill="#888">读 S → 写 P[M×N]</text>
+
+    <!-- P in HBM -->
+    <rect x="90" y="202" width="160" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="170" y="217" text-anchor="middle" font-size="9" fill="#d6a040" font-weight="bold">P[M×N] 物化到 HBM（4MB）</text>
+
+    <!-- kernel 3 -->
+    <rect x="40" y="230" width="260" height="34" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="4" filter="url(#rough2)"/>
+    <text x="50" y="246" font-size="10" fill="#b85450" font-weight="bold">③ O = P·V</text>
+    <text x="50" y="258" font-size="9" fill="#888">读 P,V → 写 O</text>
+
+    <!-- total -->
+    <rect x="40" y="276" width="260" height="76" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+    <text x="170" y="294" text-anchor="middle" font-size="10" fill="#444" font-weight="bold">HBM 总流量</text>
+    <text x="170" y="310" text-anchor="middle" font-size="9" fill="#555">读: Q+K+V+S+P</text>
+    <text x="170" y="324" text-anchor="middle" font-size="9" fill="#555">写: S+P+O</text>
+    <text x="170" y="342" text-anchor="middle" font-size="11" fill="#b85450" font-weight="bold">≈ 4MN + O(Nd) 字节</text>
+  </g>
+
+  <!-- arrow -->
+  <text x="340" y="220" text-anchor="middle" font-size="20" fill="#4a7a3a" font-weight="bold">→</text>
+  <text x="340" y="240" text-anchor="middle" font-size="10" fill="#4a7a3a">融合</text>
+
+  <!-- ===== Right: FlashAttention ===== -->
+  <text x="370" y="76" font-size="12" fill="#4a7a3a" font-weight="bold">FlashAttention（S/P 不落 HBM）</text>
+
+  <g font-size="9" fill="#333">
+    <rect x="370" y="84" width="240" height="280" fill="none" stroke="#4a7a3a" stroke-width="1" rx="6" filter="url(#rough2)"/>
+
+    <!-- single fused kernel -->
+    <rect x="380" y="94" width="220" height="50" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+    <text x="490" y="112" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">单 kernel 融合</text>
+    <text x="490" y="126" text-anchor="middle" font-size="9" fill="#555">Q·Kᵀ + softmax + P·V</text>
+    <text x="490" y="138" text-anchor="middle" font-size="9" fill="#555">全在 SRAM/寄存器里算</text>
+
+    <!-- SRAM box -->
+    <rect x="400" y="154" width="180" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="4" filter="url(#rough2)"/>
+    <text x="490" y="170" text-anchor="middle" font-size="9" fill="#446688" font-weight="bold">SRAM (shared memory)</text>
+    <text x="490" y="184" text-anchor="middle" font-size="8" fill="#555">sQ, sK, sV tile</text>
+
+    <!-- online softmax -->
+    <rect x="400" y="202" width="180" height="40" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="4" filter="url(#rough2)"/>
+    <text x="490" y="218" text-anchor="middle" font-size="9" fill="#d6a040" font-weight="bold">online softmax (m, l, O)</text>
+    <text x="490" y="232" text-anchor="middle" font-size="8" fill="#555">增量更新，无需整行</text>
+
+    <!-- no S/P materialization -->
+    <rect x="400" y="250" width="180" height="34" fill="#fce4ec" stroke="#b85450" stroke-width="1" stroke-dasharray="3,2" rx="4" filter="url(#rough2)"/>
+    <text x="490" y="266" text-anchor="middle" font-size="9" fill="#b85450" font-weight="bold">S, P ✗ 不物化</text>
+    <text x="490" y="278" text-anchor="middle" font-size="8" fill="#888">只存片段在 SRAM</text>
+
+    <!-- total -->
+    <rect x="380" y="294" width="220" height="58" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+    <text x="490" y="312" text-anchor="middle" font-size="10" fill="#444" font-weight="bold">HBM 总流量</text>
+    <text x="490" y="328" text-anchor="middle" font-size="9" fill="#555">读: Q,K,V   写: O</text>
+    <text x="490" y="344" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">≈ O(Nd) 字节</text>
+  </g>
+
+  <!-- ===== Bottom: comparison bar ===== -->
+  <line x1="20" y1="384" x2="620" y2="384" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="408" font-size="12" fill="#444" font-weight="bold">HBM 流量对比（M=N=1024, d=64）：</text>
+
+  <!-- naive bar -->
+  <rect x="30" y="418" width="280" height="24" fill="#b85450" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+  <text x="170" y="434" text-anchor="middle" font-size="10" fill="#fff" font-weight="bold">朴素：~12 MB</text>
+
+  <text x="320" y="434" font-size="9" fill="#888">12×</text>
+
+  <!-- flash bar -->
+  <rect x="350" y="418" width="23" height="24" fill="#4a7a3a" stroke="#4a7a3a" stroke-width="1" rx="2" filter="url(#rough2)"/>
+  <text x="380" y="434" font-size="10" fill="#4a7a3a" font-weight="bold">FlashAttention：~1 MB</text>
+
+  <text x="30" y="460" font-size="10" fill="#555">N 越大差距越大：N=4096 时朴素 ~192MB，FlashAttention ~4MB（48×）</text>
+</svg>

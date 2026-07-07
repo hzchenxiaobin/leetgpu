@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="480" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">一个 block 负责一行：blockIdx.x → 行号</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">行内 BLOCK_SIZE 个 thread 协作（grid-stride），跨行由不同 block 并行</text>
+
+  <!-- ===== Matrix with row highlighting ===== -->
+  <text x="30" y="76" font-size="12" fill="#446688" font-weight="bold">input[B][N]（行主序）</text>
+
+  <g font-size="9" fill="#333">
+    <!-- Row 0 - block 0 (red) -->
+    <rect x="30" y="84" width="360" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="40" y="102" font-size="9" fill="#b85450" font-weight="bold">row 0</text>
+    <text x="80" y="102" font-size="9" fill="#888">input[0][0], input[0][1], ... input[0][N-1]</text>
+
+    <!-- Row 1 - block 1 (blue) -->
+    <rect x="30" y="114" width="360" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="40" y="132" font-size="9" fill="#446688" font-weight="bold">row 1</text>
+    <text x="80" y="132" font-size="9" fill="#888">input[1][0], input[1][1], ... input[1][N-1]</text>
+
+    <!-- Row 2 - block 2 (green) -->
+    <rect x="30" y="144" width="360" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="40" y="162" font-size="9" fill="#4a7a3a" font-weight="bold">row 2</text>
+    <text x="80" y="162" font-size="9" fill="#888">input[2][0], input[2][1], ... input[2][N-1]</text>
+
+    <!-- ellipsis -->
+    <text x="210" y="190" font-size="14" fill="#888" text-anchor="middle">...</text>
+
+    <!-- Row B-1 - block B-1 (orange) -->
+    <rect x="30" y="198" width="360" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="40" y="216" font-size="9" fill="#d6a040" font-weight="bold">row B-1</text>
+    <text x="90" y="216" font-size="9" fill="#888">input[B-1][0], ... input[B-1][N-1]</text>
+  </g>
+
+  <!-- arrows to blocks -->
+  <path d="M 410 98 L 460 98" stroke="#b85450" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <path d="M 410 128 L 460 128" stroke="#446688" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <path d="M 410 158 L 460 158" stroke="#4a7a3a" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <path d="M 410 212 L 460 212" stroke="#d6a040" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- ===== Blocks ===== -->
+  <text x="460" y="76" font-size="12" fill="#444" font-weight="bold">grid（B 个 block）</text>
+
+  <g font-size="9">
+    <rect x="460" y="84" width="140" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+    <text x="530" y="102" text-anchor="middle" fill="#b85450" font-weight="bold">block 0 (idx=0)</text>
+
+    <rect x="460" y="114" width="140" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+    <text x="530" y="132" text-anchor="middle" fill="#446688" font-weight="bold">block 1 (idx=1)</text>
+
+    <rect x="460" y="144" width="140" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+    <text x="530" y="162" text-anchor="middle" fill="#4a7a3a" font-weight="bold">block 2 (idx=2)</text>
+
+    <text x="530" y="190" font-size="14" fill="#888" text-anchor="middle">...</text>
+
+    <rect x="460" y="198" width="140" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+    <text x="530" y="216" text-anchor="middle" fill="#d6a040" font-weight="bold">block B-1</text>
+  </g>
+
+  <!-- ===== Zoom into one block ===== -->
+  <line x1="20" y1="244" x2="620" y2="244" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="268" font-size="12" fill="#b85450" font-weight="bold">block 内部（以 block 0 为例）：BLOCK_SIZE=256 个 thread 协作</text>
+
+  <!-- row elements N=8 example -->
+  <text x="30" y="290" font-size="10" fill="#888">row_in[0..N-1]（N 个元素）:</text>
+  <g font-size="8" fill="#333">
+    <rect x="30"  y="296" width="30" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="45"  y="310" text-anchor="middle">[0]</text>
+    <rect x="60"  y="296" width="30" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="75"  y="310" text-anchor="middle">[1]</text>
+    <rect x="90"  y="296" width="30" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="105" y="310" text-anchor="middle">[2]</text>
+    <rect x="120" y="296" width="30" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="135" y="310" text-anchor="middle">[3]</text>
+    <text x="165" y="310" font-size="10" fill="#888">...</text>
+    <rect x="190" y="296" width="30" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="205" y="310" text-anchor="middle">[N-1]</text>
+  </g>
+
+  <!-- thread mapping with grid-stride -->
+  <text x="30" y="340" font-size="10" fill="#446688" font-weight="bold">grid-stride 映射（每 thread 处理多个元素）：</text>
+
+  <g font-size="8">
+    <!-- t0 -->
+    <rect x="30"  y="348" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="45"  y="362" text-anchor="middle" fill="#446688">t0</text>
+    <rect x="300" y="348" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="315" y="362" text-anchor="middle" fill="#446688">t0</text>
+    <text x="270" y="362" font-size="9" fill="#888">...</text>
+    <path d="M 60 358 L 290 358" stroke="#446688" stroke-width="0.6" stroke-dasharray="2,2" fill="none" filter="url(#rough2)"/>
+
+    <!-- t1 -->
+    <rect x="60"  y="372" width="30" height="20" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="75"  y="386" text-anchor="middle" fill="#4a7a3a">t1</text>
+    <rect x="330" y="372" width="30" height="20" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="345" y="386" text-anchor="middle" fill="#4a7a3a">t1</text>
+    <path d="M 90 382 L 320 382" stroke="#4a7a3a" stroke-width="0.6" stroke-dasharray="2,2" fill="none" filter="url(#rough2)"/>
+
+    <!-- t2 -->
+    <rect x="90"  y="396" width="30" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="105" y="410" text-anchor="middle" fill="#d6a040">t2</text>
+    <rect x="360" y="396" width="30" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="0.6" rx="2" filter="url(#rough2)"/>
+    <text x="375" y="410" text-anchor="middle" fill="#d6a040">t2</text>
+    <path d="M 120 406 L 350 406" stroke="#d6a040" stroke-width="0.6" stroke-dasharray="2,2" fill="none" filter="url(#rough2)"/>
+
+    <text x="420" y="386" font-size="9" fill="#888">stride = BLOCK_SIZE</text>
+    <text x="420" y="400" font-size="9" fill="#888">for (i = tid; i &lt; N; i += BLOCK_SIZE)</text>
+  </g>
+
+  <!-- code snippet -->
+  <rect x="30" y="424" width="580" height="44" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="442" font-family="monospace" font-size="10" fill="#333">int b = blockIdx.x;          // 一个 block 一行</text>
+  <text x="44" y="458" font-family="monospace" font-size="10" fill="#333">for (i = threadIdx.x; i &lt; N; i += BLOCK_SIZE)  // grid-stride 行内扫描</text>
+</svg>
