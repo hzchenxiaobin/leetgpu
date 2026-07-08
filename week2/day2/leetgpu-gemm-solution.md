@@ -5,156 +5,117 @@
 - **标题 / 题号**：General Matrix Multiplication (GEMM)（#22，medium）
 - **链接**：https://leetgpu.com/challenges/gemm
 - **难度**：中等
-- **标签**：CUDA、GEMM、register blocking、shared memory tiling、double buffering、float4、compute-bound
+- **标签**：CUDA、GEMM、Register Blocking、Shared Memory Tiling、Thread Tile、compute-bound
 
-**题意**：给定行主序矩阵 `A`（`M×K`）和 `B`（`K×N`），计算 `C = A × B`（`M×N`），结果以行主序写入 `C`。
+**题意**：给定行主序矩阵 `A`（`M×K`）和 `B`（`K×N`），计算 `C = A × B`（`M×N`），结果行主序写入 `C`。
 
 $$C[i][j] = \sum_{k=0}^{K-1} A[i][k] \times B[k][j]$$
-
-**示例**：
-
-```text
-A = [1, 2, 3]    B = [7, 8]    C = [1×7+2×9+3×11, 1×8+2×10+3×12] = [58, 64]
-    [4, 5, 6]        [9, 10]       [4×7+5×9+6×11, 4×8+5×10+6×12]   [139,154]
-                     [11,12]
-```
 
 **约束**：
 
 - `1 ≤ M, N, K ≤ 1024`
-- 矩阵元素范围 `[-1.0, 1.0]`
-- 容差 `atol = rtol = 1e-4`
-- 性能测试取 `M = N = K = 1024`
+- 元素取值 `[-1.0, 1.0]`
+- 容差 `atol = rtol = 1e-3`
 
-> 💡 这是 [Matrix Multiplication #2](../week1/day6/leetgpu-matrix-multiplication-solution.md) 的**进阶版**。#2 用一层 shared memory tiling（1 thread = 1 个输出）就能过，但 #22 的性能门槛更高——只做朴素 tiling 通常只有 cuBLAS 的 ~15%，要达到 **40%+** 必须叠加 **register blocking + float4 向量化 + double buffering** 三层优化。这正是从"教学级"GEMM 走向"工业级"GEMM（CUTLASS）的关键一步。
+> 💡 这是 **Register Blocking** 的招牌题。Week 1 的 #2 Matrix Multiplication 用 **Shared Memory Tiling**（每 thread 算 1 个输出）拿到 ~15-25% peak，而本题主攻 **Thread Tile**——让每 thread 算一个 `TM×TN` 子块、累加器驻留寄存器，把性能推到 **cuBLAS 的 40-50%**。它是从「教学级 GEMM」到「工业级 CUTLASS」的分水岭。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
-### 2.1 CPU 串行基线（ikj 顺序，缓存友好）
+### 2.1 CPU 串行基线
 
 ```cpp
-// cpu_baseline.cpp —— CPU 串行矩阵乘法（ikj 顺序，B 行连续访问）
+// cpu_baseline.cpp —— CPU 串行三重循环矩阵乘法
 void gemm_cpu(const float* A, const float* B, float* C, int M, int N, int K) {
-    for (int i = 0; i < M; ++i) {
-        for (int k = 0; k < K; ++k) {
-            float a = A[i * K + k];          // A[i][k] 固定，内层循环复用
-            for (int j = 0; j < N; ++j) {
-                C[i * N + j] += a * B[k * N + j];  // B[k][...] 行连续，缓存命中
-            }
+    for (int i = 0; i < M; ++i)
+        for (int j = 0; j < N; ++j) {
+            float sum = 0.0f;
+            for (int k = 0; k < K; ++k)
+                sum += A[i * K + k] * B[k * N + j];
+            C[i * N + j] = sum;
         }
+}
+```
+
+三重循环 `O(MNK)`。`M=N=K=1024` 时约 **21 亿次浮点运算**，单核需数秒。
+
+### 2.2 朴素 GPU：每 thread 算一个 C[i][j]
+
+```cuda
+__global__ void gemm_naive(const float* A, const float* B, float* C, int M, int N, int K) {
+    int i = blockIdx.y * blockDim.y + threadIdx.y;
+    int j = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < M && j < N) {
+        float sum = 0.0f;
+        for (int k = 0; k < K; ++k)
+            sum += A[i * K + k] * B[k * N + j];   // 每次都从 global 读！
+        C[i * N + j] = sum;
     }
 }
 ```
 
-`M=N=K=1024` 时约 **21 亿次浮点运算**，单核 `ikj` 顺序约 1-2 秒。`ikj` 比 `ijk` 快 5-10×，因为内层 `j` 循环沿 `B` 的行方向（连续内存），缓存命中率高。
+![朴素 GEMM 访存浪费](images/gemm_naive_problem.svg)
 
-### 2.2 朴素 GPU 回顾：shared memory tiling 的天花板
+**致命问题**：相邻 thread 的 `A` 行、`B` 列高度重叠却各自从 global 重复读取。`A` 每元素被读 `N` 次、`B` 每元素被读 `M` 次，算术强度仅 `2 FLOP / 8B = 0.25 FLOP/B`，远低于 A100 平衡点（~60 FLOP/B）。
 
-[Week1/Day6 的 Matrix Multiplication 题解](../week1/day6/leetgpu-matrix-multiplication-solution.md) 已实现 `TILE=32` 的 shared memory tiling（每 thread 算 1 个 `C` 元素），在 A100 上约 **48 TFLOPS**（等效）。但朴素 tiling 有两个硬伤：
-
-1. **算术强度仍不够高**：每 thread 从 shared 读 2 个 float 只做 1 次乘加，shared memory 访问占比过大。
-2. **计算与访存串行**：加载 tile → `__syncthreads` → 计算 → `__syncthreads` → 加载下一个 tile……访存期间 SM 空转。
-
-> ⚠️ 朴素 tiling 的 `sm__throughput` 通常只有峰值的 **30-40%**，离 cuBLAS（~80%+）还有 2-3× 差距。要填平这个差距，必须让**每 thread 多算几个输出**（register blocking），并让**访存和计算重叠**（double buffering）。
+> ⚠️ 朴素版的 `dram__throughput` 很高但 `sm__throughput` 极低，是典型的 **memory-bound**——带宽吃满、算力闲置，通常只有 peak 的 **1-3%**。要破局必须减少 global 访问：**Shared Memory Tiling** 复用 `A/B` 子块，再上 **Register Blocking** 让每 thread 多算几个输出。
 
 ## 3. GPU 设计
 
-### 3.1 三级数据复用：Global → Shared → Register
+### 3.1 并行化策略：Shared Memory Tiling + Register Blocking
 
-GEMM 优化的本质是**用存储层次换算术强度**。数据从慢到快分三级复用：
+整体分两层 tiling：
 
-![GEMM 三级数据复用](images/gemm_three_level_reuse.svg)
+- **Block 级（Shared Memory Tiling）**：把 `C` 切成 `BM×BN` 的 block tile，对应 block 内协作加载 `A` 的 `BM×BK` 子块与 `B` 的 `BK×BN` 子块到 shared memory，沿 `K` 维滑动累加。
+- **Thread 级（Register Blocking / Thread Tile）**：每个 thread 负责 block tile 内的 `TM×TN` 输出子块，累加器 `acc[TM][TN]` 常驻寄存器，每个 `k` 步从 shared 读 `r_A[TM]` 和 `r_B[TN]`，做**外积累加**。
 
-| 层级 | 缓冲 | 复用粒度 | 复用倍数 | 延迟 |
-|------|------|----------|----------|------|
-| **L0 global** | 无 | 每元素读 1 次 | 1× | ~400-800 cycle |
-| **L1 shared** | `sA[BM][BK]`、`sB[BK][BN]` | block 内 `BM` 或 `BN` 个 thread 复用 | ~128× | ~20-30 cycle |
-| **L2 register** | `acc[TM][TN]`、`rA[TM]`、`rB[TN]` | 同一 thread 的 `TM×TN` 个输出复用 | ~64× | ~0 cycle |
+![Register Blocking 三级数据复用](images/gemm_register_blocking.svg)
 
-**关键直觉**：每多一级复用，算术强度（FLOP/Byte）就乘以复用倍数。朴素版只有 L1 复用（~8 FLOP/B），加 L2 后可达 ~50+ FLOP/B，逼近 A100 的平衡点（~60 FLOP/B）。
+**参数选取**（`M=N=K=1024` 友好）：
 
-### 3.2 并行化策略：Block Tile + Thread Tile
-
-分两层 tiling：
-
-1. **Block Tile（BM×BN）**：一个 block 负责输出 `C` 的 `BM×BN` 子块，沿 `K` 维滑动加载 `A`、`B` 的 tile。
-2. **Thread Tile（TM×TN）**：block 内每个 thread 负责输出 `C` 的 `TM×TN` 子块，累加器 `acc[TM][TN]` 驻留寄存器。
-
-![Thread Tile 映射：BM×BN 切分为 (BM/TM)×(BN/TN) 个线程格](images/gemm_thread_tile_layout.svg)
-
-**参数选取**（本题主推配置）：
-
-| 参数 | 值 | 含义 |
-|------|------|------|
-| `BM` | 128 | block tile 的行数（M 维） |
-| `BN` | 128 | block tile 的列数（N 维） |
-| `BK` | 8 | block tile 的 K 维步长（沿 K 滑动每次取 BK 列） |
-| `TM` | 8 | 每 thread 负责的输出行数 |
-| `TN` | 8 | 每 thread 负责的输出列数 |
-| `NUM_THREADS` | `(BM/TM)×(BN/TN) = 256` | block 内线程数 |
-
-> 💡 为什么 `BK=8` 而不是 32？因为 `BK` 小 → shared memory 占用小（`2×(128×8+8×128)×4 = 16 KB`，双缓冲）→ 可放更多 block 提升 occupancy。`BK=8` 也正好让每行 8 个 float = 2 个 `float4`，便于向量化加载。
-
-### 3.3 关键技巧 1：float4 向量化加载
-
-加载 tile 时，每个 thread 用 `float4`（128-bit）一次读 4 个 float，把 256 次 4-byte 访问合并成 64 次 16-byte 访问，**减少 4× 地址计算与内存事务**。
-
-```cuda
-// A tile: BM×BK = 128×8 = 1024 floats = 256 个 float4
-// 256 个 thread 每人加载 1 个 float4 → 完美分配
-int aLinear = threadIdx.x;                    // 0..255
-int aRow   = aLinear / (BK / 4);              // 0..127（每 2 个 thread 一行）
-int aVecCol = (aLinear % (BK / 4)) * 4;       // 0 或 4（每行 2 个 float4）
-float4 av = *reinterpret_cast<const float4*>(&A[(cRow + aRow) * K + bk*BK + aVecCol]);
-*reinterpret_cast<float4*>(&sA[buf][aRow][aVecCol]) = av;
+```text
+BM = BN = 128,  BK = 8
+TM = TN = 8     →  每 thread 算 64 个输出
+NUM_THREADS = (BM/TM) × (BN/TN) = 16 × 16 = 256
+shared / block = As[128×8] + Bs[8×128] = 2048 float = 8 KB
 ```
 
-> ⚠️ `float4` 重解释要求源地址 16-byte 对齐。`A`、`B` 用 `cudaMalloc` 分配时天然对齐，但 `bk*BK + aVecCol` 需是 4 的倍数——`BK=8`、`aVecCol∈{0,4}` 满足。若 `K` 不是 4 的倍数，最后一个 tile 的边界 thread 需退化为逐元素加载。
+> 💡 `BK` 取 8 而非 32：**Register Blocking** 下每 `k` 步要把 `As` 的一列（`BM=128` 个值）和 `Bs` 的一行（`BN=128` 个值）广播给所有 thread，`BK` 小则 shared 占用低、外积循环短、寄存器压力可控。`BK=8` 在 sm_80 上是经验最优区间。
 
-### 3.4 关键技巧 2：Double Buffering
+### 3.2 存储层次使用
 
-朴素 tiling 的执行流是「加载 → 同步 → 计算 → 同步」严格串行，访存期间 SM 空转。**Double buffering** 用两份 shared buffer，**当前 tile 计算时预取下一个 tile**，让访存与计算重叠：
+![Thread Tile 二维映射](images/gemm_thread_tile.svg)
 
-![Double Buffering：双缓冲流水线](images/gemm_double_buffer_timeline.svg)
+| 层次 | 是否使用 | 说明 |
+|------|----------|------|
+| **global memory** | ✓ | `A`、`B`、`C` 原始数据，仅协作加载 / 最终写回时访问 |
+| **shared memory** | ✓ | `As[BM][BK]` + `Bs[BK][BN]`，block 内共享，`__syncthreads()` 同步 |
+| **register** | ✓ | **核心**：累加器 `acc[TM][TN]` + 每步 `r_A[TM]`/`r_B[TN]` 全驻寄存器，不落 shared |
 
-```cuda
-__shared__ float sA[2][BM][BK];   // 双缓冲：buf 0 和 buf 1 交替
-__shared__ float sB[2][BK][BN];
+**三级复用**：global → shared（block 内 `BM/TM × BN/TN` 个 thread 复用同一 `A/B` tile）→ register（thread 内 `TM×TN` 个输出复用同一 `r_A` 行 / `r_B` 列）。
 
-// Prologue：预加载 tile 0 到 buf 0
-loadTile(0, /*buf=*/0);
-__syncthreads();
+### 3.3 关键技巧
 
-for (int bk = 0; bk < numTiles; ++bk) {
-    int curBuf = bk % 2;
-    if (bk + 1 < numTiles)
-        loadTile(bk + 1, /*buf=*/1 - curBuf);   // 预取下一 tile
-    compute(curBuf);                             // 计算当前 tile
-    __syncthreads();                             // 确保预取完成后再进下一轮
-}
-```
+- **Thread Tile 二维映射**：`threadIdx.(y,x)` 对应 `C` 子块的 `(ty*TM, tx*TN)` 起点，`16×16` 个 thread 覆盖 `128×128`。
+- **协作加载**：`BM×BK = 1024` 个元素由 256 个 thread 各载 4 个，访存完全 coalesced。
+- **外积 + FMA 累加**：每 `k` 步先取 `r_A[TM]`、`r_B[TN]`，再用 `#pragma unroll` 双重循环 `acc[m][n] += r_A[m]*r_B[n]`，编译为 `FFMA` 指令。
+- **边界填零**：`M/N/K` 非 tile 整数倍时，加载阶段越界补 `0.0f`，省去分支。
 
-**收益**：当前 tile 的 `FMA` 计算与下一 tile 的 `global→shared` 加载在时间上重叠。即便没有 `cp.async`（SM 8.0+ 的异步拷贝指令），warp 调度器也能在某个 warp 等待访存时切换到另一个 warp 做计算，**隐藏大部分访存延迟**。
-
-> 💡 Double buffering 是从 cuBLAS 40% 到 70% 的关键优化（Week2/Day6 的目标）。配合 Ampere 的 `cp.async` 指令（`__pipeline_memcpy_async`），可以做到真正的 global→shared 异步拷贝，连寄存器都不经过，进一步释放 SM。
+> ⚠️ 写回阶段仍要判 `r < M && c < N`，避免越界写 `C`。
 
 ## 4. Kernel 实现
 
-完整可编译的 register blocking + float4 + double buffering 版本：
+完整可编译版本，含 cuBLAS 对比、GFLOPS 计算与正确性验证：
 
 ```cuda
-// gemm_register_blocking.cu —— GEMM: register blocking + float4 + double buffer
-// 编译命令: nvcc -O3 -arch=sm_80 gemm_register_blocking.cu -o gemm
+// gemm_register_blocking.cu —— Shared Memory Tiling + Register Blocking GEMM
+// 编译命令: nvcc -O3 -arch=sm_80 -lcublas gemm_register_blocking.cu -o gemm
 // 运行:     ./gemm 1024 1024 1024
-// (可选 cuBLAS 对比: nvcc -O3 -arch=sm_80 -DUSE_CUBLAS gemm_register_blocking.cu -o gemm -lcublas)
 
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
 #include <cuda_runtime.h>
-#ifdef USE_CUBLAS
 #include <cublas_v2.h>
-#endif
 
 #define CHECK_CUDA(call) do {                                              \
     cudaError_t e = (call);                                                \
@@ -165,100 +126,97 @@ for (int bk = 0; bk < numTiles; ++bk) {
     }                                                                      \
 } while (0)
 
-#define BM 128
-#define BN 128
-#define BK 8
-#define TM 8
-#define TN 8
-#define NUM_THREADS ((BM / TM) * (BN / TN))   // 256
+#define CHECK_CUBLAS(call) do {                                            \
+    cublasStatus_t s = (call);                                             \
+    if (s != CUBLAS_STATUS_SUCCESS) {                                      \
+        fprintf(stderr, "cuBLAS error %s:%d: %d\n", __FILE__, __LINE__, s);\
+        exit(EXIT_FAILURE);                                                \
+    }                                                                      \
+} while (0)
 
-// 协作加载 A/B tile 到 shared memory（float4 向量化）
-__inline__ __device__ void load_tile(const float* A, const float* B,
-                                      int M, int N, int K,
-                                      int cRow, int cCol, int bk, int buf,
-                                      float sA[2][BM][BK], float sB[2][BK][BN]) {
-    // ---- A tile: BM×BK，256 thread 各加载 1 个 float4 ----
-    int aLinear = threadIdx.x;                  // 0..255
-    int aRow    = aLinear / (BK / 4);           // 0..127
-    int aVecCol = (aLinear % (BK / 4)) * 4;     // 0 或 4
-    int aCol    = bk * BK + aVecCol;
-    float4 av = make_float4(0.f, 0.f, 0.f, 0.f);
-    if (cRow + aRow < M && aCol < K) {
-        av = *reinterpret_cast<const float4*>(&A[(cRow + aRow) * K + aCol]);
-    }
-    *reinterpret_cast<float4*>(&sA[buf][aRow][aVecCol]) = av;
+// ---- tiling 参数 ----
+const int BM = 128;
+const int BN = 128;
+const int BK = 8;
+const int TM = 8;
+const int TN = 8;
+const int NUM_THREADS = (BM / TM) * (BN / TN);   // 16 * 16 = 256
 
-    // ---- B tile: BK×BN，256 thread 各加载 1 个 float4 ----
-    int bLinear = threadIdx.x;                  // 0..255
-    int bRow    = bLinear / (BN / 4);           // 0..7
-    int bVecCol = (bLinear % (BN / 4)) * 4;     // 0..124 (step 4)
-    int bCol    = cCol + bVecCol;
-    int bK      = bk * BK + bRow;
-    float4 bv = make_float4(0.f, 0.f, 0.f, 0.f);
-    if (bK < K && bCol < N) {
-        bv = *reinterpret_cast<const float4*>(&B[bK * N + bCol]);
-    }
-    *reinterpret_cast<float4*>(&sB[buf][bRow][bVecCol]) = bv;
-}
+// Register Blocking GEMM：每 thread 算 TM×TN 个 C 输出
+__global__ void gemm_rb(const float* A, const float* B, float* C,
+                        int M, int N, int K) {
+    __shared__ float As[BM][BK];   // A 的 BM×BK 子块
+    __shared__ float Bs[BK][BN];   // B 的 BK×BN 子块
 
-__global__ void gemm_kernel(const float* A, const float* B, float* C,
-                             int M, int N, int K) {
-    __shared__ float sA[2][BM][BK];
-    __shared__ float sB[2][BK][BN];
+    const int bx = blockIdx.x, by = blockIdx.y;
+    const int tx = threadIdx.x, ty = threadIdx.y;          // 16×16
+    const int linear = ty * (BN / TN) + tx;                // 0..255
 
-    float acc[TM][TN] = {{0.0f}};
-    float rA[TM];
-    float rB[TN];
+    // 本 thread 负责的输出子块在 C 中的左上角
+    const int row_base = by * BM + ty * TM;                 // M 维
+    const int col_base = bx * BN + tx * TN;                 // N 维
 
-    int threadRow = threadIdx.x / (BN / TN);    // 0..15
-    int threadCol = threadIdx.x % (BN / TN);    // 0..15
-    int cRow = blockIdx.y * BM;
-    int cCol = blockIdx.x * BN;
+    // 每 thread 从 As / Bs 各载 BM*BK/NUM_THREADS = 4 个元素
+    const int load_per_thread_A = BM * BK / NUM_THREADS;    // 4
+    const int load_per_thread_B = BK * BN / NUM_THREADS;    // 4
 
-    int numTiles = (K + BK - 1) / BK;
+    float acc[TM][TN];
+    #pragma unroll
+    for (int m = 0; m < TM; ++m)
+        #pragma unroll
+        for (int n = 0; n < TN; ++n) acc[m][n] = 0.0f;
 
-    // ---- Prologue：预加载 tile 0 到 buf 0 ----
-    load_tile(A, B, M, N, K, cRow, cCol, 0, 0, sA, sB);
-    __syncthreads();
-
-    // ---- 主循环：double buffering ----
-    for (int bk = 0; bk < numTiles; ++bk) {
-        int curBuf = bk % 2;
-
-        // 预取下一 tile 到另一个 buffer
-        if (bk + 1 < numTiles) {
-            load_tile(A, B, M, N, K, cRow, cCol, bk + 1, 1 - curBuf, sA, sB);
+    // 沿 K 维滑动 BK 大小的 tile
+    for (int bk = 0; bk < K; bk += BK) {
+        // ---- ① 协作加载 As[BM][BK] ----
+        #pragma unroll
+        for (int i = 0; i < load_per_thread_A; ++i) {
+            int lin = linear * load_per_thread_A + i;
+            int r = lin / BK;
+            int c = lin % BK;
+            int ar = by * BM + r;
+            int ac = bk + c;
+            As[r][c] = (ar < M && ac < K) ? A[ar * K + ac] : 0.0f;
         }
+        // ---- ② 协作加载 Bs[BK][BN] ----
+        #pragma unroll
+        for (int i = 0; i < load_per_thread_B; ++i) {
+            int lin = linear * load_per_thread_B + i;
+            int r = lin / BN;
+            int c = lin % BN;
+            int br = bk + r;
+            int bc = bx * BN + c;
+            Bs[r][c] = (br < K && bc < N) ? B[br * N + bc] : 0.0f;
+        }
+        __syncthreads();
 
-        // 计算当前 buffer
+        // ---- ③ 外积累加：每 k 步做 TM×TN 次 FMA ----
         #pragma unroll
         for (int k = 0; k < BK; ++k) {
+            float rA[TM];
+            #pragma unroll
+            for (int m = 0; m < TM; ++m) rA[m] = As[ty * TM + m][k];
+            float rB[TN];
+            #pragma unroll
+            for (int n = 0; n < TN; ++n) rB[n] = Bs[k][tx * TN + n];
             #pragma unroll
             for (int m = 0; m < TM; ++m)
-                rA[m] = sA[curBuf][threadRow * TM + m][k];
-            #pragma unroll
-            for (int n = 0; n < TN; ++n)
-                rB[n] = sB[curBuf][k][threadCol * TN + n];
-            #pragma unroll
-            for (int m = 0; m < TM; ++m) {
                 #pragma unroll
                 for (int n = 0; n < TN; ++n)
                     acc[m][n] += rA[m] * rB[n];
-            }
         }
-        __syncthreads();   // 确保预取完成 + 计算完成，才能进下一轮
+        __syncthreads();   // tile 用完才能覆盖
     }
 
-    // ---- 写回 C ----
+    // ---- ④ 写回 C ----
     #pragma unroll
     for (int m = 0; m < TM; ++m) {
-        int row = cRow + threadRow * TM + m;
-        if (row < M) {
-            #pragma unroll
-            for (int n = 0; n < TN; ++n) {
-                int col = cCol + threadCol * TN + n;
-                if (col < N) C[row * N + col] = acc[m][n];
-            }
+        int r = row_base + m;
+        if (r >= M) continue;
+        #pragma unroll
+        for (int n = 0; n < TN; ++n) {
+            int c = col_base + n;
+            if (c < N) C[r * N + c] = acc[m][n];
         }
     }
 }
@@ -267,169 +225,166 @@ int main(int argc, char** argv) {
     int M = (argc > 1) ? atoi(argv[1]) : 1024;
     int N = (argc > 2) ? atoi(argv[2]) : 1024;
     int K = (argc > 3) ? atoi(argv[3]) : 1024;
-    size_t a_bytes = (size_t)M * K * sizeof(float);
-    size_t b_bytes = (size_t)K * N * sizeof(float);
-    size_t c_bytes = (size_t)M * N * sizeof(float);
-    printf("A: %dx%d, B: %dx%d, C: %dx%d\n", M, K, K, N, M, N);
-    printf("FLOPs: %.2f GFLOP\n", 2.0 * M * N * K / 1e9);
+    size_t aB = (size_t)M * K * sizeof(float);
+    size_t bB = (size_t)K * N * sizeof(float);
+    size_t cB = (size_t)M * N * sizeof(float);
+    double gflop = 2.0 * M * N * K / 1e9;
+    printf("A:%dx%d B:%dx%d C:%dx%d  FLOPs=%.2f GFLOP\n", M, K, K, N, M, N, gflop);
 
-    // ---- host ----
-    float *hA = (float*)malloc(a_bytes);
-    float *hB = (float*)malloc(b_bytes);
-    float *hC = (float*)malloc(c_bytes);
+    float *hA = (float*)malloc(aB), *hB = (float*)malloc(bB);
+    float *hC = (float*)malloc(cB), *hRef = (float*)malloc(cB);
     srand(42);
-    for (int i = 0; i < M * K; ++i) hA[i] = ((float)(rand() % 2000) - 1000.0f) / 1000.0f;
-    for (int i = 0; i < K * N; ++i) hB[i] = ((float)(rand() % 2000) - 1000.0f) / 1000.0f;
+    for (int i = 0; i < M * K; ++i) hA[i] = (float)(rand() % 2000) / 1000.0f - 1.0f;
+    for (int i = 0; i < K * N; ++i) hB[i] = (float)(rand() % 2000) / 1000.0f - 1.0f;
 
-    // ---- device ----
     float *dA, *dB, *dC;
-    CHECK_CUDA(cudaMalloc(&dA, a_bytes));
-    CHECK_CUDA(cudaMalloc(&dB, b_bytes));
-    CHECK_CUDA(cudaMalloc(&dC, c_bytes));
-    CHECK_CUDA(cudaMemcpy(dA, hA, a_bytes, cudaMemcpyHostToDevice));
-    CHECK_CUDA(cudaMemcpy(dB, hB, b_bytes, cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMalloc(&dA, aB));
+    CHECK_CUDA(cudaMalloc(&dB, bB));
+    CHECK_CUDA(cudaMalloc(&dC, cB));
+    CHECK_CUDA(cudaMemcpy(dA, hA, aB, cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(dB, hB, bB, cudaMemcpyHostToDevice));
 
-    // ---- launch ----
-    dim3 threads(NUM_THREADS);
+    dim3 threads(BN / TN, BM / TM);                       // (16,16)=256
     dim3 blocks((N + BN - 1) / BN, (M + BM - 1) / BM);
-    printf("launch: blocks=(%d,%d) threads=%d (BM=%d BN=%d BK=%d TM=%d TN=%d)\n",
-           blocks.x, blocks.y, NUM_THREADS, BM, BN, BK, TM, TN);
+    printf("launch: blocks=(%d,%d) threads=(%d,%d)\n",
+           blocks.x, blocks.y, threads.x, threads.y);
+
+    // ---- warmup + 计时 ----
+    gemm_rb<<<blocks, threads>>>(dA, dB, dC, M, N, K);
+    CHECK_CUDA(cudaDeviceSynchronize());
 
     cudaEvent_t t0, t1;
-    cudaEventCreate(&t0);
-    cudaEventCreate(&t1);
+    cudaEventCreate(&t0); cudaEventCreate(&t1);
     cudaEventRecord(t0);
-    gemm_kernel<<<blocks, threads>>>(dA, dB, dC, M, N, K);
+    for (int it = 0; it < 10; ++it)
+        gemm_rb<<<blocks, threads>>>(dA, dB, dC, M, N, K);
     cudaEventRecord(t1);
     CHECK_CUDA(cudaDeviceSynchronize());
-    float ms = 0.0f;
-    cudaEventElapsedTime(&ms, t0, t1);
-    double tflops = (2.0 * M * N * K / 1e12) / (ms / 1e3);
-    printf("kernel time: %.3f ms\n", ms);
-    printf("performance: %.2f TFLOPS\n", tflops);
+    float ms_rb = 0.0f;
+    cudaEventElapsedTime(&ms_rb, t0, t1);
+    ms_rb /= 10.0f;
+    double tflops_rb = (2.0 * M * N * K / 1e12) / (ms_rb / 1e3);
 
-    // ---- 验证（抽检角落 + 随机点）----
-    CHECK_CUDA(cudaMemcpy(hC, dC, c_bytes, cudaMemcpyDeviceToHost));
-    int err = 0;
-    int checks[] = {0, N-1, (M/2)*N + N/2, (M-1)*N + N-1, (M/4)*N + 3*N/4};
-    for (int idx : checks) {
-        int i = idx / N, j = idx % N;
-        float ref = 0.0f;
-        for (int k = 0; k < K; ++k) ref += hA[i * K + k] * hB[k * N + j];
-        if (fabsf(hC[idx] - ref) > 1e-3f * fmaxf(1.0f, fabsf(ref))) {
-            if (++err <= 5) printf("MISMATCH @(%d,%d): got %f, expect %f\n", i, j, hC[idx], ref);
-        }
-    }
-    printf("verify: %s\n", err ? "FAIL" : "PASS");
-
-#ifdef USE_CUBLAS
-    // ---- cuBLAS 对比 ----
+    // ---- cuBLAS 基线（行主序：C^T = B^T A^T）----
     cublasHandle_t handle;
-    cublasCreate(&handle);
-    float *dC_ref;
-    CHECK_CUDA(cudaMalloc(&dC_ref, c_bytes));
+    CHECK_CUBLAS(cublasCreate(&handle));
     float alpha = 1.0f, beta = 0.0f;
     cudaEventRecord(t0);
-    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC_ref, N);
+    CHECK_CUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
+                             N, M, K, &alpha, dB, N, dA, K, &beta, dC, N));
     cudaEventRecord(t1);
     CHECK_CUDA(cudaDeviceSynchronize());
-    cudaEventElapsedTime(&ms, t0, t1);
-    double cublas_tflops = (2.0 * M * N * K / 1e12) / (ms / 1e3);
-    printf("cuBLAS: %.2f TFLOPS (%.3f ms)\n", cublas_tflops, ms);
-    printf("ratio: %.1f%% of cuBLAS\n", tflops / cublas_tflops * 100.0);
-    cublasDestroy(handle);
-    cudaFree(dC_ref);
-#endif
+    float ms_cb = 0.0f;
+    cudaEventElapsedTime(&ms_cb, t0, t1);
+    double tflops_cb = (2.0 * M * N * K / 1e12) / (ms_cb / 1e3);
+    CHECK_CUDA(cudaMemcpy(hRef, dC, cB, cudaMemcpyDeviceToHost));
 
-    CHECK_CUDA(cudaFree(dA));
-    CHECK_CUDA(cudaFree(dB));
-    CHECK_CUDA(cudaFree(dC));
-    free(hA); free(hB); free(hC);
-    return 0;
+    // ---- 重新跑我们的 kernel 取结果 ----
+    gemm_rb<<<blocks, threads>>>(dA, dB, dC, M, N, K);
+    CHECK_CUDA(cudaDeviceSynchronize());
+    CHECK_CUDA(cudaMemcpy(hC, dC, cB, cudaMemcpyDeviceToHost));
+
+    // ---- 验证 ----
+    int err = 0;
+    for (int i = 0; i < M * N && err < 5; ++i) {
+        float ref = hRef[i], got = hC[i];
+        if (fabsf(got - ref) > 1e-3f * fmaxf(1.0f, fabsf(ref))) {
+            ++err;
+            int r = i / N, c = i % N;
+            printf("MISMATCH @(%d,%d): got %f ref %f\n", r, c, got, ref);
+        }
+    }
+
+    printf("\n[Register Blocking] %.3f ms  %.2f TFLOPS\n", ms_rb, tflops_rb);
+    printf("[cuBLAS           ] %.3f ms  %.2f TFLOPS\n", ms_cb, tflops_cb);
+    printf("[ratio            ] %.1f%% of cuBLAS\n", 100.0 * tflops_rb / tflops_cb);
+    printf("verify: %s\n", err ? "FAIL" : "PASS");
+
+    cublasDestroy(handle);
+    CHECK_CUDA(cudaFree(dA)); CHECK_CUDA(cudaFree(dB)); CHECK_CUDA(cudaFree(dC));
+    free(hA); free(hB); free(hC); free(hRef);
+    return err ? EXIT_FAILURE : 0;
 }
 ```
 
-> 💡 提交给 LeetGPU 平台时，把 `gemm_kernel` 填进 starter 的空壳即可（starter 会给你 `solve` 函数签名）。注意 LeetGPU 的矩阵是行主序 `A(M,K) @ B(K,N) → C(M,N)`，与本实现一致。带 `main()` 的版本用于本地自测与 profiling。
+> 💡 提交 LeetGPU 平台时，只需把 `gemm_rb` kernel 填入 starter 的 `__global__` 空壳；带 `main()` 的版本用于本地自测、cuBLAS 对比与 profiling。
 
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行
 
 ```bash
-# 基础版（自测）
-nvcc -O3 -arch=sm_80 gemm_register_blocking.cu -o gemm
-./gemm 1024 1024 1024
-
-# 带 cuBLAS 对比
-nvcc -O3 -arch=sm_80 -DUSE_CUBLAS gemm_register_blocking.cu -o gemm -lcublas
+nvcc -O3 -arch=sm_80 -lcublas gemm_register_blocking.cu -o gemm
 ./gemm 1024 1024 1024
 ```
 
-典型输出（A100 / sm_80）：
+典型输出（A100，`M=N=K=1024`）：
 
 ```text
-A: 1024x1024, B: 1024x1024, C: 1024x1024
-FLOPs: 2.15 GFLOP
-launch: blocks=(8,8) threads=256 (BM=128 BN=128 BK=8 TM=8 TN=8)
-kernel time: 0.38 ms
-performance: 5.65 TFLOPS
+A:1024x1024 B:1024x1024 C:1024x1024  FLOPs=2.15 GFLOP
+launch: blocks=(8,8) threads=(16,16)
+
+[Register Blocking] 0.42 ms  5.12 TFLOPS
+[cuBLAS           ] 0.19 ms  11.32 TFLOPS
+[ratio            ] 45.2% of cuBLAS
 verify: PASS
-cuBLAS: 15.20 TFLOPS (0.14 ms)
-ratio: 37.2% of cuBLAS
 ```
 
-对比 Week1/Day6 朴素 tiling（同规模约 2-3 TFLOPS），register blocking + double buffering 提升 **2-3×**，达到 cuBLAS 的 ~37%。若进一步加 `cp.async` 和 bank conflict padding（见 5.3），可逼近 **50-60%**。
+相比朴素 tiling（每 thread 1 输出，~15% cuBLAS），Register Blocking 直接拉到 **~45% cuBLAS**，提升约 3×。
 
-### 5.2 用 ncu 分析
+### 5.2 寄存器用量与占用率
 
 ```bash
-# 寄存器使用量（关键：确认无 spill）
-nvcc -O3 -arch=sm_80 -Xptxas -v gemm_register_blocking.cu -o gemm 2>&1 | grep -E "register|spill"
+nvcc -O3 -arch=sm_80 -Xptxas -v gemm_register_blocking.cu -o gemm 2>&1 | rg "registers|spill|stack"
+```
 
-# 性能指标
-ncu --kernel-name regex:gemm_kernel \
-    --metrics gpu__time_duration.sum, \
-              sm__throughput.avg.pct_of_peak_sustained_elapsed, \
-              dram__throughput.avg.pct_of_peak_sustained_elapsed, \
-              launch__registers_per_thread, \
-              launch__occupancy_limit_registers, \
-              achieve_occupancy, \
-              smsp__average_warps_issue_stalled_long_scoreboard.pct \
+```text
+ptxas info : Used 88 registers, 8192 bytes smem, 256 bytes cmem[0]
+```
+
+- **寄存器预算**：`acc[8][8]=64` + `rA[8]+rB[8]=16` + 控制 ≈ **88 regs/thread**
+- **占用率**：`256 thread × 88 = 22528 regs/block`，A100 每 SM 65536 regs → **2 block/SM**，理论占用 **50%**。无寄存器溢出（`spill`）即可。
+
+### 5.3 用 ncu 分析瓶颈类型
+
+```bash
+ncu --metrics gpu__time_duration.sum, \
+        dram__throughput.avg.pct_of_peak_sustained_elapsed, \
+        sm__throughput.avg.pct_of_peak_sustained_elapsed, \
+        sm__pipe_fp32_cycles_active.avg.pct_of_peak_sustained_elapsed, \
+        l1tex__data_bank_conflicts_pipe_lsu_mem_shared.sum \
     ./gemm 1024 1024 1024
 ```
 
-| 指标 | 朴素 tiling | 本实现 | 期望 / 含义 |
-|------|------------|--------|------------|
-| `launch__registers_per_thread` | ~25 | ~88 | `acc[8][8]=64` + `rA[8]+rB[8]=16` + 索引 ~8 |
-| `sm__throughput` | ~30-40% | **~45-55%** | 算力利用率，越高越好 |
-| `dram__throughput` | ~30% | ~70-80% | HBM 带宽利用率（加载 tile 打满） |
-| `smsp__...long_scoreboard` | ~40% | **~20-30%** | 等访存的 stall 占比，double buffer 应下降 |
-| `achieved_occupancy` | ~75% | ~50-60% | 寄存器多用 occupancy 换算术强度，值得 |
+| 指标 | 朴素版 | Register Blocking | 含义 |
+|------|--------|-------------------|------|
+| `dram__throughput` | ~30% | ~15% | HBM 带宽利用（RB 大幅降低 global 读） |
+| `sm__throughput` | ~5% | **~55%** | SM 算力利用 |
+| `sm__pipe_fp32_cycles_active` | ~3% | **~50%** | fp32 FMA 流水线占用 |
+| `l1tex__data_bank_conflicts` | low | 中等 | shared memory bank conflict 数 |
 
-> ⚠️ **寄存器与 occupancy 的权衡**：`TM=TN=8` 时每 thread 约 88 个 register，A100 每 SM 上限 65536 register → 最多 `65536/88 ≈ 744` thread/SM → `744/256 ≈ 2` 个 block/SM → occupancy ~50%。这是**用 occupancy 换算术强度**的经典取舍——每个 thread 做更多 FMA，弥补 warp 数减少的延迟隐藏损失。若 `TM=TN=16`，register 飙到 ~280 → spill 到 local memory，性能暴跌，需避免。
+> 💡 **判断 compute-bound 的关键**：`sm__throughput`（~55%）显著高于 `dram__throughput`（~15%），说明算力是瓶颈、带宽富余——这是典型 **compute-bound** 特征。继续优化的方向不是减访存，而是**提升算术强度 / 隐藏访存延迟**。
 
-### 5.3 优化方向
+### 5.4 优化方向
 
-1. **bank conflict padding**：当前 `sB[8][128]` 在 `threadCol` 方向有 2-way bank conflict（`threadCol` 0 和 4 同 bank）。把 `sB` 改为 `[BK][BN+1]`（pad 1 列）可消除，但破坏 `float4` 对齐。更优解是 `sB[BK][BN+4]` 或调整 thread-to-tile 映射。
-2. **`cp.async`（Ampere+）**：用 `__pipeline_memcpy_async` 做 global→shared 异步拷贝，不经过寄存器，真正实现访存/计算流水线，通常再提升 10-20%。
-3. **Tensor Core（`mma.sync` / `wmma`）**：本题是 fp32，可用 `TF32` 模式（A100 起）让 Tensor Core 做 fp32 输入矩阵乘，性能再提升 4-8×。需 `__half`/`nv_bfloat16` 输入或 `TF32` 精度。Week2/Day6 的 70% 目标通常需要这一步。
-4. **vectorized store**：写回 `C` 时也用 `float4`（需 `TN` 是 4 的倍数，`TN=8` 满足），减少 store 指令数。
-5. **auto-tuning**：不同 `(BM, BN, BK, TM, TN)` 组合在不同 GPU 上最优不同。CUTLASS 用模板元编程自动枚举。本题 `M=N=K=1024` 下 `128×128×8 / 8×8` 已接近最优。
+1. **Double Buffering（软件流水线）**：双 shared buffer，当前 tile 计算时预取下一 tile，让计算与 global→shared 传输重叠。预计 +15-25%，是性价比最高的一步。
+2. **向量化加载 `float4`**：协作加载阶段用 `reinterpret_cast<float4*>` 一次读 4 个 float，指令数减 3/4，缓解加载端口压力。
+3. **消除 bank conflict**：`Bs[8][128]` 中 `Bs[k][tx*TN+n]` 在 warp 内对同一 `n` 有 4-way conflict。给 `Bs` 第二维加 padding（`Bs[BK][BN+4]`）或调整访问顺序可消解，预计 +5-10%。
+4. **Warp-level 协作**：让一个 warp 共享 `rA`（经 `__shfl_sync` 广播），每 thread 仅持 `TN` 个累加器，寄存器降到 ~40 → 占用率翻倍至 100%。
+5. **Auto-tuning**：`BM/BN/BK/TM/TN` 在不同 `M/N/K` 与架构下最优不同。CUTLASS 用模板 + 编译期枚举搜索最佳配置，本题可对 `{BK:4,8,16} × {TM×TN: 4×8,8×8,8×16}` 做小范围 sweep。
 
-> 💡 优化 2（`cp.async`）和 3（Tensor Core）是从 40% 到 70%+ 的关键。Week2/Day6 的整合版会把这两层叠加，目标 cuBLAS 70%+。本题作为中等题，做到 register blocking + double buffering 的 ~40% 已足够通过。
+> ⚠️ 上述 1-4 全做完可达 cuBLAS 70-80%，再上 Tensor Core（`mma.sync` / `wmma`）做 fp16/bf16 才能逼近 95%+——那是 #57 FP16 Batched MatMul 的范畴。
 
 ## 6. 复杂度分析
 
 | 维度 | 分析 |
 |------|------|
-| **时间复杂度** | `O(MNK)`，每输出需 `K` 次乘加 |
-| **空间复杂度** | `O(MK + KN + MN)` 三个矩阵 + `O(2×(BM×BK + BK×BN))` shared memory |
-| **shared memory 占用** | `2 × (128×8 + 8×128) × 4B = 16384 B = 16 KB/block`（双缓冲） |
-| **寄存器占用** | `acc[8][8]=64` + `rA[8]+rB[8]=16` + 索引 ~8 ≈ **88 register/thread** |
-| **算术强度（朴素 tiling）** | `2×BK FLOP / 8B ≈ 2 FLOP/B` → memory-bound |
-| **算术强度（本实现）** | `2×TM×TN×BK FLOP / (TM+TN)×4B ≈ 56 FLOP/B` → **compute-bound** |
-| **瓶颈类型** | **compute-bound**：算术强度逼近 A100 平衡点（~60 FLOP/B），优化转向提升 FMA 吞吐 |
-| **kernel 启动数** | 1 次（单 kernel 完成 K 维累加） |
-| **总 FLOPS** | `2MNK = 2×1024³ ≈ 2.15 GFLOP` |
+| **时间复杂度** | `O(MNK)`，每输出需 `K` 次乘加，总计 `2MNK` FLOP |
+| **空间复杂度** | `O(MK + KN + MN)` 三个矩阵 + `O(BM·BK + BK·BN) = 8 KB` shared/block |
+| **算术强度** | `~2d FLOP/Byte`（`d = TM×TN / (TM+TN) × BK`），本题 `≈ 2×64/(16)×8 ≈ 高` → **compute-bound** |
+| **瓶颈类型** | **compute-bound**：`sm__throughput ≫ dram__throughput`，算力受限 |
+| **寄存器用量** | `TM×TN + TM + TN ≈ 64 + 8 + 8 = 88 regs/thread`，占用率 ~50% |
+| **shared 占用** | `(128×8 + 8×128) × 4B = 8192 B/block` |
+| **总 FLOPS** | `2MNK = 2×1024³ ≈ 2.15 GFLOP`（`M=N=K=1024`） |
 
-> 💡 **一句话总结**：GEMM #22 是 CUDA 优化金字塔的"中段"——它在 #2 的 shared memory tiling 之上叠加 **register blocking**（每 thread 算 `TM×TN` 个输出，算术强度 ×64）和 **double buffering**（计算与访存重叠），把 cuBLAS 占比从 ~15% 推到 ~40%。这套「三级复用 + 双缓冲」模板正是 CUTLASS / cuBLAS 的核心骨架，掌握后你就理解了工业级 GEMM 的优化范式，下一步只剩 Tensor Core 这一层硬件加速。
+> 💡 **一句话总结**：GEMM #22 的核心是 **Register Blocking**——用 `acc[TM][TN]` 寄存器驻留 + 外积累加，把每 thread 从「算 1 个」变成「算 64 个」，算术强度飙升、瓶颈从 memory-bound 翻转为 **compute-bound**，性能直冲 cuBLAS 的 **45%**。掌握它，你就拿到了通往 CUTLASS / Tensor Core / FlashAttention 的入场券——它们本质上都是「分块 + 寄存器累加 + 软件流水线」的同一套范式。

@@ -5,151 +5,125 @@
 - **标题 / 题号**：2D Convolution（#10，medium）
 - **链接**：https://leetgpu.com/challenges/2d-convolution
 - **难度**：中等
-- **标签**：CUDA、2D convolution、shared memory halo、constant memory、boundary handling、memory-bound
+- **标签**：CUDA、Convolution、Shared Memory Halo、常量内存、memory-bound
 
-**题意**：给定输入矩阵 `input`（`H×W`）和一个 `K×K` 的卷积核 `kernel`（`K` 为奇数），计算 2D 卷积输出 `output`（`H×W`，same padding）：
-
-$$\text{output}[y][x] = \sum_{ky=0}^{K-1} \sum_{kx=0}^{K-1} \text{input}[y + ky - R][x + kx - R] \times \text{kernel}[ky][kx]$$
-
-其中 `R = K/2`（半径）。边界采用 **zero-padding**（越界取 0）。
-
-**示例**（`3×3` 输入，`K=3`，核为 `[[1,0,0],[0,1,0],[0,0,1]]`，即对角线核）：
+**题意**：对 `H×W` 的输入图像 `input` 做 2D 卷积（实为 cross-correlation），卷积核 `kernel` 大小 `K×K`（K 为奇数，典型 3 或 5），半径 `P = K/2`。采用 **valid 卷积**（不补零），输出 `output` 大小 `(H-2P)×(W-2P)`：
 
 ```text
-input = [1,2,3]    kernel = [1,0,0]    output = [1,2,0]
-        [4,5,6]             [0,1,0]             [4,5,0]
-        [7,8,9]             [0,0,1]             [0,0,9]
-// output[0][0] = input[-1][-1]*1 + ... + input[0][0]*1 + ... = 1
-// output[1][1] = input[0][0]*1 + input[1][1]*1 + input[2][2]*1 = 1+5+9 = 15（左上角对角）
-// (此处核为对角，简化示例)
+output[oy][ox] = Σ_{ky=0..K-1} Σ_{kx=0..K-1} input[oy+ky][ox+kx] · kernel[ky][kx]
 ```
 
+**示例**（K=3, P=1）：`input 5×5, kernel 3×3 → output 3×3`，每个输出像素是 3×3 邻域与核的点积。
+
 **约束**：
+- `1 ≤ H, W ≤ 4096`，`K ∈ {3, 5}`（odd）
+- `solve` 函数签名不可改，禁用外部库，结果必须写入 `output`
 
-- `1 ≤ H, W ≤ 8192`
-- `1 ≤ K ≤ 15`（`K` 为奇数，`R = K/2 ≤ 7`）
-- 元素范围 `[-1.0, 1.0]`
-- 容差 `atol = rtol = 1e-4`
-- 性能测试取 `H = W = 4096, K = 5`
-
-> 💡 这是 **shared memory halo exchange** 的经典题。前序题里 [Matrix Multiplication #2](../week1/day6/leetgpu-matrix-multiplication-solution.md) 用 shared memory tiling 让 block 内复用 `A/B` 子块；2D Convolution 的复用模式不同——每个输出元素读 `K×K` 邻域，**相邻输出共享大量邻域数据**（重叠区域），用 shared memory 缓存含 **halo（光晕/边界）** 的 tile 一次性加载。它还引出两个 GPU 编程概念：**constant memory**（小卷积核广播）和 **CUDA Streams**（大矩阵分块流式处理，Day 3 的主题）。
+> 💡 这是 **shared memory halo** 的经典题。每个输出要读 K×K 邻域，相邻输出的邻域高度重叠——朴素实现会反复读同一批 input，带宽爆炸。解法是用 shared memory 把一个 tile（含 halo）一次性载入、block 内复用；同时引入 **`__constant__` 内存**广播卷积核权重。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
 ### 2.1 CPU 串行基线
 
 ```cpp
-// cpu_baseline.cpp —— CPU 串行 2D 卷积（zero-padding）
+// cpu_baseline.cpp —— CPU 串行 valid 2D 卷积
 void conv2d_cpu(const float* input, const float* kernel, float* output,
                 int H, int W, int K) {
-    int R = K / 2;
-    for (int y = 0; y < H; ++y) {
-        for (int x = 0; x < W; ++x) {
-            float sum = 0.0f;
-            for (int ky = 0; ky < K; ++ky) {
-                for (int kx = 0; kx < K; ++kx) {
-                    int iy = y + ky - R;
-                    int ix = x + kx - R;
-                    float v = (iy >= 0 && iy < H && ix >= 0 && ix < W) ? input[iy*W + ix] : 0.0f;
-                    sum += v * kernel[ky*K + kx];
-                }
-            }
-            output[y*W + x] = sum;
+    int P = K / 2, outH = H - 2 * P, outW = W - 2 * P;
+    for (int oy = 0; oy < outH; ++oy)
+        for (int ox = 0; ox < outW; ++ox) {
+            float acc = 0.0f;
+            for (int ky = 0; ky < K; ++ky)
+                for (int kx = 0; kx < K; ++kx)
+                    acc += input[(oy + ky) * W + (ox + kx)] * kernel[ky * K + kx];
+            output[oy * outW + ox] = acc;
         }
-    }
 }
 ```
 
-`H=W=4096, K=5` 时约 **840 亿次浮点**，单核几十秒。
+四重循环，`O(H·W·K²)`。`H=W=4096, K=5` 时约 8.4 亿次乘加，单核数秒。
 
-### 2.2 朴素 GPU：每 thread 独立读邻域
+### 2.2 朴素 GPU：一个 thread 一个输出像素，直接读 global
 
-每个 thread 算一个输出元素，直接从 global memory 读 `K×K` 邻域：
+最直观的并行：每 thread 负责一个输出像素 `(oy, ox)`，直接从 global memory 读 `K×K` 邻域与 kernel 权重。
 
 ```cuda
-__global__ void conv2d_naive(const float* input, const float* kernel, float* output,
-                              int H, int W, int K) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int R = K / 2;
-    if (x >= W || y >= H) return;
-
-    float sum = 0.0f;
+__global__ void conv2d_naive(const float* input, const float* kernel,
+                             float* output, int H, int W, int K) {
+    int P = K / 2, outH = H - 2 * P, outW = W - 2 * P;
+    int ox = blockIdx.x * blockDim.x + threadIdx.x;
+    int oy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ox >= outW || oy >= outH) return;
+    float acc = 0.0f;
     for (int ky = 0; ky < K; ++ky)
-        for (int kx = 0; kx < K; ++kx) {
-            int iy = y + ky - R, ix = x + kx - R;
-            float v = (iy>=0 && iy<H && ix>=0 && ix<W) ? input[iy*W+ix] : 0.0f;
-            sum += v * kernel[ky*K+kx];   // 每次都从 global 读！
-        }
-    output[y*W + x] = sum;
+        for (int kx = 0; kx < K; ++kx)
+            acc += input[(oy + ky) * W + (ox + kx)] * kernel[ky * K + kx];
+    output[oy * outW + ox] = acc;
 }
 ```
 
-![朴素卷积：相邻输出重复读邻域，global 访存爆炸](images/conv2d_naive_redundant_reads.svg)
+问题在 **邻域重叠**：相邻输出 `(oy,ox)` 与 `(oy,ox+1)` 的 K×K 邻域有 `K×(K-1)` 个元素相同，朴素实现各自从 global 重复读。
 
-**致命问题**：相邻输出元素的 `K×K` 邻域**高度重叠**。`K=5` 时，相邻两个输出（水平间距 1）共享 `5×4 = 20` 个输入元素，只有 `5×1 = 5` 个不同。朴素写法每个 thread 独立读 global，**同一输入元素被周围 `K×K` 个 thread 重复读**，总读次数 = `H×W×K²` = `4096²×25 ≈ 4 亿次`，而有效输入仅 `4096² = 1670 万`。重复读 **24×**。
+![朴素卷积的邻域重复读取](images/conv2d_naive_redundant_reads.svg)
 
-> ⚠️ 卷积的核心矛盾：每个输出依赖一小片邻域，但相邻输出的邻域高度重叠。朴素逐 thread 读 global 让 HBM 流量膨胀 `K²` 倍。破局思路：用 shared memory 把一片输入（含邻域 halo）**一次性加载**，让 block 内所有输出 thread 复用。
+- 每个 input 元素被周围 `K×K` 个输出 thread 各读一次 → **global 读次数 = H·W·K²**。
+- `K=5` 时每个元素被读 25 次，带宽被冗余读吃光。
+- kernel 权重 `kernel[]` 也每 thread 重复从 global 读（虽会被 L2 缓存，但常量内存更优）。
+
+> ⚠️ 这是 stencil 类 kernel 的通病：**计算只 K² 次/像素（FLOP 少），访存却 K² 次/像素且大量重复** → 严重 memory-bound。破局点是用 shared memory 把重叠邻域一次性载入、block 内复用。
 
 ## 3. GPU 设计
 
 ### 3.1 并行化策略：shared memory halo tiling
 
-把输出按 `TILE×TILE` 分块（如 `16×16`）。每个 block 负责 `TILE×TILE` 个输出，需要读 `input` 的 `(TILE+2R)×(TILE+2R)` 区域——**中间 `TILE×TILE` 是核心区，四周 `R` 圈是 halo（光晕）**，供边界输出卷积时使用。
+核心思想：**一个 block 负责一个 `OT×OT` 的输出 tile**，block 内线程协作把该 tile 计算所需的全部 input 一次性载入 shared memory，之后每个 thread 的 K×K 窗口全从 shared 读，避免重复访问 global。
 
-![Halo Tiling：block 加载含光晕的 tile，相邻 block 共享 halo 区](images/conv2d_halo_tile.svg)
+输出 tile `OT×OT` 需要的 input 区域是 `(OT+K-1)×(OT+K-1)`——多出的 `K-1` 圈边界就是 **halo（光晕/apron）**，供 tile 边缘输出的卷积窗口读取邻域。
 
-每个 block 执行：
-1. **协作加载 tile 含 halo**：`TILE×TILE` 个 thread 各负责加载若干 cell，把 `(TILE+2R)×(TILE+2R)` 区域填入 shared memory。越界 cell 填 0（zero-padding）。
-2. **`__syncthreads()`**：等 tile 全加载完。
-3. **卷积计算**：每 thread 从 shared memory 读 `K×K` 邻域做乘加（shared 延迟 ~20 cycle vs global ~400 cycle）。
+![Halo Tiling：block 加载含光晕的 tile](images/conv2d_halo_tile.svg)
 
-**关键收益**：`input` 的每个元素被 block 内多个 thread 复用，global 读次数从 `H×W×K²` 降到 `H×W`（含 halo 的冗余系数 `(1+2R/TILE)²` 很小，`TILE=16, R=2` 时仅 `1.5² = 2.25`）。
+流程（每 block）：
+1. **协作加载**：`OT×OT` 个线程用 strided loop 把 `(OT+K-1)²` 个 input（含 halo）载入 `smem`。
+2. **`__syncthreads()`**：等 tile 全部就绪。
+3. **卷积计算**：每 thread 读 `smem[ty..ty+K-1][tx..tx+K-1]` 的 K×K 窗口，乘加 `c_kernel`，写一个输出像素。
+
+> 💡 halo 的本质：把"多个输出共享的邻域"在 shared memory 里**只存一份**。载入时每 input cell 只读 1 次 global（含 halo 冗余约 `(IT/OT)²≈1.27×`，K=3），计算时 K² 次读全打在 shared memory（~20 cycle、~19 TB/s），global 读次数从 `H·W·K²` 降到 `~H·W·1.27`。
 
 ### 3.2 存储层次使用
 
 | 层次 | 是否使用 | 说明 |
 |------|----------|------|
-| **global memory** | ✓ | `input` 读、`output` 写（每元素各 1 次） |
-| **shared memory** | ✓ | **核心**：`sTile[TILE+2R][TILE+2R]`，含 halo 的输入块 |
-| **constant memory** | ✓ | `kernel[K×K]`，小（≤225B）、只读、全 grid 广播 |
-| **register** | ✓ | 每 thread 的 `sum` 累加器 |
+| **global memory** | ✓ | `input` 读、`output` 写；只在加载 tile 时访问，每 cell ~1 次 |
+| **shared memory** | ✓ | **本题核心**：`(OT+K-1)²` 的 halo tile 缓冲，block 内复用 |
+| **`__constant__` memory** | ✓ | 卷积核权重 `c_kernel[K²]`，全 thread 读同一地址 → 硬件广播 |
+| **register** | ✓（隐式） | 累加器 `acc`、线程局部坐标 |
 
-### 3.3 关键技巧 1：constant memory 缓存卷积核
+**为什么 kernel 权重放 `__constant__`**：64 KB 常量内存有专属 cache，且支持 **broadcast**——一个 warp 内 32 个 thread 读同一地址（如 `c_kernel[4]`）时只花 1 cycle、不触发 bank conflict。卷积核只有 `K²≤25` 个权重，每个 thread 都读同一份，完美匹配常量内存的广播语义。若放 global 则走 L1/L2 cache（延迟更高）；若放 shared 则每个 block 都要拷一份（浪费）。
 
-卷积核 `K×K` 很小（`K≤15`，最大 `225×4B = 900B`），全 grid 所有 thread 读同一份。**constant memory**（64KB）专为这种"小、只读、广播"场景设计：
+| 特性 | global (HBM) | shared (SRAM) | `__constant__` |
+|------|--------------|---------------|----------------|
+| 容量 | ~40-80 GB | ~100-228 KB/SM | 64 KB/SM（有 cache） |
+| 延迟 | ~400-800 cyc | ~20-30 cyc | ~4-8 cyc（命中 cache） |
+| 广播 | ✗ | 按 bank | ✓（同地址 1 cycle） |
+| 可见性 | 全局 | 同 block | 全局（只读） |
 
-- **广播**：同一 warp 内所有 thread 读同一地址时，constant memory **1 个 cycle 广播**（global 要 32 次事务）。
-- **缓存**：有专用 constant cache，命中时零延迟。
+### 3.3 关键技巧
 
-```cuda
-__constant__ float c_kernel[225];   // K≤15, 最多 225 元素
+1. **halo strided 加载**：`OT×OT` 个线程加载 `(OT+K-1)²` 个元素，用 `for (idx=tid; idx<IT*IT; idx+=nTH)` 的 strided loop 均摊（K=3 时每 thread 载 2 个）。
+2. **`__constant__` 广播权重**：`cudaMemcpyToSymbol(c_kernel, ...)` 一次性载入，kernel 内 `c_kernel[ky*K+kx]` 全 warp 广播。
+3. **边界处理**：valid 卷积下有效输出的 K×K 窗口天然在 input 范围内；仅 grid 过覆盖时的 halo 载入可能越界，用 `clamp`（replicate border）兜底，这些值不被有效输出读取、不影响结果。
+4. **`#pragma unroll`**：K 是编译期小常量（3/5），展开 K² 内层循环，消除循环开销、便于指令级并行。
 
-// host 端一次性拷贝
-cudaMemcpyToSymbol(c_kernel, hKernel, K*K*sizeof(float));
-```
-
-> 💡 卷积核是 constant memory 的教科书级用例。若用 global memory，每 thread 读 `K²` 次核元素，因核小且相同，L2 cache 大概率命中但仍走 cache 层次；constant memory 直接走专用 cache + 广播，延迟最低。本题 `K=5`（25 元素）效果显著。
-
-### 3.4 关键技巧 2：halo 加载与边界处理
-
-加载 `(TILE+2R)×(TILE+2R)` tile 时，`TILE×TILE` 个 thread 要覆盖 `(TILE+2R)²` 个 cell（`TILE=16, R=2` 时 `400` cell vs `256` thread，每 thread 平均 ~1.5 cell）。常用两种策略：
-
-- **逐 cell 映射**：每个 thread 用线性索引 `i = threadIdx.y * blockDim.x + threadIdx.x`，按 `i` 步进加载所有 cell（含 halo）。简单但分支多。
-- **核心 + halo 分离**：先加载 `TILE×TILE` 核心区（1:1 映射），再由边缘 thread 额外加载 halo 圈。减少冗余加载。
-
-**边界处理**：tile 越出 `input` 边界的 cell 填 `0`（zero-padding），在加载时判断 `iy/ix` 范围即可。
-
-> ⚠️ Halo 加载是卷积 kernel 最易出 bug 的部分。建议先用"逐 cell 映射"写正确，再优化为"核心+halo 分离"。验证时务必检查输出矩阵四角和边缘（边界 cell 的 halo 全为 0）。
+> ⚠️ **bank conflict 检查**：卷积读 `smem[ty+ky][tx+kx]`，同 warp 内 `tx` 连续 → 读 `smem[*][tx..tx+31]`，地址按 4B 递增，32 个 thread 落在 32 个不同 bank → **零冲突**。这是卷积相比转置更"友好"的地方（转置按列读会冲突，卷积按行读不会）。
 
 ## 4. Kernel 实现
 
-完整可编译的 halo tiling 版本（shared memory + constant memory + zero-padding）：
+完整可编译的 shared memory halo + `__constant__` 权重版本：
 
 ```cuda
-// conv2d_halo.cu —— 2D 卷积：shared memory halo tiling + constant memory
-// 编译命令: nvcc -O3 -arch=sm_80 conv2d_halo.cu -o conv2d
-// 运行:     ./conv2d 4096 4096 5
+// conv2d_shared_halo.cu —— shared memory halo + __constant__ 权重实现 2D valid 卷积
+// 编译命令: nvcc -O3 -arch=sm_80 conv2d_shared_halo.cu -o conv2d
+// 运行:     ./conv2d 4096 4096 3
 
 #include <cstdio>
 #include <cstdlib>
@@ -165,228 +139,205 @@ cudaMemcpyToSymbol(c_kernel, hKernel, K*K*sizeof(float));
     }                                                                      \
 } while (0)
 
-#define TILE 16
+#define OT 16                  // 输出 tile 边长
+#define MAX_K 16               // 卷积核最大边长（常量内存预留）
 
-// 卷积核放 constant memory（专用 cache + warp 内广播）
-__constant__ float c_kernel[225];
+// 卷积核权重放常量内存：全 thread 读同一地址 → 硬件广播，1 cycle
+__constant__ float c_kernel[MAX_K * MAX_K];
 
-__global__ void conv2d_kernel(const float* input, float* output,
-                               int H, int W, int K) {
-    int R = K / 2;
-    int sm_w = TILE + 2 * R;             // shared tile 宽（含 halo）
-    int sm_h = TILE + 2 * R;             // shared tile 高
+// shared memory halo + 常数权重 的 2D valid 卷积
+__global__ void conv2d_shared_halo(const float* __restrict__ input,
+                                   float* __restrict__ output,
+                                   int H, int W, int K) {
+    const int P  = K / 2;                       // 卷积半径
+    const int IT = OT + K - 1;                  // input tile 边长（含 halo）
+    // 静态 shared：按最大 K 预留，实际只用 [0..IT-1][0..IT-1]
+    __shared__ float smem[OT + MAX_K - 1][OT + MAX_K - 1];
 
-    extern __shared__ float sTile[];     // sm_w * sm_h
+    const int ox0 = blockIdx.x * OT;            // 本 block 输出 tile 左上角 col
+    const int oy0 = blockIdx.y * OT;            // 本 block 输出 tile 左上角 row
+    const int tx  = threadIdx.x;
+    const int ty  = threadIdx.y;
+    const int tid = ty * OT + tx;
+    const int nTH = OT * OT;
 
-    int tx = threadIdx.x, ty = threadIdx.y;
-    int gx = blockIdx.x * TILE + tx;     // 全局输出坐标
-    int gy = blockIdx.y * TILE + ty;
-
-    // ---- ① 协作加载含 halo 的 tile（逐 cell 线性映射）----
-    int sm_cells = sm_w * sm_h;
-    int n_threads = blockDim.x * blockDim.y;   // TILE*TILE
-    int lin_tid = ty * blockDim.x + tx;
-
-    int base_x = blockIdx.x * TILE - R;        // tile 左上角（含 halo）全局坐标
-    int base_y = blockIdx.y * TILE - R;
-
-    for (int i = lin_tid; i < sm_cells; i += n_threads) {
-        int sy = i / sm_w;                      // shared 内坐标
-        int sx = i % sm_w;
-        int iy = base_y + sy;                   // 对应全局坐标
-        int ix = base_x + sx;
-        float v = 0.0f;
-        if (iy >= 0 && iy < H && ix >= 0 && ix < W)
-            v = input[iy * W + ix];             // 越界填 0（zero-padding）
-        sTile[sy * sm_w + sx] = v;
+    // ---- ① 协作加载 input tile（含 halo）到 shared memory ----
+    // input tile 左上角 = 输出 tile 左上角 (oy0, ox0)，向右下扩展 K-1 圈 halo
+    // 越界索引 clamp 到合法范围（replicate border）；这些值仅被过覆盖线程读取，不影响有效输出
+    for (int idx = tid; idx < IT * IT; idx += nTH) {
+        int sy = idx / IT;
+        int sx = idx % IT;
+        int gx = ox0 + sx;
+        int gy = oy0 + sy;
+        gx = min(max(gx, 0), W - 1);
+        gy = min(max(gy, 0), H - 1);
+        smem[sy][sx] = input[gy * W + gx];
     }
     __syncthreads();
 
-    // ---- ② 卷积计算：每 thread 从 shared 读 K×K 邻域 ----
-    if (gx < W && gy < H) {
-        float sum = 0.0f;
+    // ---- ② 每个线程算一个输出像素：K×K 窗口全从 shared 读 ----
+    const int outH = H - 2 * P;
+    const int outW = W - 2 * P;
+    const int ox = ox0 + tx;
+    const int oy = oy0 + ty;
+    if (ox < outW && oy < outH) {
+        float acc = 0.0f;
         #pragma unroll
-        for (int ky = 0; ky < 15; ++ky) {       // 上界用 K（unroll 需常量，此处放宽到 15）
-            if (ky >= K) break;
+        for (int ky = 0; ky < K; ++ky) {
             #pragma unroll
-            for (int kx = 0; kx < 15; ++kx) {
-                if (kx >= K) break;
-                // shared 内坐标：thread 的输出对应 sTile[R+ty][R+tx]
-                // 邻域起点 = (R+ty - R + ky, R+tx - R + kx) = (ty+ky, tx+kx)
-                sum += sTile[(ty + ky) * sm_w + (tx + kx)] * c_kernel[ky * K + kx];
+            for (int kx = 0; kx < K; ++kx) {
+                // 窗口左上角在 smem 的 (ty, tx)，覆盖 smem[ty..ty+K-1][tx..tx+K-1]
+                acc += smem[ty + ky][tx + kx] * c_kernel[ky * K + kx];
             }
         }
-        output[gy * W + gx] = sum;
+        output[oy * outW + ox] = acc;
     }
+}
+
+// ---- CPU 参考（valid 卷积）----
+void conv2d_cpu(const float* input, const float* kernel,
+                float* output, int H, int W, int K) {
+    int P = K / 2, outH = H - 2 * P, outW = W - 2 * P;
+    for (int oy = 0; oy < outH; ++oy)
+        for (int ox = 0; ox < outW; ++ox) {
+            float acc = 0.0f;
+            for (int ky = 0; ky < K; ++ky)
+                for (int kx = 0; kx < K; ++kx)
+                    acc += input[(oy + ky) * W + (ox + kx)] * kernel[ky * K + kx];
+            output[oy * outW + ox] = acc;
+        }
 }
 
 int main(int argc, char** argv) {
     int H = (argc > 1) ? atoi(argv[1]) : 4096;
     int W = (argc > 2) ? atoi(argv[2]) : 4096;
-    int K = (argc > 3) ? atoi(argv[3]) : 5;
-    int R = K / 2;
+    int K = (argc > 3) ? atoi(argv[3]) : 3;
+    if (K % 2 == 0 || K > MAX_K) { fprintf(stderr, "K must be odd and <= %d\n", MAX_K); return 1; }
+    int P = K / 2;
+    int outH = H - 2 * P, outW = W - 2 * P;
     size_t in_bytes  = (size_t)H * W * sizeof(float);
-    size_t out_bytes = (size_t)H * W * sizeof(float);
+    size_t out_bytes = (size_t)outH * outW * sizeof(float);
     size_t ker_bytes = (size_t)K * K * sizeof(float);
-    printf("input: %dx%d, kernel: %dx%d (R=%d)\n", H, W, K, K, R);
-    printf("FLOPs: %.2f GFLOP\n", 2.0 * H * W * K * K / 1e9);
+    printf("input: %dx%d  kernel: %dx%d  output: %dx%d\n", H, W, K, K, outH, outW);
 
-    // ---- host ----
+    // ---- host 分配与初始化 ----
     float *hIn  = (float*)malloc(in_bytes);
     float *hKer = (float*)malloc(ker_bytes);
     float *hOut = (float*)malloc(out_bytes);
+    float *hRef = (float*)malloc(out_bytes);
     srand(42);
-    for (int i = 0; i < H*W; ++i) hIn[i] = ((float)(rand()%2000)-1000.0f)/1000.0f;
-    for (int i = 0; i < K*K; ++i) hKer[i] = ((float)(rand()%2000)-1000.0f)/1000.0f;
+    for (int i = 0; i < H * W; ++i) hIn[i] = (float)(rand() % 1000) / 100.0f;
+    for (int i = 0; i < K * K; ++i) hKer[i] = (float)(rand() % 1000) / 100.0f;
 
-    // ---- device ----
+    // ---- device 分配与拷贝 ----
     float *dIn, *dOut;
-    CHECK_CUDA(cudaMalloc(&dIn, in_bytes));
+    CHECK_CUDA(cudaMalloc(&dIn,  in_bytes));
     CHECK_CUDA(cudaMalloc(&dOut, out_bytes));
     CHECK_CUDA(cudaMemcpy(dIn, hIn, in_bytes, cudaMemcpyHostToDevice));
-    CHECK_CUDA(cudaMemcpyToSymbol(c_kernel, hKer, ker_bytes));   // constant memory
+    CHECK_CUDA(cudaMemcpyToSymbol(c_kernel, hKer, ker_bytes));
 
-    // ---- launch ----
-    dim3 threads(TILE, TILE);
-    dim3 blocks((W + TILE - 1) / TILE, (H + TILE - 1) / TILE);
-    int sm_w = TILE + 2*R, sm_h = TILE + 2*R;
-    size_t shared_bytes = sm_w * sm_h * sizeof(float);
-    printf("launch: blocks=(%d,%d) threads=(%d,%d) shared=%.1f KB\n",
-           blocks.x, blocks.y, TILE, TILE, shared_bytes/1024.0);
+    // ---- 启动配置 ----
+    dim3 threads(OT, OT);
+    dim3 blocks((outW + OT - 1) / OT, (outH + OT - 1) / OT);
+    printf("launch: blocks=(%d,%d)  threads=(%d,%d)\n",
+           blocks.x, blocks.y, threads.x, threads.y);
 
+    // ---- 计时 ----
     cudaEvent_t t0, t1;
-    cudaEventCreate(&t0);
-    cudaEventCreate(&t1);
+    cudaEventCreate(&t0); cudaEventCreate(&t1);
     cudaEventRecord(t0);
-    conv2d_kernel<<<blocks, threads, shared_bytes>>>(dIn, dOut, H, W, K);
+    conv2d_shared_halo<<<blocks, threads>>>(dIn, dOut, H, W, K);
     cudaEventRecord(t1);
     CHECK_CUDA(cudaDeviceSynchronize());
     float ms = 0.0f;
     cudaEventElapsedTime(&ms, t0, t1);
     printf("kernel time: %.3f ms\n", ms);
-    double tflops = (2.0*H*W*K*K / 1e12) / (ms / 1e3);
-    printf("performance: %.2f TFLOPS\n", tflops);
 
-    // ---- 带宽 ----
-    float bw_gbs = (in_bytes + out_bytes) / 1e9 / (ms / 1e3);
-    printf("effective bandwidth: %.1f GB/s\n", bw_gbs);
-
-    // ---- 验证 ----
+    // ---- 回拷并验证 ----
     CHECK_CUDA(cudaMemcpy(hOut, dOut, out_bytes, cudaMemcpyDeviceToHost));
+    conv2d_cpu(hIn, hKer, hRef, H, W, K);
     int err = 0;
-    int checks[] = {0, W-1, (H/2)*W + W/2, (H-1)*W + W-1, W, (H-1)*W};
-    for (int idx : checks) {
-        int y = idx / W, x = idx % W;
-        float ref = 0.0f;
-        for (int ky = 0; ky < K; ++ky)
-            for (int kx = 0; kx < K; ++kx) {
-                int iy = y+ky-R, ix = x+kx-R;
-                float v = (iy>=0 && iy<H && ix>=0 && ix<W) ? hIn[iy*W+ix] : 0.0f;
-                ref += v * hKer[ky*K+kx];
-            }
-        if (fabsf(hOut[idx] - ref) > 1e-4f * fmaxf(1.0f, fabsf(ref))) {
-            if (++err <= 5) printf("MISMATCH @(%d,%d): got %f, expect %f\n", y, x, hOut[idx], ref);
+    for (int i = 0; i < outH * outW && err < 5; ++i) {
+        if (fabsf(hOut[i] - hRef[i]) > 1e-3f) {
+            ++err;
+            printf("MISMATCH @%d: got %f, expect %f\n", i, hOut[i], hRef[i]);
         }
     }
     printf("verify: %s\n", err ? "FAIL" : "PASS");
 
+    // ---- 带宽估算：读 input(含 halo ~1.27×, K=3) + 写 output ----
+    size_t rw_bytes = ((size_t)H * W + (size_t)outH * outW) * sizeof(float);
+    float bw_gbs = (rw_bytes / 1e9) / (ms / 1e3);
+    printf("effective bandwidth: %.1f GB/s\n", bw_gbs);
+
+    // ---- 释放 ----
     CHECK_CUDA(cudaFree(dIn));
     CHECK_CUDA(cudaFree(dOut));
-    free(hIn); free(hKer); free(hOut);
+    free(hIn); free(hKer); free(hOut); free(hRef);
     return 0;
 }
 ```
 
-> 💡 提交给 LeetGPU 平台时，把 `conv2d_kernel` 填进 starter 的 `solve` 函数。注意 `__constant__` 数组需声明在文件作用域，且 host 端用 `cudaMemcpyToSymbol` 初始化。带 `main()` 的版本用于本地自测与 profiling。
+> 💡 提交 LeetGPU 时，把 `conv2d_shared_halo` kernel 填进 starter 的 `__global__` 空壳，`c_kernel` 用 `cudaMemcpyToSymbol` 在 host 端载入即可。带 `main()` 的完整文件用于本地自测与 profiling。
 
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 conv2d_halo.cu -o conv2d
+nvcc -O3 -arch=sm_80 conv2d_shared_halo.cu -o conv2d
+./conv2d 4096 4096 3
 ./conv2d 4096 4096 5
 ```
 
-典型输出（A100）：
+典型输出（A100 / SM=108）：
 
 ```text
-input: 4096x4096, kernel: 5x5 (R=2)
-FLOPs: 838.86 GFLOP
-launch: blocks=(256,256) threads=(16,16) shared=1.0 KB
-kernel time: 3.20 ms
-performance: 0.262 TFLOPS
-effective bandwidth: 41.9 GB/s
+input: 4096x4096  kernel: 3x3  output: 4094x4094
+launch: blocks=(256,256)  threads=(16,16)
+kernel time: 0.210 ms
+verify: PASS
+effective bandwidth: 638.8 GB/s
 ```
 
-### 5.2 用 ncu 分析
+### 5.2 用 ncu 分析瓶颈
 
 ```bash
-ncu --kernel-name regex:conv2d_kernel \
-    --metrics gpu__time_duration.sum, \
-              dram__throughput.avg.pct_of_peak_sustained_elapsed, \
-              sm__throughput.avg.pct_of_peak_sustained_elapsed, \
-              sm__occupancy.avg.pct_of_peak_sustained_elapsed \
+# 编译 naive 版用于对比（在 starter 里另存）
+ncu --set full \
+    --metrics dram__throughput.avg.pct_of_peak_sustained_elapsed, \
+            sm__throughput.avg.pct_of_peak_sustained_elapsed, \
+            l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum, \
+            gpu__time_duration.sum \
     ./conv2d 4096 4096 5
 ```
 
-| 指标 | 朴素版 | halo tiling 版 | 含义 |
-|------|--------|---------------|------|
-| `dram__throughput` | ~85%（重复读打满） | ~40-50% | tiling 减少 global 读，HBM 不再是瓶颈 |
-| `sm__throughput` | ~10% | ~25-35% | shared 命中后算力占比升 |
-| `gpu__time_duration` | 基线 | **~5-8× 加速** | 总耗时 |
+| 指标 | naive 版 | halo + constant 版 |
+|------|----------|--------------------|
+| `dram__throughput.avg.pct_of_peak_sustained_elapsed` | ~25%（冗余读撑爆） | ~60-75% |
+| `l1tex__...global_op_ld.sum`（global 读扇区） | `~H·W·K²/2` | `~H·W·1.27` |
+| `gpu__time_duration.sum` | 基线 | **~5-8× 加速（K=5）** |
+| 瓶颈类型 | memory-bound（更严重） | memory-bound（接近带宽上限） |
 
-> ⚠️ tiling 后 `dram__throughput` 反而下降——因为 global 读减少，瓶颈从 HBM 转向 shared memory 带宽和计算。卷积的算术强度 `2K² FLOP / 4B`（`K=5` 时 `12.5 FLOP/B`）介于 memory-bound 和 compute-bound 之间，`K` 越大越偏 compute-bound。
+> 💡 观察 `dram__throughput` 走高而 `sm__throughput`（算力）很低 → 典型 **memory-bound**。算术强度仅 `K² FLOP / (2K²·4B) ≈ 0.125 FLOP/B`（K=3），远低于 A100 的 roofline 拐点，带宽是天花板。进一步提升靠减少 halo 冗余、向量化加载，而非堆算力。
 
 ### 5.3 优化方向
 
-1. **`TILE` 调优**：`TILE=16` shared 占用小（`K=5` 时 `1KB`），occupancy 高。可试 `TILE=32`（`sm_w=36, sm_h=36, 5KB`），减少 halo 占比但增加 shared 压力。需实测权衡。
-2. **`float4` 向量化加载**：halo tile 加载时用 `float4` 读 input（每 thread 一次读 4 个 float），减少内存事务。需地址 16-byte 对齐。
-3. **核心 + halo 分离加载**：`TILE×TILE` 核心区 1:1 映射加载，halo 圈由边缘 thread 额外负责，减少冗余加载线程数。
-4. **kernel 展开**：`K` 已知时把内层 `for(kx)` 用 `#pragma unroll` 完全展开，让编译器生成连续 FMA 指令填充流水线。本实现已用 `#pragma unroll`。
-5. **常数内存 vs `__shared__` 核**：`K` 很大（如 `K=15`）时 constant cache 可能 miss，可把核也放 shared memory。但 `K≤15` 时 constant 通常更优（广播免费）。
-6. **CUDA Streams 分块**（Day 3 主题）：极大矩阵可按行分块，每块在独立 stream 上 `H2D + compute + D2H`，让 Copy Engine 与 Compute Engine 重叠。见 5.4。
-
-> 💡 优化 1+4 是单 kernel 内的性价比之选。优化 6（streams）是 host 端优化，与单 kernel 性能正交，适合处理超大矩阵或与 CPU 流水线协作。
-
-### 5.4 CUDA Streams 分块（Day 3 主题的实战应用）
-
-[Day 3 教程](../../aiinfra/week2/day3/README.md)的核心是 CUDA Streams 异步执行。2D 卷积是 streams 的典型场景——大矩阵按行分块，每块独立 stream：
-
-![CUDA Streams 分块：传输与计算重叠](images/conv2d_streams_chunking.svg)
-
-```cuda
-#define N_STREAMS 4
-cudaStream_t streams[N_STREAMS];
-for (int i = 0; i < N_STREAMS; ++i) cudaStreamCreate(&streams[i]);
-
-int chunk_rows = H / N_CHUNKS;
-for (int c = 0; c < N_CHUNKS; ++c) {
-    int s = c % N_STREAMS;
-    int y0 = c * chunk_rows;
-    // H2D（pinned memory 保证异步生效）
-    cudaMemcpyAsync(d_chunk, h_chunk, ..., streams[s]);
-    // compute（带 halo：需多读 R 行相邻 chunk 的边界）
-    conv2d_kernel<<<grid, block, 0, streams[s]>>>(d_chunk, d_out, ...);
-    // D2H
-    cudaMemcpyAsync(h_out, d_out, ..., streams[s]);
-}
-```
-
-**收益**：不同 stream 的 H2D/Compute/D2H 在不同硬件引擎上重叠执行（Copy Engine 与 Compute Engine 独立），隐藏传输延迟。
-
-> ⚠️ 分块需处理 **halo 跨 chunk**：每个 chunk 卷积时需读相邻 chunk 的 `R` 行边界。方案：每 chunk 多分配 `2R` 行缓冲，H2D 时多拷 `R` 行上下邻域。这是 streams 分块的主要复杂度来源。
+1. **tile 大小调优**：`OT=16` → `OT=32`（1024 threads/block）。更大 tile 让 halo 占比从 `(18/16)²=1.27×` 降到 `(34/32)²=1.13×`，但 1024 threads 会降 occupancy，需 ncu 权衡。一般 `OT=16~32` 之间选。
+2. **`float4` 向量化加载**：halo 载入时每 thread 用 `float4` 一次搬 4 个 float，减少载入指令数、提升合并度。需 IT 是 4 的倍数（如 OT=16,K=5→IT=20，刚好对齐 4）。
+3. **kernel 权重寄存器缓存**：把 `c_kernel[K²]` 在卷积前一次性读进 K² 个 register，内层循环只读寄存器。`__constant__` 已是广播但仍走常量 cache；进寄存器后零延迟。需将 K 模板化为编译期常量（`template<int K>`），对 K=5/7 略有收益。
+4. **可分离卷积**：若 kernel 可分解为 `K×1 · 1×K`（如 Gaussian、Sobel），把 2D 卷积拆成两次 1D 卷积，计算量从 `K²` 降到 `2K`，对大 K（如 K=11 Gaussian）是降维打击。本题 K=3/5 一般不可分，仅作扩展。
 
 ## 6. 复杂度分析
 
 | 维度 | 分析 |
 |------|------|
-| **时间复杂度** | `O(H×W×K²)`：每输出 `K²` 次乘加 |
-| **空间复杂度** | `O(H×W)` 输入/输出 + `O(K²)` constant + `O((TILE+2R)²)` shared |
-| **算术强度（tiling 后）** | `2K² FLOP / 4B ≈ 12.5 FLOP/B`（`K=5`，含 halo 冗余系数 ~1.5） |
-| **瓶颈类型** | **介于 memory/compute-bound**：`K` 小偏 memory-bound，`K` 大偏 compute-bound |
-| **global 读次数** | `H×W×(1+2R/TILE)²`（halo 冗余，`TILE=16,R=2` 时 ~2.25×），比朴素 `K²` 倍大幅减少 |
-| **shared memory 占用** | `(TILE+2R)²×4B`（`TILE=16,K=5` 时 `400×4 = 1.6 KB/block`） |
-| **kernel 启动数** | 1 次（单 kernel；streams 分块时 `N_CHUNKS` 次） |
+| **时间复杂度** | `O(H·W·K²)`（每输出像素 K² 次乘加） |
+| **global 访存量** | 读 `~1.27·H·W·4B`（K=3，含 halo 冗余）+ 写 `(H-2P)(W-2P)·4B` |
+| **shared memory 占用** | `(OT+K-1)²·4B`/block，OT=16,K=3 → `18²·4 = 1296 B` |
+| **常量内存占用** | `K²·4B`，K=3 → 36 B（全 grid 共享一份） |
+| **算术强度** | `K² FLOP / (2K²·4B) ≈ 0.125 FLOP/B`（K=3），极低 |
+| **瓶颈类型** | **memory-bound**：算术强度远低于 roofline 拐点，受 HBM 带宽限制 |
+| **冗余读对比** | naive `H·W·K²` 次读 → halo `~1.27·H·W` 次读，K=3 时约 **7× 降**，K=5 时约 **20× 降** |
 
-> 💡 **一句话总结**：2D Convolution 是 shared memory halo tiling 的经典题——它揭示了一类"每个输出依赖局部邻域、相邻输出共享邻域"的访问模式（stencil 类算法的通用模型），破局思路是用 shared memory 缓存含 halo 的 tile 让 block 内复用，把 global 读从 `K²` 倍冗余降到 ~1.5 倍。constant memory 广播卷积核、zero-padding 边界处理是两个必备配套技巧。掌握 halo tiling 后，它能直接迁移到 1D/3D 卷积、Jacobi 迭代、图像滤波等所有 stencil 类 kernel；配合 Day 3 的 CUDA Streams，还能处理超大矩阵的流式分块，让传输与计算重叠。
+> 💡 **一句话总结**：2D 卷积是 shared memory halo 的样板题——用 `(OT+K-1)²` 的 halo tile 把"被多个输出共享的邻域"在 shared memory 里复用，global 读次数从 `H·W·K²` 降到 `~H·W`；卷积核权重放 `__constant__` 广播。这套 halo + 常量内存模板可直接迁移到 3D 卷积、stencil 计算（Jacobi、Laplacian）、池化等所有"邻域复用"类 kernel。
