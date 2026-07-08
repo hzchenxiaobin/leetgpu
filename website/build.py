@@ -25,6 +25,32 @@ def escape_for_template_string(text: str) -> str:
     return text
 
 
+def rewrite_md_links_to_html(markdown_text: str) -> str:
+    """Rewrite local .md links to .html for GitHub Pages deployment.
+
+    Solution pages are emitted flat in the leetgpu/ output directory, so a
+    cross-link like ../../leetgpu/weekN/dayM/leetgpu-xxx-solution.md becomes
+    ./leetgpu-xxx-solution.html.
+    """
+
+    def replace_link(match):
+        url = match.group(1)
+        if not url.endswith(".md"):
+            return match.group(0)
+        new_url = url[:-3] + ".html"
+        if new_url.endswith("README.html"):
+            new_url = new_url[: -len("README.html")] + "index.html"
+        # ../../leetgpu/weekN/dayM/leetgpu-xxx-solution.md -> ./leetgpu-xxx-solution.html
+        new_url = re.sub(
+            r"^\.\./\.\./leetgpu/week\d+/day\d+/(leetgpu-.*-solution\.html)$",
+            r"./\1",
+            new_url,
+        )
+        return f"]({new_url})"
+
+    return re.sub(r"\]\((?!https?://|#)([^)]+)\)", replace_link, markdown_text)
+
+
 def parse_title(markdown_text: str) -> str:
     match = re.search(r"^#\s+(.+)$", markdown_text, re.MULTILINE)
     return match.group(1).strip() if match else "题解"
@@ -232,6 +258,7 @@ def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
     for md_file in md_files:
         markdown_text = md_file.read_text(encoding="utf-8")
         markdown_text = markdown_text.replace("](images/", "](./images/")
+        markdown_text = rewrite_md_links_to_html(markdown_text)
 
         title = parse_title(markdown_text)
         slug = md_file.stem  # e.g. leetgpu-vector-addition-solution
