@@ -68,7 +68,7 @@ __global__ void scan_atomic(const float* input, float* output, int N) {
 
 思想：每步让每个位置加上**距离 `offset` 处**的值，`offset = 1, 2, 4, 8, ...`，`log₂N` 步后每个位置都持有自己的前缀和。
 
-![Hillis-Steele 蝶形扫描](images/prefix_sum_hillis_steele.svg)
+![Prefix Scan 概览](images/prefix_sum_overview.svg)
 
 以 8 个元素、inclusive scan 为例：
 
@@ -111,7 +111,7 @@ __global__ void scan_atomic(const float* input, float* output, int N) {
 
 `__shfl_up_sync(mask, val, delta)` 语义：当前 lane 从 `lane - delta` 处取值（若 `lane - delta < 0` 则值不变）。
 
-![__shfl_up_sync 蝶形交换原理](images/prefix_sum_warp_shuffle.svg)
+![__shfl_up_sync 蝶形扫描原理](images/prefix_sum_warp_scan.svg)
 
 ```cuda
 // warp 内 inclusive scan（32 个 lane，5 步完成）
