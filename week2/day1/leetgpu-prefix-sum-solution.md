@@ -566,6 +566,131 @@ int main(int argc, char** argv) {
 
 > ⚠️ **阶段二的 numBlocks 处理**：当 `N ≤ 1e8`、`BLOCK_SIZE = 256` 时 `numBlocks` 可达 390625。阶段二的 `scan_offsets_kernel` 用 grid-stride 迭代处理：每轮一个 block scan `BLOCK_SIZE` 个 `block_sums`，累积 running offset 到下一轮。生产代码中若 `numBlocks` 极大，可对阶段二递归调用三阶段算法（即 block_sums 再分块），或用 `cooperative_groups` 的 `cg::this_grid().sync()` 在单 kernel 内做 grid 级同步。本题为教学清晰起见保留 grid-stride 版本。
 
+### 4.7 LeetGPU 提交版代码
+
+LeetGPU 平台的 `starter.cu` 只需实现 `extern "C" void solve(const float* input, float* output, int N)` 函数。平台会传入 device pointer `input`/`output` 和数组长度 `N`，函数内部启动 kernel 即可。以下是直接可提交的完整代码：
+
+```cuda
+// starter.cu —— LeetGPU Prefix Sum 提交版
+// 平台接口：extern "C" void solve(const float* input, float* output, int N)
+// input/output 是 device pointer，N 是数组长度
+
+#include <cuda_runtime.h>
+
+#define BLOCK_SIZE 256
+#define WARP_SIZE  32
+#define NUM_WARPS  (BLOCK_SIZE / WARP_SIZE)
+
+__inline__ __device__ float warp_inclusive_scan(float val) {
+    for (int offset = 1; offset < WARP_SIZE; offset <<= 1) {
+        float n = __shfl_up_sync(0xffffffff, val, offset);
+        if ((threadIdx.x & (WARP_SIZE - 1)) >= offset) {
+            val += n;
+        }
+    }
+    return val;
+}
+
+__inline__ __device__ float block_exclusive_scan(float val, float* block_sum) {
+    __shared__ float warp_sums[NUM_WARPS];
+    int lane   = threadIdx.x & (WARP_SIZE - 1);
+    int warpId = threadIdx.x >> 5;
+
+    float inclusive = warp_inclusive_scan(val);
+
+    if (lane == WARP_SIZE - 1) {
+        warp_sums[warpId] = inclusive;
+    }
+    __syncthreads();
+
+    if (warpId == 0) {
+        float v = (lane < NUM_WARPS) ? warp_sums[lane] : 0.0f;
+        v = warp_inclusive_scan(v);
+        if (lane < NUM_WARPS) warp_sums[lane] = v;
+    }
+    __syncthreads();
+
+    float warp_offset = (warpId == 0) ? 0.0f : warp_sums[warpId - 1];
+    float exclusive = warp_offset + (inclusive - val);
+
+    if (threadIdx.x == BLOCK_SIZE - 1) {
+        *block_sum = warp_offset + inclusive;
+    }
+    return exclusive;
+}
+
+__global__ void scan_block_kernel(const float* input, float* output,
+                                  float* block_sums, int N) {
+    int tid = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    if (tid >= N) return;
+    float val = input[tid];
+    float exclusive = block_exclusive_scan(val, &block_sums[blockIdx.x]);
+    output[tid] = exclusive;
+}
+
+__global__ void scan_offsets_kernel(const float* block_sums,
+                                    float* block_offsets, int M) {
+    __shared__ float s_chunk_total;
+    __shared__ float s_running;
+    int tid = threadIdx.x;
+
+    if (tid == 0) { s_running = 0.0f; }
+    __syncthreads();
+
+    for (int chunk = 0; chunk < M; chunk += BLOCK_SIZE) {
+        int idx = chunk + tid;
+        float val = (idx < M) ? block_sums[idx] : 0.0f;
+
+        float chunk_total;
+        float exclusive = block_exclusive_scan(val, &chunk_total);
+
+        if (idx < M) {
+            block_offsets[idx] = exclusive + s_running;
+        }
+
+        __syncthreads();
+        if (tid == 0) s_running += chunk_total;
+        __syncthreads();
+    }
+}
+
+__global__ void add_offset_kernel(float* output, const float* input,
+                                  const float* block_offsets, int N) {
+    int tid = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    if (tid >= N) return;
+    output[tid] = output[tid] + block_offsets[blockIdx.x] + input[tid];
+}
+
+extern "C" void solve(const float* input, float* output, int N) {
+    if (N <= 0) return;
+
+    int numBlocks = (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+    float* block_sums;
+    float* block_offsets;
+    cudaMalloc(&block_sums,    numBlocks * sizeof(float));
+    cudaMalloc(&block_offsets, numBlocks * sizeof(float));
+
+    scan_block_kernel<<<numBlocks, BLOCK_SIZE>>>(input, output, block_sums, N);
+    scan_offsets_kernel<<<1, BLOCK_SIZE>>>(block_sums, block_offsets, numBlocks);
+    add_offset_kernel<<<numBlocks, BLOCK_SIZE>>>(output, input, block_offsets, N);
+
+    cudaDeviceSynchronize();
+    cudaFree(block_sums);
+    cudaFree(block_offsets);
+}
+```
+
+**提交要点**：
+
+| 要点 | 说明 |
+|------|------|
+| **接口** | `extern "C" void solve(const float* input, float* output, int N)`，平台传入 device pointer |
+| **临时缓冲** | `block_sums`/`block_offsets` 在 `solve` 内 `cudaMalloc`，用完 `cudaFree` |
+| **同步** | `solve` 末尾 `cudaDeviceSynchronize()` 确保所有 kernel 完成后再返回 |
+| **N=1 边界** | `N <= 0` 时直接 return；`N=1` 时 `scan_block_kernel` 正确处理（exclusive=0, offset=0, 加回 input 得 input[0]） |
+| **精度** | 平台 `atol=0.01, rtol=0.01`，float 累加误差在容忍范围内 |
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行
