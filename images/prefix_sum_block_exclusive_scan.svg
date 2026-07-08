@@ -1,0 +1,236 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="480" fill="#fafafa"/>
+
+  <text x="320" y="22" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">block_exclusive_scan：Warp Scan + Shared Memory 汇总</text>
+  <text x="320" y="40" text-anchor="middle" font-size="11" fill="#888">256 线程 = 8 warps，两步完成 block 内 exclusive scan</text>
+
+  <!-- ===== ① 每 warp 各自 warp_inclusive_scan ===== -->
+  <text x="30" y="66" font-size="12" fill="#446688" font-weight="bold">① 每 warp 各自 warp_inclusive_scan（示意 4 / 32 元素）</text>
+  <text x="610" y="66" text-anchor="end" font-size="9" fill="#888">[a0,a1,a2,a3] → [a0, a0+a1, a0+a1+a2, a0+a1+a2+a3]</text>
+
+  <!-- warp 0 -->
+  <text x="32" y="85" font-size="10" fill="#555" font-weight="bold">warp0</text>
+  <g font-size="10" fill="#333">
+    <rect x="70"  y="72" width="32" height="18" fill="#fff" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="86"  y="85" text-anchor="middle">1</text>
+    <rect x="104" y="72" width="32" height="18" fill="#fff" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="120" y="85" text-anchor="middle">1</text>
+    <rect x="138" y="72" width="32" height="18" fill="#fff" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="154" y="85" text-anchor="middle">1</text>
+    <rect x="172" y="72" width="32" height="18" fill="#fff" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="188" y="85" text-anchor="middle">1</text>
+  </g>
+  <line x1="210" y1="81" x2="234" y2="81" stroke="#446688" stroke-width="1.2" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <g font-size="10" fill="#333">
+    <rect x="240" y="72" width="36" height="18" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="258" y="85" text-anchor="middle">1</text>
+    <rect x="278" y="72" width="36" height="18" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="296" y="85" text-anchor="middle">2</text>
+    <rect x="316" y="72" width="36" height="18" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="334" y="85" text-anchor="middle">3</text>
+    <rect x="354" y="72" width="36" height="18" fill="#e8f0fe" stroke="#446688" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="372" y="85" text-anchor="middle" font-weight="bold" fill="#446688">4</text>
+  </g>
+  <text x="398" y="85" font-size="9" fill="#446688">← warp 总和 (lane 31)</text>
+
+  <!-- warp 1 -->
+  <text x="32" y="107" font-size="10" fill="#555" font-weight="bold">warp1</text>
+  <g font-size="10" fill="#333">
+    <rect x="70"  y="94" width="32" height="18" fill="#fff" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="86"  y="107" text-anchor="middle">1</text>
+    <rect x="104" y="94" width="32" height="18" fill="#fff" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="120" y="107" text-anchor="middle">1</text>
+    <rect x="138" y="94" width="32" height="18" fill="#fff" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="154" y="107" text-anchor="middle">1</text>
+    <rect x="172" y="94" width="32" height="18" fill="#fff" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="188" y="107" text-anchor="middle">1</text>
+  </g>
+  <line x1="210" y1="103" x2="234" y2="103" stroke="#446688" stroke-width="1.2" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <g font-size="10" fill="#333">
+    <rect x="240" y="94" width="36" height="18" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="258" y="107" text-anchor="middle">1</text>
+    <rect x="278" y="94" width="36" height="18" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="296" y="107" text-anchor="middle">2</text>
+    <rect x="316" y="94" width="36" height="18" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="334" y="107" text-anchor="middle">3</text>
+    <rect x="354" y="94" width="36" height="18" fill="#e8f0fe" stroke="#446688" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="372" y="107" text-anchor="middle" font-weight="bold" fill="#446688">4</text>
+  </g>
+
+  <!-- ellipsis warp 2..6 -->
+  <text x="120" y="124" font-size="13" fill="#888">⋮  warp 2 – 6 同理（各自 inclusive scan，得各自 Σ）</text>
+
+  <!-- warp 7 -->
+  <text x="32" y="139" font-size="10" fill="#555" font-weight="bold">warp7</text>
+  <g font-size="10" fill="#333">
+    <rect x="70"  y="126" width="32" height="18" fill="#fff" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="86"  y="139" text-anchor="middle">1</text>
+    <rect x="104" y="126" width="32" height="18" fill="#fff" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="120" y="139" text-anchor="middle">1</text>
+    <rect x="138" y="126" width="32" height="18" fill="#fff" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="154" y="139" text-anchor="middle">1</text>
+    <rect x="172" y="126" width="32" height="18" fill="#fff" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="188" y="139" text-anchor="middle">1</text>
+  </g>
+  <line x1="210" y1="135" x2="234" y2="135" stroke="#446688" stroke-width="1.2" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <g font-size="10" fill="#333">
+    <rect x="240" y="126" width="36" height="18" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="258" y="139" text-anchor="middle">1</text>
+    <rect x="278" y="126" width="36" height="18" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="296" y="139" text-anchor="middle">2</text>
+    <rect x="316" y="126" width="36" height="18" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="334" y="139" text-anchor="middle">3</text>
+    <rect x="354" y="126" width="36" height="18" fill="#e8f0fe" stroke="#446688" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="372" y="139" text-anchor="middle" font-weight="bold" fill="#446688">4</text>
+  </g>
+
+  <!-- ===== ② lane 31 写 warp 总和到 shared memory ===== -->
+  <text x="30" y="164" font-size="12" fill="#4a7a3a" font-weight="bold">② lane 31 写 warp 总和 → shared memory warp_sums[8]</text>
+
+  <!-- arrows: warp last cell -> warp_sums slot (w0,w1,w7) -->
+  <g stroke="#4a7a3a" stroke-width="1.2" fill="none" filter="url(#rough2)">
+    <path d="M 372 90 L 400 90 L 400 150 L 110 150 L 110 170" marker-end="url(#arr)"/>
+    <path d="M 372 112 L 404 112 L 404 156 L 154 156 L 154 170" marker-end="url(#arr)"/>
+    <path d="M 372 144 L 372 162 L 418 162 L 418 170" marker-end="url(#arr)"/>
+  </g>
+  <text x="448" y="156" font-size="9" fill="#888">⋮ (2–6)</text>
+
+  <!-- warp_sums array (green) -->
+  <text x="30" y="183" font-size="10" fill="#4a7a3a" font-weight="bold">warp_sums</text>
+  <g font-size="10" fill="#333">
+    <rect x="90"  y="170" width="40" height="18" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="110" y="183" text-anchor="middle">4</text>
+    <rect x="134" y="170" width="40" height="18" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="154" y="183" text-anchor="middle">4</text>
+    <rect x="178" y="170" width="40" height="18" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="198" y="183" text-anchor="middle">4</text>
+    <rect x="222" y="170" width="40" height="18" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="242" y="183" text-anchor="middle">4</text>
+    <rect x="266" y="170" width="40" height="18" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="286" y="183" text-anchor="middle">4</text>
+    <rect x="310" y="170" width="40" height="18" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="330" y="183" text-anchor="middle">4</text>
+    <rect x="354" y="170" width="40" height="18" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="374" y="183" text-anchor="middle">4</text>
+    <rect x="398" y="170" width="40" height="18" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="418" y="183" text-anchor="middle">4</text>
+  </g>
+  <g font-size="8" fill="#888">
+    <text x="110" y="202" text-anchor="middle">[0]</text>
+    <text x="154" y="202" text-anchor="middle">[1]</text>
+    <text x="198" y="202" text-anchor="middle">[2]</text>
+    <text x="242" y="202" text-anchor="middle">[3]</text>
+    <text x="286" y="202" text-anchor="middle">[4]</text>
+    <text x="330" y="202" text-anchor="middle">[5]</text>
+    <text x="374" y="202" text-anchor="middle">[6]</text>
+    <text x="418" y="202" text-anchor="middle">[7]</text>
+  </g>
+
+  <!-- ===== ③ warp 0 对 warp_sums 做 inclusive scan ===== -->
+  <text x="30" y="216" font-size="12" fill="#d6a040" font-weight="bold">③ warp 0 对 warp_sums 做 inclusive scan → 偏移基准</text>
+
+  <!-- bracket + arrow -->
+  <path d="M 90 190 L 90 196 L 438 196 L 438 190" stroke="#d6a040" stroke-width="1" fill="none" filter="url(#rough2)"/>
+  <line x1="265" y1="196" x2="265" y2="223" stroke="#d6a040" stroke-width="1.2" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="272" y="214" font-size="9" fill="#d6a040">warp 0 inclusive scan</text>
+
+  <!-- orange inclusive result -->
+  <text x="30" y="237" font-size="10" fill="#d6a040" font-weight="bold">inclusive</text>
+  <g font-size="10" fill="#333">
+    <rect x="90"  y="224" width="40" height="18" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="110" y="237" text-anchor="middle">4</text>
+    <rect x="134" y="224" width="40" height="18" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="154" y="237" text-anchor="middle">8</text>
+    <rect x="178" y="224" width="40" height="18" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="198" y="237" text-anchor="middle">12</text>
+    <rect x="222" y="224" width="40" height="18" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="242" y="237" text-anchor="middle">16</text>
+    <rect x="266" y="224" width="40" height="18" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="286" y="237" text-anchor="middle">20</text>
+    <rect x="310" y="224" width="40" height="18" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="330" y="237" text-anchor="middle">24</text>
+    <rect x="354" y="224" width="40" height="18" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="374" y="237" text-anchor="middle">28</text>
+    <rect x="398" y="224" width="40" height="18" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="418" y="237" text-anchor="middle">32</text>
+  </g>
+  <text x="30" y="254" font-size="9" fill="#888">每 warp 偏移 offset[w] = (w==0 ? 0 : inclusive[w−1]) = [0, 4, 8, 12, 16, 20, 24, 28]</text>
+
+  <!-- ===== ④ 每 warp 加回偏移 ===== -->
+  <text x="30" y="272" font-size="12" fill="#b85450" font-weight="bold">④ 每 warp 加回偏移 → exclusive scan 结果</text>
+
+  <!-- formula box -->
+  <rect x="30" y="278" width="580" height="18" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="44" y="291" font-family="monospace" font-size="10" fill="#b85450">exclusive[i] = offset[w] + (warp_inclusive[i] − val[i])</text>
+  <text x="400" y="291" font-family="monospace" font-size="10" fill="#888">// inclusive − val = warp 内 exclusive</text>
+
+  <!-- warp 0 result (red) -->
+  <text x="32" y="314" font-size="10" fill="#555" font-weight="bold">warp0  offset=0 →</text>
+  <g font-size="10" fill="#333">
+    <rect x="160" y="302" width="32" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="176" y="314" text-anchor="middle">0</text>
+    <rect x="194" y="302" width="32" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="314" text-anchor="middle">1</text>
+    <rect x="228" y="302" width="32" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="244" y="314" text-anchor="middle">2</text>
+    <rect x="262" y="302" width="32" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="278" y="314" text-anchor="middle">3</text>
+  </g>
+  <text x="306" y="314" font-size="9" fill="#888">= 0 + ([1,2,3,4]−[1,1,1,1])</text>
+
+  <!-- warp 1 result (red) -->
+  <text x="32" y="332" font-size="10" fill="#555" font-weight="bold">warp1  offset=4 →</text>
+  <g font-size="10" fill="#333">
+    <rect x="160" y="320" width="32" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="176" y="332" text-anchor="middle">4</text>
+    <rect x="194" y="320" width="32" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="332" text-anchor="middle">5</text>
+    <rect x="228" y="320" width="32" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="244" y="332" text-anchor="middle">6</text>
+    <rect x="262" y="320" width="32" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="278" y="332" text-anchor="middle">7</text>
+  </g>
+
+  <text x="200" y="348" font-size="13" fill="#888">⋮</text>
+
+  <!-- warp 7 result (red) -->
+  <text x="32" y="360" font-size="10" fill="#555" font-weight="bold">warp7  offset=28 →</text>
+  <g font-size="10" fill="#333">
+    <rect x="160" y="348" width="32" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="176" y="360" text-anchor="middle">28</text>
+    <rect x="194" y="348" width="32" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="360" text-anchor="middle">29</text>
+    <rect x="228" y="348" width="32" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="244" y="360" text-anchor="middle">30</text>
+    <rect x="262" y="348" width="32" height="18" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="278" y="360" text-anchor="middle">31</text>
+  </g>
+  <text x="610" y="360" text-anchor="end" font-size="10" fill="#b85450" font-weight="bold">✓ block exclusive scan</text>
+
+  <!-- ===== code: 6 steps ===== -->
+  <line x1="20" y1="376" x2="620" y2="376" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <rect x="30" y="382" width="580" height="90" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <g font-family="monospace" font-size="10" fill="#333">
+    <text x="44" y="398">① val = warp_inclusive_scan(val);</text>
+    <text x="430" y="398" fill="#888">// 每 warp 内 inclusive scan</text>
+    <text x="44" y="412">② if (lane == 31) shared[wid] = val;</text>
+    <text x="430" y="412" fill="#888">// lane 31 写 warp 总和</text>
+    <text x="44" y="426">③ __syncthreads();</text>
+    <text x="430" y="426" fill="#888">// 块内同步</text>
+    <text x="44" y="440">④ if (wid==0) shared[wid]=warp_inclusive_scan(shared[wid]);</text>
+    <text x="430" y="440" fill="#888">// warp0 扫描 warp_sums</text>
+    <text x="44" y="454">⑤ __syncthreads();</text>
+    <text x="44" y="468">⑥ val = (wid?shared[wid-1]:0) + (val − x[tid]);</text>
+    <text x="430" y="468" fill="#888">// 加偏移、转 exclusive</text>
+  </g>
+</svg>

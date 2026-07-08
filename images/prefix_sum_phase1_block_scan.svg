@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 440" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="440" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">阶段一 scan_block_kernel：每 block 独立 exclusive scan</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">每个 block 处理 BLOCK_SIZE=256 个元素，输出 exclusive scan + block 总和</text>
+
+  <!-- ===== Legend ===== -->
+  <g filter="url(#rough2)">
+    <rect x="100" y="54" width="12" height="9" fill="#e8f0fe" stroke="#446688" stroke-width="1"/>
+    <rect x="200" y="54" width="12" height="9" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1"/>
+    <rect x="360" y="54" width="12" height="9" fill="#fff8e1" stroke="#d6a040" stroke-width="1"/>
+  </g>
+  <text x="116" y="62" font-size="9" fill="#555">输入 input[]</text>
+  <text x="216" y="62" font-size="9" fill="#555">exclusive scan → output[]</text>
+  <text x="376" y="62" font-size="9" fill="#555">block 总和 → block_sums[]</text>
+
+  <!-- ===== Row labels (left margin) ===== -->
+  <text x="30" y="98"  font-size="10" fill="#446688" font-weight="bold">input[]</text>
+  <text x="30" y="180" font-size="10" fill="#4a7a3a" font-weight="bold">output[]</text>
+  <text x="30" y="246" font-size="10" fill="#d6a040" font-weight="bold">block_sums[]</text>
+
+  <!-- ===== INPUT row (blue) ===== -->
+  <g font-size="9" fill="#333">
+    <rect x="85"  y="72" width="100" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="135" y="89"  text-anchor="middle" font-size="10" font-weight="bold" fill="#446688">Block 0</text>
+    <text x="135" y="104" text-anchor="middle">input[0..255]</text>
+
+    <rect x="215" y="72" width="100" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="265" y="89"  text-anchor="middle" font-size="10" font-weight="bold" fill="#446688">Block 1</text>
+    <text x="265" y="104" text-anchor="middle">input[256..511]</text>
+
+    <rect x="345" y="72" width="100" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="395" y="89"  text-anchor="middle" font-size="10" font-weight="bold" fill="#446688">Block 2</text>
+    <text x="395" y="104" text-anchor="middle">input[512..767]</text>
+
+    <rect x="475" y="72" width="100" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="525" y="89"  text-anchor="middle" font-size="10" font-weight="bold" fill="#446688">Block B-1</text>
+    <text x="525" y="104" text-anchor="middle">input[…n]</text>
+  </g>
+
+  <!-- ===== Blue arrows: input → output (exclusive scan) ===== -->
+  <g stroke="#446688" stroke-width="1.3" fill="none" filter="url(#rough2)">
+    <path d="M 135 112 L 135 156" marker-end="url(#arr)"/>
+    <path d="M 265 112 L 265 156" marker-end="url(#arr)"/>
+    <path d="M 395 112 L 395 156" marker-end="url(#arr)"/>
+    <path d="M 525 112 L 525 156" marker-end="url(#arr)"/>
+  </g>
+  <text x="320" y="138" text-anchor="middle" font-size="9" fill="#446688">每 block 独立做 exclusive scan（不含自身）</text>
+
+  <!-- ===== OUTPUT row (green) ===== -->
+  <g font-size="9" fill="#333">
+    <rect x="85"  y="156" width="100" height="40" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="135" y="172" text-anchor="middle" font-size="9" fill="#4a7a3a">Block 0</text>
+    <text x="135" y="188" text-anchor="middle">0, a₀, a₀+a₁, …</text>
+
+    <rect x="215" y="156" width="100" height="40" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="265" y="172" text-anchor="middle" font-size="9" fill="#4a7a3a">Block 1</text>
+    <text x="265" y="188" text-anchor="middle">0, a₂₅₆, +a₂₅₇, …</text>
+
+    <rect x="345" y="156" width="100" height="40" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="395" y="172" text-anchor="middle" font-size="9" fill="#4a7a3a">Block 2</text>
+    <text x="395" y="188" text-anchor="middle">0, a₅₁₂, +a₅₁₃, …</text>
+
+    <rect x="475" y="156" width="100" height="40" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="525" y="172" text-anchor="middle" font-size="9" fill="#4a7a3a">Block B-1</text>
+    <text x="525" y="188" text-anchor="middle">0, a_{…}, …</text>
+  </g>
+
+  <!-- ===== Orange arrows: input → block_sums (block 总和), routed through gaps ===== -->
+  <g stroke="#d6a040" stroke-width="1.3" fill="none" filter="url(#rough2)">
+    <path d="M 170 112 L 170 122 L 200 122 L 200 214 L 135 214 L 135 224" marker-end="url(#arr)"/>
+    <path d="M 300 112 L 300 122 L 330 122 L 330 214 L 265 214 L 265 224" marker-end="url(#arr)"/>
+    <path d="M 430 112 L 430 122 L 460 122 L 460 214 L 395 214 L 395 224" marker-end="url(#arr)"/>
+    <path d="M 560 112 L 560 122 L 595 122 L 595 214 L 525 214 L 525 224" marker-end="url(#arr)"/>
+  </g>
+  <text x="320" y="210" text-anchor="middle" font-size="9" fill="#d6a040">同一 kernel 顺带算出 block 总和 Sᵢ = Σ input[block]</text>
+
+  <!-- ===== BLOCK_SUMS row (orange) ===== -->
+  <g font-size="12" fill="#d6a040" font-weight="bold">
+    <rect x="107" y="224" width="56" height="32" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="135" y="246" text-anchor="middle">S₀</text>
+
+    <rect x="237" y="224" width="56" height="32" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="265" y="246" text-anchor="middle">S₁</text>
+
+    <rect x="367" y="224" width="56" height="32" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="395" y="246" text-anchor="middle">S₂</text>
+
+    <rect x="497" y="224" width="56" height="32" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="525" y="246" text-anchor="middle" font-size="10">S_{B-1}</text>
+  </g>
+
+  <!-- ===== Annotation (red) ===== -->
+  <rect x="30" y="264" width="580" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="40" y="279" font-size="10" fill="#b85450">⚠ 注意：output 暂存的是 exclusive（不含自身）；阶段三再 out[i] + input[i] + offset 才得到 inclusive</text>
+
+  <!-- ===== Code box ===== -->
+  <rect x="30" y="296" width="580" height="58" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="44" y="314" font-family="monospace" font-size="10.5" fill="#333">__global__ void scan_block_kernel(const float* in, float* out,</text>
+  <text x="44" y="330" font-family="monospace" font-size="10.5" fill="#333">                                      float* block_sums, int n) {   // &lt;&lt;&lt;B, 256&gt;&gt;&gt;</text>
+  <text x="44" y="346" font-family="monospace" font-size="10.5" fill="#555">    // 每 block 独立 exclusive scan → out；block 总和 → block_sums[block]</text>
+
+  <!-- ===== 3-phase context ===== -->
+  <g filter="url(#rough2)">
+    <rect x="30"  y="366" width="180" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="4"/>
+    <rect x="230" y="366" width="180" height="30" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="4"/>
+    <rect x="430" y="366" width="180" height="30" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="4"/>
+  </g>
+  <text x="120" y="385" text-anchor="middle" font-size="9" font-weight="bold" fill="#b85450">阶段1 scan_block（本图）</text>
+  <text x="320" y="385" text-anchor="middle" font-size="9" fill="#555">阶段2 scan_block_sums</text>
+  <text x="520" y="385" text-anchor="middle" font-size="9" fill="#555">阶段3 add_offset</text>
+  <g stroke="#888" stroke-width="1.2" fill="none" filter="url(#rough2)">
+    <path d="M 212 381 L 226 381" marker-end="url(#arr)"/>
+    <path d="M 412 381 L 426 381" marker-end="url(#arr)"/>
+  </g>
+
+  <text x="320" y="414" text-anchor="middle" font-size="9" fill="#888">本图只画 4 个 block 示意（实际 B = ⌈n / 256⌉）</text>
+</svg>

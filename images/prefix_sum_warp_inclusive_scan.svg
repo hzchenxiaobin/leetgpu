@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="420" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">warp_inclusive_scan：Warp 内 5 步蝶形前缀扫描</text>
+  <text x="320" y="46" text-anchor="middle" font-size="11" fill="#888">32 个 lane 全程活跃，每步用 __shfl_up_sync 向上取值并累加</text>
+
+  <!-- ===== 8 lanes demo ===== -->
+  <text x="30" y="72" font-size="12" fill="#446688" font-weight="bold">演示：8 个 lane（实际 32 个），做 inclusive prefix scan</text>
+
+  <!-- lane labels -->
+  <g font-size="9" fill="#888">
+    <text x="50" y="88" text-anchor="middle">lane</text>
+    <text x="90"  y="88" text-anchor="middle">0</text>
+    <text x="150" y="88" text-anchor="middle">1</text>
+    <text x="210" y="88" text-anchor="middle">2</text>
+    <text x="270" y="88" text-anchor="middle">3</text>
+    <text x="330" y="88" text-anchor="middle">4</text>
+    <text x="390" y="88" text-anchor="middle">5</text>
+    <text x="450" y="88" text-anchor="middle">6</text>
+    <text x="510" y="88" text-anchor="middle">7</text>
+  </g>
+
+  <!-- right-side annotation -->
+  <rect x="540" y="100" width="90" height="112" fill="#fff8e1" stroke="#d6a040" stroke-width="1" stroke-dasharray="3,2" rx="4" filter="url(#rough2)"/>
+  <text x="585" y="122" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">实际 32 lane</text>
+  <text x="585" y="138" text-anchor="middle" font-size="10" fill="#555">做 5 步</text>
+  <text x="585" y="160" text-anchor="middle" font-size="9" fill="#888">offset =</text>
+  <text x="585" y="176" text-anchor="middle" font-size="10" fill="#555">1, 2, 4,</text>
+  <text x="585" y="192" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">8, 16</text>
+
+  <!-- Step 0: initial -->
+  <text x="30" y="110" font-size="11" fill="#666" font-weight="bold">初始：</text>
+  <g font-size="10" fill="#333">
+    <rect x="70"  y="96" width="40" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="90"  y="112" text-anchor="middle">3</text>
+    <rect x="130" y="96" width="40" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="150" y="112" text-anchor="middle">1</text>
+    <rect x="190" y="96" width="40" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="112" text-anchor="middle">4</text>
+    <rect x="250" y="96" width="40" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="270" y="112" text-anchor="middle">1</text>
+    <rect x="310" y="96" width="40" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="330" y="112" text-anchor="middle">5</text>
+    <rect x="370" y="96" width="40" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="390" y="112" text-anchor="middle">9</text>
+    <rect x="430" y="96" width="40" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="450" y="112" text-anchor="middle">2</text>
+    <rect x="490" y="96" width="40" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="510" y="112" text-anchor="middle">6</text>
+  </g>
+
+  <!-- Step 1: offset=1 -->
+  <text x="30" y="150" font-size="11" fill="#4a7a3a" font-weight="bold">offset=1：</text>
+  <text x="98" y="150" font-size="10" fill="#4a7a3a">lane i 收 lane(i-1)，i≥1 才加</text>
+  <g stroke="#4a7a3a" stroke-width="1.2" fill="none" filter="url(#rough2)">
+    <path d="M 90 120 L 90 126 L 150 126 L 150 132" marker-end="url(#arr)"/>
+    <path d="M 150 120 L 150 126 L 210 126 L 210 132" marker-end="url(#arr)"/>
+    <path d="M 210 120 L 210 126 L 270 126 L 270 132" marker-end="url(#arr)"/>
+    <path d="M 270 120 L 270 126 L 330 126 L 330 132" marker-end="url(#arr)"/>
+    <path d="M 330 120 L 330 126 L 390 126 L 390 132" marker-end="url(#arr)"/>
+    <path d="M 390 120 L 390 126 L 450 126 L 450 132" marker-end="url(#arr)"/>
+    <path d="M 450 120 L 450 126 L 510 126 L 510 132" marker-end="url(#arr)"/>
+  </g>
+  <g font-size="10" fill="#333">
+    <rect x="70"  y="136" width="40" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="90"  y="152" text-anchor="middle">3</text>
+    <rect x="130" y="136" width="40" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="150" y="152" text-anchor="middle">4</text>
+    <rect x="190" y="136" width="40" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="152" text-anchor="middle">5</text>
+    <rect x="250" y="136" width="40" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="270" y="152" text-anchor="middle">5</text>
+    <rect x="310" y="136" width="40" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="330" y="152" text-anchor="middle">6</text>
+    <rect x="370" y="136" width="40" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="390" y="152" text-anchor="middle">14</text>
+    <rect x="430" y="136" width="40" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="450" y="152" text-anchor="middle">11</text>
+    <rect x="490" y="136" width="40" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="510" y="152" text-anchor="middle">8</text>
+  </g>
+
+  <!-- Step 2: offset=2 -->
+  <text x="30" y="190" font-size="11" fill="#d6a040" font-weight="bold">offset=2：</text>
+  <text x="98" y="190" font-size="10" fill="#d6a040">lane i 收 lane(i-2)，i≥2 才加</text>
+  <g stroke="#d6a040" stroke-width="1.2" fill="none" filter="url(#rough2)">
+    <path d="M 90 160 L 90 166 L 210 166 L 210 172" marker-end="url(#arr)"/>
+    <path d="M 150 160 L 150 166 L 270 166 L 270 172" marker-end="url(#arr)"/>
+    <path d="M 210 160 L 210 166 L 330 166 L 330 172" marker-end="url(#arr)"/>
+    <path d="M 270 160 L 270 166 L 390 166 L 390 172" marker-end="url(#arr)"/>
+    <path d="M 330 160 L 330 166 L 450 166 L 450 172" marker-end="url(#arr)"/>
+    <path d="M 390 160 L 390 166 L 510 166 L 510 172" marker-end="url(#arr)"/>
+  </g>
+  <g font-size="10" fill="#333">
+    <rect x="70"  y="176" width="40" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="90"  y="192" text-anchor="middle">3</text>
+    <rect x="130" y="176" width="40" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="150" y="192" text-anchor="middle">4</text>
+    <rect x="190" y="176" width="40" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="192" text-anchor="middle">8</text>
+    <rect x="250" y="176" width="40" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="270" y="192" text-anchor="middle">9</text>
+    <rect x="310" y="176" width="40" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="330" y="192" text-anchor="middle">11</text>
+    <rect x="370" y="176" width="40" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="390" y="192" text-anchor="middle">19</text>
+    <rect x="430" y="176" width="40" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="450" y="192" text-anchor="middle">17</text>
+    <rect x="490" y="176" width="40" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="510" y="192" text-anchor="middle">22</text>
+  </g>
+
+  <!-- Step 3: offset=4 -->
+  <text x="30" y="230" font-size="11" fill="#b85450" font-weight="bold">offset=4：</text>
+  <text x="98" y="230" font-size="10" fill="#b85450">lane i 收 lane(i-4)，i≥4 才加 → 完成！</text>
+  <g stroke="#b85450" stroke-width="1.2" fill="none" filter="url(#rough2)">
+    <path d="M 90 200 L 90 206 L 330 206 L 330 212" marker-end="url(#arr)"/>
+    <path d="M 150 200 L 150 206 L 390 206 L 390 212" marker-end="url(#arr)"/>
+    <path d="M 210 200 L 210 206 L 450 206 L 450 212" marker-end="url(#arr)"/>
+    <path d="M 270 200 L 270 206 L 510 206 L 510 212" marker-end="url(#arr)"/>
+  </g>
+  <g font-size="10" fill="#333">
+    <rect x="70"  y="216" width="40" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="90"  y="232" text-anchor="middle">3</text>
+    <rect x="130" y="216" width="40" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="150" y="232" text-anchor="middle">4</text>
+    <rect x="190" y="216" width="40" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="232" text-anchor="middle">8</text>
+    <rect x="250" y="216" width="40" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="270" y="232" text-anchor="middle">9</text>
+    <rect x="310" y="216" width="40" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="330" y="232" text-anchor="middle" font-weight="bold" fill="#b85450">14</text>
+    <rect x="370" y="216" width="40" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="390" y="232" text-anchor="middle" font-weight="bold" fill="#b85450">23</text>
+    <rect x="430" y="216" width="40" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="450" y="232" text-anchor="middle" font-weight="bold" fill="#b85450">25</text>
+    <rect x="490" y="216" width="40" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="510" y="232" text-anchor="middle" font-weight="bold" fill="#b85450">31</text>
+  </g>
+  <text x="545" y="232" font-size="10" fill="#b85450" font-weight="bold">✓ 前缀和！</text>
+
+  <!-- ===== code ===== -->
+  <line x1="20" y1="262" x2="620" y2="262" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <rect x="30" y="272" width="580" height="116" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="44" y="292" font-family="monospace" font-size="11" fill="#888">// warp_inclusive_scan：单 warp 内蝶形前缀扫描</text>
+  <text x="44" y="308" font-family="monospace" font-size="11" fill="#333">for (int offset = 1; offset &lt; 32; offset &lt;&lt;= 1) {</text>
+  <text x="44" y="324" font-family="monospace" font-size="11" fill="#333">    int n = __shfl_up_sync(0xffffffff, val, offset);</text>
+  <text x="44" y="340" font-family="monospace" font-size="11" fill="#333">    if (lane_id &gt;= offset) val += n;</text>
+  <text x="44" y="356" font-family="monospace" font-size="11" fill="#333">}</text>
+  <text x="44" y="376" font-family="monospace" font-size="11" fill="#888">// 5 步：offset = 1,2,4,8,16  →  log2(32) = 5</text>
+</svg>

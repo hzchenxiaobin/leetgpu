@@ -148,6 +148,8 @@ for (int offset = 1; offset < WARP_SIZE; offset <<= 1) {
 
 完整可编译的三阶段分块 scan 版本（warp shuffle + shared 汇总 + 三 kernel + 阶段二 grid-stride 迭代）：
 
+![warp_inclusive_scan 函数图解：32 lane 5 步蝶形前缀扫描](images/prefix_sum_warp_inclusive_scan.svg)
+
 ```cuda
 // prefix_sum.cu —— 三阶段分块 scan：warp shuffle + block scan + 全局偏移加回
 // 编译命令: nvcc -O3 -arch=sm_80 prefix_sum.cu -o prefix_sum
@@ -184,6 +186,9 @@ __inline__ __device__ float warp_inclusive_scan(float val) {
     return val;   // lane i 持有本 warp 内 [0..i] 的前缀和
 }
 
+![block_exclusive_scan 函数图解：warp scan + shared memory 汇总 + 偏移加回](images/prefix_sum_block_exclusive_scan.svg)
+
+```cuda
 // ============================================================
 // block 内 exclusive scan：warp scan + shared 汇总 + 偏移加回
 // 返回每线程对应的 exclusive 前缀和；block 总和由 lane (BLOCK_SIZE-1) 写入 *block_sum
@@ -223,6 +228,9 @@ __inline__ __device__ float block_exclusive_scan(float val, float* block_sum) {
     return exclusive;
 }
 
+![阶段一 scan_block_kernel 图解：每 block 独立 exclusive scan，输出 + block 总和](images/prefix_sum_phase1_block_scan.svg)
+
+```cuda
 // ============================================================
 // 阶段一：每 block 对自己那段做 exclusive scan，结果存 output，总和写 block_sums
 // ============================================================
@@ -236,6 +244,9 @@ __global__ void scan_block_kernel(const float* input, float* output,
     output[tid] = exclusive;   // 暂存 exclusive，阶段三再加回 input + offset
 }
 
+![阶段二+三 scan_offsets_kernel + add_offset_kernel 图解：全局偏移计算与加回](images/prefix_sum_phase23_offset_addback.svg)
+
+```cuda
 // ============================================================
 // 阶段二：对 block_sums[] 做 exclusive prefix sum → block_offsets[]
 // 使用 grid-stride 迭代，支持 numBlocks > BLOCK_SIZE 的场景
