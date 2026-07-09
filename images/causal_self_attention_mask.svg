@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="480" viewBox="0 0 940 480" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="17" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8"/>
+    </filter>
+  </defs>
+  <rect width="940" height="480" fill="#fdfcf7"/>
+  <text x="470" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">Causal Mask：query i 只能看到 key 0..i（下三角）</text>
+  <path d="M 300 42 Q 470 50 640 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <text x="470" y="72" text-anchor="middle" font-size="12" fill="#666">注意力矩阵 M×M，上三角（j &gt; i）置 -∞，softmax 后权重为 0 → query i 只 attend 前 i+1 个 key</text>
+
+  <!-- M×M mask 矩阵 -->
+  <g filter="url(#sk)">
+    <g stroke="#bbb" stroke-width="0.8">
+      <!-- 6×6 grid -->
+      <rect x="200" y="100" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="242" y="100" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="284" y="100" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="326" y="100" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="368" y="100" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="410" y="100" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+
+      <rect x="200" y="142" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="242" y="142" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="284" y="142" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="326" y="142" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="368" y="142" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="410" y="142" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+
+      <rect x="200" y="184" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="242" y="184" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="284" y="184" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="326" y="184" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="368" y="184" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="410" y="184" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+
+      <rect x="200" y="226" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="242" y="226" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="284" y="226" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="326" y="226" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="368" y="226" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="410" y="226" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+
+      <rect x="200" y="268" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="242" y="268" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="284" y="268" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="326" y="268" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="368" y="268" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="410" y="268" width="42" height="42" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+
+      <rect x="200" y="310" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="242" y="310" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="284" y="310" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="326" y="310" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="368" y="310" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="410" y="310" width="42" height="42" fill="#bfe0bf" stroke="#4a8e4a"/>
+    </g>
+  </g>
+
+  <!-- 标注 -->
+  <text x="221" y="94" text-anchor="middle" font-size="9" fill="#666">key 0</text>
+  <text x="263" y="94" text-anchor="middle" font-size="9" fill="#666">1</text>
+  <text x="305" y="94" text-anchor="middle" font-size="9" fill="#666">2</text>
+  <text x="347" y="94" text-anchor="middle" font-size="9" fill="#666">3</text>
+  <text x="389" y="94" text-anchor="middle" font-size="9" fill="#666">4</text>
+  <text x="431" y="94" text-anchor="middle" font-size="9" fill="#666">5</text>
+
+  <text x="190" y="125" text-anchor="end" font-size="9" fill="#666">q0</text>
+  <text x="190" y="167" text-anchor="end" font-size="9" fill="#666">q1</text>
+  <text x="190" y="209" text-anchor="end" font-size="9" fill="#666">q2</text>
+  <text x="190" y="251" text-anchor="end" font-size="9" fill="#666">q3</text>
+  <text x="190" y="293" text-anchor="end" font-size="9" fill="#666">q4</text>
+  <text x="190" y="335" text-anchor="end" font-size="9" fill="#666">q5</text>
+
+  <!-- 图例 -->
+  <g filter="url(#sk)">
+    <rect x="500" y="110" width="40" height="24" rx="3" fill="#bfe0bf" stroke="#4a8e4a"/>
+  </g>
+  <text x="550" y="126" font-size="11" fill="#2e6e2e">有效（j ≤ i，参与 softmax）</text>
+  <g filter="url(#sk)">
+    <rect x="500" y="144" width="40" height="24" rx="3" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+  </g>
+  <text x="550" y="160" font-size="11" fill="#999">屏蔽（j &gt; i，置 -∞）</text>
+
+  <!-- 说明 -->
+  <g filter="url(#sk)">
+    <rect x="500" y="184" width="380" height="120" rx="8" fill="#fff8e1" stroke="#d6a040"/>
+  </g>
+  <text x="520" y="208" font-size="12" font-weight="bold" fill="#7a5415">关键观察</text>
+  <text x="520" y="228" font-size="11" fill="#444">query i 只需遍历 key 0..i（共 i+1 个）</text>
+  <text x="520" y="246" font-size="11" fill="#444">而非全部 M 个 key</text>
+  <text x="520" y="270" font-size="11" fill="#b03a3a">计算量 = Σ(i+1) = O(M²/2)</text>
+  <text x="520" y="288" font-size="11" fill="#2e6e2e">比标准 attention 省 50%</text>
+
+  <!-- 与 PagedAttention 的关系 -->
+  <g filter="url(#sk)">
+    <rect x="200" y="380" width="540" height="80" rx="8" fill="#e8f0fa" stroke="#4a8edb"/>
+  </g>
+  <text x="470" y="404" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">与 PagedAttention 的关系</text>
+  <text x="220" y="424" font-size="11" fill="#444">Causal Self-Attention 是 LLM prefill 跑的 attention 变体</text>
+  <text x="220" y="442" font-size="11" fill="#444">PagedAttention 的 block table 机制同样适用：KV 按 block 分块存入 paged pool，kernel 间接寻址</text>
+  <text x="220" y="458" font-size="11" fill="#444">两者核心都是"间接寻址 + online softmax 融合"</text>
+</svg>
