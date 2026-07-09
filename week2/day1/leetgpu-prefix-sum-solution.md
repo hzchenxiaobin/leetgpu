@@ -395,36 +395,31 @@ __global__ void scan_block_kernel(const float* input, float* output,
 // ============================================================
 __global__ void scan_offsets_kernel(const float* block_sums,
                                     float* block_offsets, int M) {
+    __shared__ float s_chunk_total;
     __shared__ float s_running;
     int tid = threadIdx.x;
 
-    if (tid == 0) s_running = 0.0f;
+    if (tid == 0) { s_running = 0.0f; }
     __syncthreads();
 
     for (int chunk = 0; chunk < M; chunk += BLOCK_SIZE) {
         int idx = chunk + tid;
         float val = (idx < M) ? block_sums[idx] : 0.0f;
 
-        float exclusive = block_exclusive_scan(val, &s_running);
-        // s_running 此时被 block_exclusive_scan 的 ⑥ 写为本 chunk 总和
+        float exclusive = block_exclusive_scan(val, &s_chunk_total);
 
         if (idx < M) {
-            block_offsets[idx] = exclusive + (s_running - block_sums[chunk + tid]);
-            // 修正：exclusive 是本 chunk 内的，需要加之前所有 chunk 的累积
+            block_offsets[idx] = exclusive + s_running;
         }
 
         __syncthreads();
-        // s_running 已由 block_exclusive_scan 更新为"本 chunk 总和"
-        // 但我们需要"之前所有 chunk 的累积"，所以需手动累加
-        // block_exclusive_scan 的 ⑥ 写的是本 chunk 总和，不是累积
-        // 需要在下一轮开始前把 s_running 更新为"累积总和"
-        // 修正写法见下方完整版
+        if (tid == 0) s_running += s_chunk_total;
         __syncthreads();
     }
 }
 ```
 
-> ⚠️ 上面的阶段二逻辑有简化，完整正确版本见下方"4.6 完整可编译代码"中的实现。核心思路是每轮把本 chunk 的总和累加到 running offset，下一轮的 exclusive 再加上这个 running offset。
+> ⚠️ 核心思路：每轮把本 chunk 的总和累加到 running offset，下一轮的 exclusive 再加上这个 running offset。
 >
 > ⚠️ **实现陷阱**：`block_exclusive_scan` 只在 `threadIdx.x == BLOCK_SIZE-1` 时写 `*block_sum`。若用局部变量 `float chunk_total` 接这个值，再在 `tid == 0` 时读取，thread 0 读到的是未初始化的寄存器垃圾，导致 `s_running` 累积错误，后续所有 block 的偏移都会错（例如 LeetGPU 上 `N=250000` 时后部结果完全偏离）。正确做法是把它放进 `__shared__ float s_chunk_total`，由 thread 0 在 `__syncthreads()` 后读取。
 
