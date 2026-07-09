@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="600" viewBox="0 0 940 600" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="17" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8"/>
+    </filter>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#3a3a3a"/>
+    </marker>
+  </defs>
+  <rect width="940" height="600" fill="#fdfcf7"/>
+  <text x="470" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">GPT-2 Transformer Block：本周所有概念的集大成</text>
+  <path d="M 300 42 Q 470 50 640 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <text x="470" y="72" text-anchor="middle" font-size="12" fill="#666">Pre-LN + Multi-Head Attention + FFN(GELU)，含两次残差连接——推理引擎 model.forward 的单层</text>
+
+  <!-- 输入 -->
+  <g filter="url(#sk)">
+    <rect x="370" y="88" width="200" height="36" rx="6" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+  </g>
+  <text x="470" y="110" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">x (seq_len, 768)</text>
+  <path d="M 470 124 L 470 142" stroke="#3a3a3a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- LN1 -->
+  <g filter="url(#sk)">
+    <rect x="340" y="146" width="260" height="40" rx="6" fill="#e8f0fa" stroke="#4a8edb"/>
+  </g>
+  <text x="470" y="170" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">LayerNorm1 (γ₁, β₁)</text>
+  <path d="M 470 186 L 470 204" stroke="#3a3a3a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- QKV + Attention -->
+  <g filter="url(#sk)">
+    <rect x="220" y="208" width="500" height="80" rx="8" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.5"/>
+  </g>
+  <text x="470" y="230" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">Multi-Head Self-Attention</text>
+  <text x="470" y="250" text-anchor="middle" font-size="11" fill="#444">QKV projection → 12 heads × (seq_len, 64)</text>
+  <text x="470" y="268" text-anchor="middle" font-size="11" fill="#444">softmax(QK^T/√64)·V → concat → W_attn projection</text>
+  <text x="470" y="284" text-anchor="middle" font-size="10" fill="#b03a3a">★ Day1 attention + Day2 KV Cache + Day4 PagedAttention 都服务这里</text>
+  <path d="M 470 288 L 470 306" stroke="#3a3a3a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- Residual 1 -->
+  <g filter="url(#sk)">
+    <rect x="340" y="310" width="260" height="40" rx="6" fill="#eaf6ee" stroke="#4a8e4a"/>
+  </g>
+  <text x="470" y="334" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">+ 残差连接 1:  hidden = x + attn_out</text>
+  <path d="M 470 350 L 470 368" stroke="#3a3a3a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- LN2 -->
+  <g filter="url(#sk)">
+    <rect x="340" y="372" width="260" height="40" rx="6" fill="#e8f0fa" stroke="#4a8edb"/>
+  </g>
+  <text x="470" y="396" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">LayerNorm2 (γ₂, β₂)</text>
+  <path d="M 470 412 L 470 430" stroke="#3a3a3a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- FFN -->
+  <g filter="url(#sk)">
+    <rect x="240" y="434" width="460" height="64" rx="8" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.5"/>
+  </g>
+  <text x="470" y="456" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">Feed-Forward Network</text>
+  <text x="470" y="474" text-anchor="middle" font-size="11" fill="#444">Linear(768→3072) → GELU → Linear(3072→768)</text>
+  <text x="470" y="490" text-anchor="middle" font-size="10" fill="#b03a3a">★ 两个大 GEMM，Prefill 时 compute-bound</text>
+  <path d="M 470 498 L 470 516" stroke="#3a3a3a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- Residual 2 -->
+  <g filter="url(#sk)">
+    <rect x="320" y="520" width="300" height="40" rx="6" fill="#eaf6ee" stroke="#4a8e4a"/>
+  </g>
+  <text x="470" y="544" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">+ 残差连接 2:  output = hidden + ffn_out</text>
+
+  <!-- 底部：本周概念映射 -->
+  <g filter="url(#sk)">
+    <rect x="40" y="572" width="860" height="22" rx="4" fill="#fce4ec" stroke="#b85450"/>
+  </g>
+  <text x="470" y="588" text-anchor="middle" font-size="11" fill="#7a2828" font-weight="bold">本周概念映射：attention(Day1/4) · KV Cache(Day2) · GEMM compute-bound(Day6) · 整层=引擎 model.forward(Day5)</text>
+</svg>
