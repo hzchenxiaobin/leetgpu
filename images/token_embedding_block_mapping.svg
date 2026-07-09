@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="380" viewBox="0 0 920 380" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="21" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8"/>
+    </filter>
+  </defs>
+  <rect width="920" height="380" fill="#fdfcf7"/>
+  <text x="460" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">并行映射：1 个 block 处理 1 个 (b, t) 位置</text>
+  <path d="M 290 42 Q 460 50 630 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <text x="460" y="72" text-anchor="middle" font-size="12" fill="#666">grid = (B×T,)，每 block 独立处理一个 (batch, time) 位置，block 内协作求 D 维的 μ/σ²</text>
+
+  <!-- blocks 网格 -->
+  <g filter="url(#sk)">
+    <g stroke="#4a8edb" stroke-width="0.8">
+      <rect x="40" y="90" width="80" height="50" rx="4" fill="#e8f0fa"/>
+      <rect x="124" y="90" width="80" height="50" rx="4" fill="#e8f0fa"/>
+      <rect x="208" y="90" width="80" height="50" rx="4" fill="#e8f0fa"/>
+      <rect x="292" y="90" width="80" height="50" rx="4" fill="#e8f0fa"/>
+      <rect x="376" y="90" width="80" height="50" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.5"/>
+      <rect x="460" y="90" width="80" height="50" rx="4" fill="#e8f0fa"/>
+    </g>
+  </g>
+  <text x="80" y="112" text-anchor="middle" font-size="10" fill="#2b6e9e">block 0</text>
+  <text x="80" y="128" text-anchor="middle" font-size="9" fill="#666">(b=0,t=0)</text>
+  <text x="164" y="112" text-anchor="middle" font-size="10" fill="#2b6e9e">block 1</text>
+  <text x="164" y="128" text-anchor="middle" font-size="9" fill="#666">(b=0,t=1)</text>
+  <text x="248" y="112" text-anchor="middle" font-size="10" fill="#2b6e9e">block 2</text>
+  <text x="248" y="128" text-anchor="middle" font-size="9" fill="#666">(b=0,t=2)</text>
+  <text x="416" y="112" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">block k</text>
+  <text x="416" y="128" text-anchor="middle" font-size="9" fill="#666">(b,t)</text>
+  <text x="500" y="112" text-anchor="middle" font-size="10" fill="#666">...</text>
+
+  <!-- block 内部 -->
+  <g filter="url(#sk)">
+    <rect x="40" y="160" width="840" height="200" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/>
+  </g>
+  <text x="60" y="184" font-size="13" font-weight="bold" fill="#2b2b2b">block 内部执行流程</text>
+  <text x="60" y="208" font-size="12" fill="#444">① gather: tok_emb[token_ids[b,t]] + pos_emb[pos_ids[t]] → s[D]（每 thread 读若干维）</text>
+  <text x="60" y="228" font-size="12" fill="#444">② 块归约求 μ = Σ s[d] / D（block_reduce_sum）</text>
+  <text x="60" y="248" font-size="12" fill="#444">③ 块归约求 σ² = Σ (s[d]-μ)² / D（block_reduce_sum）</text>
+  <text x="60" y="268" font-size="12" fill="#444">④ 归一化: y[d] = γ[d] · (s[d]-μ) / √(σ²+ε) + β[d]（每 thread 写若干维）</text>
+  <text x="60" y="296" font-size="12" fill="#b03a3a" font-weight="bold">关键：μ/σ² 需要 D 维全归约 → 两趟 block_reduce（一趟求和，一趟求平方和）</text>
+  <text x="60" y="316" font-size="11" fill="#666">D=768 时，每 thread 处理 3 维（768/256），两趟归约各一次 __syncthreads</text>
+  <text x="60" y="342" font-size="11" fill="#2e6e2e" font-weight="bold">融合收益：gather→加→LayerNorm 一次 kernel 完成，不物化中间 (B,T,D) 的 s 矩阵</text>
+</svg>
