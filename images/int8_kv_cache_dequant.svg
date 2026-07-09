@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="460" viewBox="0 0 920 460" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="23" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8"/>
+    </filter>
+    <marker id="ark" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#3a3a3a"/>
+    </marker>
+  </defs>
+  <rect width="920" height="460" fill="#fdfcf7"/>
+  <text x="460" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">INT8 反量化：KV Cache 带宽 4× 压缩</text>
+  <path d="M 290 42 Q 460 50 630 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- fp32 cache -->
+  <g filter="url(#sk)">
+    <rect x="40" y="80" width="380" height="150" rx="8" fill="#fce4ec" stroke="#b85450" stroke-width="1.5"/>
+  </g>
+  <text x="60" y="104" font-size="13" font-weight="bold" fill="#7a2828">fp32 KV Cache（未量化）</text>
+  <g filter="url(#sk)">
+    <g fill="#f4b8b0" stroke="#b85450">
+      <rect x="60" y="118" width="30" height="40" rx="2"/>
+      <rect x="92" y="118" width="30" height="40" rx="2"/>
+      <rect x="124" y="118" width="30" height="40" rx="2"/>
+      <rect x="156" y="118" width="30" height="40" rx="2"/>
+    </g>
+  </g>
+  <text x="200" y="144" font-size="11" fill="#7a2828">每 elem 4 bytes</text>
+  <text x="60" y="180" font-size="12" fill="#444">KV Cache 总带宽 = 2 · L · d · 4 B</text>
+  <text x="60" y="202" font-size="12" fill="#444">seq_len=8192, d=128, H=32:</text>
+  <text x="60" y="222" font-size="12" font-weight="bold" fill="#b03a3a">≈ 268 MB / 步（HBM 搬运）</text>
+
+  <!-- 箭头 -->
+  <path d="M 432 155 L 488 155" stroke="#3a3a3a" stroke-width="1.8" fill="none" filter="url(#sk)" marker-end="url(#ark)"/>
+  <text x="460" y="146" text-anchor="middle" font-size="11" fill="#666">量化</text>
+
+  <!-- int8 cache -->
+  <g filter="url(#sk)">
+    <rect x="500" y="80" width="380" height="150" rx="8" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.5"/>
+  </g>
+  <text x="520" y="104" font-size="13" font-weight="bold" fill="#2e6e2e">INT8 KV Cache + per-token scale</text>
+  <g filter="url(#sk)">
+    <g fill="#bfe0bf" stroke="#4a8e4a">
+      <rect x="520" y="118" width="16" height="40" rx="2"/>
+      <rect x="538" y="118" width="16" height="40" rx="2"/>
+      <rect x="556" y="118" width="16" height="40" rx="2"/>
+      <rect x="574" y="118" width="16" height="40" rx="2"/>
+    </g>
+    <rect x="600" y="118" width="40" height="40" rx="2" fill="#fff8e1" stroke="#d6a040"/>
+    <text x="620" y="143" text-anchor="middle" font-size="9" fill="#7a5415">scale</text>
+  </g>
+  <text x="650" y="144" font-size="11" fill="#2e6e2e">每 elem 1 byte + 每 token 1 scale</text>
+  <text x="520" y="180" font-size="12" fill="#444">KV Cache 总带宽 ≈ 2 · L · d · 1 B</text>
+  <text x="520" y="202" font-size="12" fill="#444">同尺寸:</text>
+  <text x="520" y="222" font-size="12" font-weight="bold" fill="#2e6e2e">≈ 67 MB / 步（4× 压缩）</text>
+
+  <!-- 反量化公式 -->
+  <g filter="url(#sk)">
+    <rect x="40" y="250" width="840" height="80" rx="8" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.4"/>
+  </g>
+  <text x="60" y="276" font-size="13" font-weight="bold" fill="#2b6e9e">反量化（在 kernel 内 streaming 进行，无需物化 fp32 cache）</text>
+  <text x="60" y="300" font-size="13" fill="#234">K_float[h, s, d] = K_int8[h, s, d] × k_scale[h, s]    （广播：每 token 一个 scale 乘到 d 维上）</text>
+  <text x="60" y="320" font-size="13" fill="#234">V_float[h, s, d] = V_int8[h, s, d] × v_scale[h, s]</text>
+
+  <!-- 收益 -->
+  <g filter="url(#sk)">
+    <rect x="40" y="350" width="840" height="90" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/>
+  </g>
+  <text x="60" y="374" font-size="13" font-weight="bold" fill="#2b2b2b">为什么对 Decode 特别值钱</text>
+  <text x="60" y="396" font-size="12" fill="#444">Decode 是 memory-bound，瓶颈是搬运 KV Cache 的带宽。int8 把每步 HBM 流量从 ~268MB 降到 ~67MB，</text>
+  <text x="60" y="416" font-size="12" fill="#444">SM 等 KV 数据的时间直接降到 1/4 → TBT 显著下降。代价是 int8 量化的精度损失（atol=rtol=1e-3）。</text>
+  <text x="60" y="434" font-size="11" fill="#b03a3a" font-weight="bold">这正是 Day 1"减少 KV Cache 读取"优化方向的落地——TensorRT-LLM / vLLM 生产标配。</text>
+</svg>
