@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 580" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#888"/>
+    </marker>
+  </defs>
+
+  <rect width="660" height="580" fill="#fafafa"/>
+
+  <text x="330" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Hillis-Steele 蝶形扫描（Inclusive Scan）</text>
+  <text x="330" y="44" text-anchor="middle" font-size="11" fill="#888">以 8 元素为例（实际 32 lane，5 步 = log₂32），每步 __shfl_up_sync 取距离 2^k 的值累加</text>
+
+  <!-- lane labels -->
+  <g font-size="9" fill="#888">
+    <text x="30" y="76" text-anchor="middle">lane</text>
+    <text x="90"  y="76" text-anchor="middle">0</text>
+    <text x="160" y="76" text-anchor="middle">1</text>
+    <text x="230" y="76" text-anchor="middle">2</text>
+    <text x="300" y="76" text-anchor="middle">3</text>
+    <text x="370" y="76" text-anchor="middle">4</text>
+    <text x="440" y="76" text-anchor="middle">5</text>
+    <text x="510" y="76" text-anchor="middle">6</text>
+    <text x="580" y="76" text-anchor="middle">7</text>
+  </g>
+
+  <!-- ===== Step 0: 初始 ===== -->
+  <text x="30" y="100" font-size="11" fill="#446688" font-weight="bold">初始：</text>
+  <g font-size="11" fill="#333">
+    <rect x="70"  y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="95"  y="100" text-anchor="middle">a₀</text>
+    <rect x="140" y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="165" y="100" text-anchor="middle">a₁</text>
+    <rect x="210" y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="235" y="100" text-anchor="middle">a₂</text>
+    <rect x="280" y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="305" y="100" text-anchor="middle">a₃</text>
+    <rect x="350" y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="375" y="100" text-anchor="middle">a₄</text>
+    <rect x="420" y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="100" text-anchor="middle">a₅</text>
+    <rect x="490" y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="515" y="100" text-anchor="middle">a₆</text>
+    <rect x="560" y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="585" y="100" text-anchor="middle">a₇</text>
+  </g>
+
+  <!-- arrows step0→step1: shfl_up by 1 -->
+  <g stroke="#4a7a3a" stroke-width="1.2" fill="none" filter="url(#rough2)" opacity="0.6">
+    <path d="M 95 108 L 95 114 L 165 114 L 165 120" marker-end="url(#arr)"/>
+    <path d="M 165 108 L 165 114 L 235 114 L 235 120" marker-end="url(#arr)"/>
+    <path d="M 235 108 L 235 114 L 305 114 L 305 120" marker-end="url(#arr)"/>
+    <path d="M 305 108 L 305 114 L 375 114 L 375 120" marker-end="url(#arr)"/>
+    <path d="M 375 108 L 375 114 L 445 114 L 445 120" marker-end="url(#arr)"/>
+    <path d="M 445 108 L 445 114 L 515 114 L 515 120" marker-end="url(#arr)"/>
+    <path d="M 515 108 L 515 114 L 585 114 L 585 120" marker-end="url(#arr)"/>
+  </g>
+
+  <!-- ===== Step 1: offset=1 ===== -->
+  <text x="30" y="138" font-size="11" fill="#4a7a3a" font-weight="bold">Step 1</text>
+  <text x="80" y="138" font-size="9" fill="#4a7a3a">offset=1</text>
+  <text x="140" y="138" font-size="9" fill="#888">lane i += lane(i-1)</text>
+  <g font-size="9" fill="#333">
+    <rect x="70"  y="122" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="95"  y="138" text-anchor="middle">a₀</text>
+    <rect x="140" y="122" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="165" y="138" text-anchor="middle">a₀+a₁</text>
+    <rect x="210" y="122" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="235" y="138" text-anchor="middle">a₁+a₂</text>
+    <rect x="280" y="122" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="305" y="138" text-anchor="middle">a₂+a₃</text>
+    <rect x="350" y="122" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="375" y="138" text-anchor="middle">a₃+a₄</text>
+    <rect x="420" y="122" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="138" text-anchor="middle">a₄+a₅</text>
+    <rect x="490" y="122" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="515" y="138" text-anchor="middle">a₅+a₆</text>
+    <rect x="560" y="122" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="585" y="138" text-anchor="middle">a₆+a₇</text>
+  </g>
+
+  <!-- arrows step1→step2: shfl_up by 2 -->
+  <g stroke="#d6a040" stroke-width="1.2" fill="none" filter="url(#rough2)" opacity="0.6">
+    <path d="M 95 146 L 95 152 L 235 152 L 235 158" marker-end="url(#arr)"/>
+    <path d="M 165 146 L 165 152 L 305 152 L 305 158" marker-end="url(#arr)"/>
+    <path d="M 235 146 L 235 152 L 375 152 L 375 158" marker-end="url(#arr)"/>
+    <path d="M 305 146 L 305 152 L 445 152 L 445 158" marker-end="url(#arr)"/>
+    <path d="M 375 146 L 375 152 L 515 152 L 515 158" marker-end="url(#arr)"/>
+    <path d="M 445 146 L 445 152 L 585 152 L 585 158" marker-end="url(#arr)"/>
+  </g>
+
+  <!-- ===== Step 2: offset=2 ===== -->
+  <text x="30" y="176" font-size="11" fill="#d6a040" font-weight="bold">Step 2</text>
+  <text x="80" y="176" font-size="9" fill="#d6a040">offset=2</text>
+  <text x="140" y="176" font-size="9" fill="#888">lane i += lane(i-2)</text>
+  <g font-size="9" fill="#333">
+    <rect x="70"  y="160" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="95"  y="176" text-anchor="middle">a₀</text>
+    <rect x="140" y="160" width="50" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="165" y="176" text-anchor="middle">a₀+a₁</text>
+    <rect x="210" y="160" width="50" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="235" y="176" text-anchor="middle">a₀+a₁+a₂</text>
+    <rect x="280" y="160" width="50" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="305" y="176" text-anchor="middle">a₀..a₃</text>
+    <rect x="350" y="160" width="50" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="375" y="176" text-anchor="middle">a₁..a₄</text>
+    <rect x="420" y="160" width="50" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="176" text-anchor="middle">a₂..a₅</text>
+    <rect x="490" y="160" width="50" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="515" y="176" text-anchor="middle">a₃..a₆</text>
+    <rect x="560" y="160" width="50" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="585" y="176" text-anchor="middle">a₄..a₇</text>
+  </g>
+
+  <!-- arrows step2→step3: shfl_up by 4 -->
+  <g stroke="#b85450" stroke-width="1.2" fill="none" filter="url(#rough2)" opacity="0.6">
+    <path d="M 95 184 L 95 190 L 375 190 L 375 196" marker-end="url(#arr)"/>
+    <path d="M 165 184 L 165 190 L 445 190 L 445 196" marker-end="url(#arr)"/>
+    <path d="M 235 184 L 235 190 L 515 190 L 515 196" marker-end="url(#arr)"/>
+    <path d="M 305 184 L 305 190 L 585 190 L 585 196" marker-end="url(#arr)"/>
+  </g>
+
+  <!-- ===== Step 3: offset=4 ===== -->
+  <text x="30" y="214" font-size="11" fill="#b85450" font-weight="bold">Step 3</text>
+  <text x="80" y="214" font-size="9" fill="#b85450">offset=4</text>
+  <text x="140" y="214" font-size="9" fill="#888">lane i += lane(i-4) → 完成！</text>
+  <g font-size="9" fill="#333">
+    <rect x="70"  y="198" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="95"  y="214" text-anchor="middle" font-weight="bold" fill="#b85450">a₀</text>
+    <rect x="140" y="198" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="165" y="214" text-anchor="middle" font-weight="bold" fill="#b85450">a₀+a₁</text>
+    <rect x="210" y="198" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="235" y="214" text-anchor="middle" font-weight="bold" fill="#b85450">a₀..a₂</text>
+    <rect x="280" y="198" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="305" y="214" text-anchor="middle" font-weight="bold" fill="#b85450">a₀..a₃</text>
+    <rect x="350" y="198" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="375" y="214" text-anchor="middle" font-weight="bold" fill="#b85450">a₀..a₄</text>
+    <rect x="420" y="198" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="214" text-anchor="middle" font-weight="bold" fill="#b85450">a₀..a₅</text>
+    <rect x="490" y="198" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="515" y="214" text-anchor="middle" font-weight="bold" fill="#b85450">a₀..a₆</text>
+    <rect x="560" y="198" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="585" y="214" text-anchor="middle" font-weight="bold" fill="#b85450">a₀..a₇</text>
+  </g>
+  <text x="620" y="214" font-size="10" fill="#b85450" font-weight="bold">✓</text>
+
+  <!-- ===== 特征说明 ===== -->
+  <line x1="20" y1="240" x2="640" y2="240" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <text x="30" y="264" font-size="12" fill="#446688" font-weight="bold">Hillis-Steele 特征</text>
+
+  <rect x="30" y="278" width="580" height="130" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+
+  <text x="44" y="300" font-size="11" fill="#555" font-weight="bold">操作数与步数</text>
+  <text x="44" y="318" font-size="11" fill="#555">• 每步所有 lane 同时累加（in-place），步数 = log₂N</text>
+  <text x="44" y="336" font-size="11" fill="#555">• 总工作量 = N × log₂N（比串行 O(N) 多一个 log 因子）</text>
+  <text x="44" y="354" font-size="11" fill="#b85450">→ 不是 work-efficient，但步数最少，GPU 上延迟最优</text>
+
+  <text x="44" y="378" font-size="11" fill="#555" font-weight="bold">CUDA 实现</text>
+  <text x="44" y="396" font-family="monospace" font-size="10" fill="#333">for (offset = 1; offset &lt; 32; offset &lt;&lt;= 1)</text>
+  <text x="60" y="400" font-family="monospace" font-size="10" fill="#333">  </text>
+  <text x="64" y="400" font-family="monospace" font-size="10" fill="#333"></text>
+
+  <!-- ===== 为什么 GPU 选 Hillis-Steele ===== -->
+  <rect x="30" y="420" width="580" height="70" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="442" font-size="11" fill="#4a7a3a" font-weight="bold">为什么 GPU 上选 Hillis-Steele 而非 Blelloch？</text>
+  <text x="44" y="460" font-size="11" fill="#555">• Warp 只有 32 lane，log₂32 = 5 步，log 因子极小（5 vs 1）</text>
+  <text x="44" y="476" font-size="11" fill="#555">• 全程所有 lane 活跃，warp shuffle 利用率高（Blelloch 有大量空闲 lane）</text>
+
+  <!-- ===== 适用场景 ===== -->
+  <rect x="30" y="500" width="580" height="60" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="522" font-size="11" fill="#7a5415" font-weight="bold">适用场景</text>
+  <text x="44" y="540" font-size="11" fill="#555">Warp 内 scan（32 lane，5 步）—— 本题的 warp_inclusive_scan 即用此算法</text>
+  <text x="44" y="556" font-size="11" fill="#555">block 内 warp 间 scan（NUM_WARPS≤32，3-5 步）—— block_exclusive_scan 的 ③ 步</text>
+</svg>

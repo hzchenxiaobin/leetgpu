@@ -62,26 +62,92 @@ __global__ void scan_atomic(const float* input, float* output, int N) {
 
 ## 3. GPU 设计
 
-### 3.1 并行化策略：Hillis-Steele scan + 三阶段分块
+### 3.1 并行 Scan 算法：Hillis-Steele vs Blelloch
 
-#### Hillis-Steele 蝶形扫描
+Prefix sum 看似串行（`out[i]` 依赖 `out[i-1]`），但有两种经典并行化算法。理解它们的差异是选择 GPU scan 实现的基础。
 
-思想：每步让每个位置加上**距离 `offset` 处**的值，`offset = 1, 2, 4, 8, ...`，`log₂N` 步后每个位置都持有自己的前缀和。
+#### Hillis-Steele 蝶形扫描（step-efficient）
 
-![Prefix Scan 概览](images/prefix_sum_overview.svg)
+思想：每步让每个位置加上**距离 `offset` 处**的值，`offset = 1, 2, 4, 8, ...`，`log₂N` 步后每个位置都持有自己的前缀和。所有元素 **in-place** 就地更新，全程不额外分配缓冲。
+
+![Hillis-Steele 蝶形扫描逐步演化](images/prefix_sum_hillis_steele_detail.svg)
 
 以 8 个元素、inclusive scan 为例：
 
 | step | offset | 操作 | 数组状态 |
 |------|--------|------|----------|
-| 0 | — | 初始 | [1, 2, 3, 4, 5, 6, 7, 8] |
-| 1 | 1 | `a[i] += a[i-1]` | [1, 3, 5, 7, 9, 11, 13, 15] |
-| 2 | 2 | `a[i] += a[i-2]` | [1, 3, 6, 10, 14, 18, 22, 26] |
-| 3 | 4 | `a[i] += a[i-4]` | [1, 3, 6, 10, 15, 21, 28, 36] |
+| 0 | — | 初始 | [a₀, a₁, a₂, a₃, a₄, a₅, a₆, a₇] |
+| 1 | 1 | `a[i] += a[i-1]` | [a₀, a₀+a₁, a₁+a₂, a₂+a₃, ...] |
+| 2 | 2 | `a[i] += a[i-2]` | [a₀, a₀+a₁, a₀+a₁+a₂, a₀..a₃, ...] |
+| 3 | 4 | `a[i] += a[i-4]` | [a₀, a₀+a₁, a₀..a₂, a₀..a₃, a₀..a₄, a₀..a₅, a₀..a₆, a₀..a₇] |
 
-**关键属性**：`log₂N` 步完成，**所有线程全程活跃**（不像归约逐步减半），但总工作量 `O(N log N)`，比串行 `O(N)` 多一个 `log` 因子。
+**关键属性**：
+- **步数（深度）** = `log₂N`（8 元素 3 步，32 lane 5 步）—— 步数最少
+- **工作量** = `N × log₂N` —— 比串行 `O(N)` 多一个 log 因子，**不是 work-efficient**
+- **活跃度**：所有线程**全程活跃**，每步 N 个 lane 同时做加法
 
-> 💡 另一种算法 **Blelloch scan**（work-efficient，`O(N)` 工作量）用"上扫 build 树 + 下扫 distribute"两遍，适合大量元素场景。本题 N≤1e8，Hillis-Steele 的 `log` 因子只 27，且全程满载、对 warp shuffle 友好，是 GPU 上的标准选择。
+对应 CUDA 代码（`__shfl_up_sync` 天然匹配此模式）：
+
+```cuda
+// Hillis-Steele inclusive scan, 32 lane, 5 步
+for (int offset = 1; offset < WARP_SIZE; offset <<= 1) {
+    float n = __shfl_up_sync(0xffffffff, val, offset);
+    if (lane >= offset) val += n;
+}
+```
+
+> 💡 **为什么 GPU 上选 Hillis-Steele？** Warp 只有 32 lane，`log₂32 = 5`，log 因子极小（5 vs 1）。而且全程所有 lane 活跃，warp shuffle 利用率 100%。Blelloch 虽然工作量更优，但每步活跃线程减半（类似归约），warp 内大量 lane 空闲，反而不如 Hillis-Steele 高效。
+
+#### Blelloch 工作高效扫描（work-efficient）
+
+思想：分**上扫（reduce）**和**下扫（distribute）**两遍。上扫构建一棵归约树（每步活跃线程减半，类似归约），下扫沿树逆向分发偏移。总工作量 `O(N)`，是 **work-efficient** 的。
+
+```
+上扫（Up-Sweep / Reduce）：从叶到根，构建部分和树
+  offset = 1, 2, 4, ...：a[i + offset] += a[i]，每步活跃线程减半
+  → 根节点（最后一个元素）持有总和
+
+下扫（Down-Sweep / Distribute）：从根到叶，分发偏移
+  offset = N/2, N/4, ...：交换并累加，每步活跃线程倍增
+  → 每个位置得到 exclusive prefix sum
+```
+
+以 8 元素为例的简要过程：
+
+| 阶段 | step | offset | 操作 | 效果 |
+|------|------|--------|------|------|
+| 上扫 | 1 | 1 | `a[1]+=a[0], a[3]+=a[2], a[5]+=a[4], a[7]+=a[6]` | 2 元素和 |
+| 上扫 | 2 | 2 | `a[3]+=a[1], a[7]+=a[5]` | 4 元素和 |
+| 上扫 | 3 | 4 | `a[7]+=a[3]` | 8 元素和（总和） |
+| 下扫 | 4 | 4 | 交换 a[3], a[7]；a[7]=0 | 分发根 |
+| 下扫 | 5 | 2 | 交换 a[1],a[3]；a[5],a[7] | 分发中间 |
+| 下扫 | 6 | 1 | 交换相邻对 | 完成 exclusive scan |
+
+**关键属性**：
+- **步数（深度）** = `2 × log₂N`（比 Hillis-Steele 多一倍）
+- **工作量** = `O(N)` —— **work-efficient**，无 log 因子
+- **活跃度**：每步活跃线程**逐步减半**（上扫）或**倍增**（下扫），类似归约树
+- **scan 类型**：天然输出 **exclusive** scan（不含自身）
+
+#### 两种算法对比
+
+![Hillis-Steele vs Blelloch Scan 对比](images/prefix_sum_hillis_vs_blelloch.svg)
+
+| 维度 | Hillis-Steele | Blelloch |
+|------|---------------|----------|
+| **步数（深度）** | `O(log N)` ★ 最少 | `O(2 log N)` 多一倍 |
+| **工作量** | `O(N log N)` | `O(N)` ★ work-efficient |
+| **线程活跃度** | 全程满载 ★ | 逐步减半（类似归约） |
+| **warp shuffle 友好** | ★ 天然匹配 | 需 shared memory + syncthreads |
+| **scan 类型** | inclusive（直接） | exclusive（天然） |
+| **GPU 适配** | warp/block 级（N≤1024） | 大 N（≥10⁶）或 CPU |
+| **本题选择** | ✅ 选用 | 不选（warp 级 N=32，log 因子小） |
+
+**选择建议**：
+- **N 小（warp/block 级，≤1024）+ 延迟敏感 + warp shuffle 可用** → 选 **Hillis-Steele**（本题）
+- **N 极大（≥10⁶，log 因子显著）+ CPU/多核（无 warp shuffle）** → 选 **Blelloch**
+
+> 💡 **本题为什么选 Hillis-Steele？** 核心在 warp 级 scan：32 lane 时 `log₂32=5` 步，log 因子极小（5 vs 1），且 `__shfl_up_sync` 天然匹配 in-place 累加模式，全程满载。Blelloch 的 `O(N)` 优势在 N=32 时几乎不可感知（32 vs 160 次加法），反而因每步空闲 lane 浪费 warp 资源。只有当 N 极大（如 10⁶ 级别的 global scan）时，Blelloch 的 `O(N)` 才有实质优势。
 
 #### 三阶段分块（large N）
 
