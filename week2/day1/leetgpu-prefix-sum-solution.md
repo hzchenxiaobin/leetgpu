@@ -360,11 +360,10 @@ __inline__ __device__ float block_exclusive_scan(float val, float* block_sum) {
 __global__ void scan_block_kernel(const float* input, float* output,
                                   float* block_sums, int N) {
     int tid = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    if (tid >= N) return;
-
-    float val = input[tid];
+    bool valid = (tid < N);
+    float val = valid ? input[tid] : 0.0f;
     float exclusive = block_exclusive_scan(val, &block_sums[blockIdx.x]);
-    output[tid] = exclusive;   // 暂存 exclusive，阶段三再加回 input + offset
+    if (valid) output[tid] = exclusive;   // 暂存 exclusive，阶段三再加回 input + offset
 }
 ```
 
@@ -375,6 +374,8 @@ __global__ void scan_block_kernel(const float* input, float* output,
 - **注意**：`output` 此时存的是 exclusive（不含 `input[i]`），阶段三需要加回 `input[i] + 全局偏移` 才得到最终 inclusive
 
 > ⚠️ 每个 block 的 exclusive scan 是局部的——block 1 的 exclusive 不知道 block 0 的总和。阶段二就是算这个跨 block 偏移。
+>
+> ⚠️ **不要对越界线程提前 `return`**：`block_exclusive_scan` 内部含 `__syncthreads()`，且只有 `threadIdx.x == BLOCK_SIZE-1` 会写 `block_sums`。若提前 `return`，最后不完整 block 的 `block_sums` 不会被写入，且部分线程跳过同步会导致未定义行为。这里用 `valid` 标志让全部线程参与 scan，只对有效位置写 `output`。
 
 ### 4.4 阶段二 `scan_offsets_kernel`：对 block_sums 做前缀和 → 全局偏移
 
@@ -424,6 +425,8 @@ __global__ void scan_offsets_kernel(const float* block_sums,
 ```
 
 > ⚠️ 上面的阶段二逻辑有简化，完整正确版本见下方"4.6 完整可编译代码"中的实现。核心思路是每轮把本 chunk 的总和累加到 running offset，下一轮的 exclusive 再加上这个 running offset。
+>
+> ⚠️ **实现陷阱**：`block_exclusive_scan` 只在 `threadIdx.x == BLOCK_SIZE-1` 时写 `*block_sum`。若用局部变量 `float chunk_total` 接这个值，再在 `tid == 0` 时读取，thread 0 读到的是未初始化的寄存器垃圾，导致 `s_running` 累积错误，后续所有 block 的偏移都会错（例如 LeetGPU 上 `N=250000` 时后部结果完全偏离）。正确做法是把它放进 `__shared__ float s_chunk_total`，由 thread 0 在 `__syncthreads()` 后读取。
 
 ### 4.5 阶段三 `add_offset_kernel`：加回全局偏移 + input → inclusive
 
@@ -525,10 +528,10 @@ __inline__ __device__ float block_exclusive_scan(float val, float* block_sum) {
 __global__ void scan_block_kernel(const float* input, float* output,
                                   float* block_sums, int N) {
     int tid = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    if (tid >= N) return;
-    float val = input[tid];
+    bool valid = (tid < N);
+    float val = valid ? input[tid] : 0.0f;
     float exclusive = block_exclusive_scan(val, &block_sums[blockIdx.x]);
-    output[tid] = exclusive;
+    if (valid) output[tid] = exclusive;
 }
 
 __global__ void scan_offsets_kernel(const float* block_sums,
@@ -544,15 +547,14 @@ __global__ void scan_offsets_kernel(const float* block_sums,
         int idx = chunk + tid;
         float val = (idx < M) ? block_sums[idx] : 0.0f;
 
-        float chunk_total;
-        float exclusive = block_exclusive_scan(val, &chunk_total);
+        float exclusive = block_exclusive_scan(val, &s_chunk_total);
 
         if (idx < M) {
             block_offsets[idx] = exclusive + s_running;
         }
 
         __syncthreads();
-        if (tid == 0) s_running += chunk_total;
+        if (tid == 0) s_running += s_chunk_total;
         __syncthreads();
     }
 }
@@ -688,10 +690,10 @@ __inline__ __device__ float block_exclusive_scan(float val, float* block_sum) {
 __global__ void scan_block_kernel(const float* input, float* output,
                                   float* block_sums, int N) {
     int tid = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    if (tid >= N) return;
-    float val = input[tid];
+    bool valid = (tid < N);
+    float val = valid ? input[tid] : 0.0f;
     float exclusive = block_exclusive_scan(val, &block_sums[blockIdx.x]);
-    output[tid] = exclusive;
+    if (valid) output[tid] = exclusive;
 }
 
 __global__ void scan_offsets_kernel(const float* block_sums,
@@ -707,15 +709,14 @@ __global__ void scan_offsets_kernel(const float* block_sums,
         int idx = chunk + tid;
         float val = (idx < M) ? block_sums[idx] : 0.0f;
 
-        float chunk_total;
-        float exclusive = block_exclusive_scan(val, &chunk_total);
+        float exclusive = block_exclusive_scan(val, &s_chunk_total);
 
         if (idx < M) {
             block_offsets[idx] = exclusive + s_running;
         }
 
         __syncthreads();
-        if (tid == 0) s_running += chunk_total;
+        if (tid == 0) s_running += s_chunk_total;
         __syncthreads();
     }
 }
@@ -756,6 +757,9 @@ extern "C" void solve(const float* input, float* output, int N) {
 | **同步** | `solve` 末尾 `cudaDeviceSynchronize()` 确保所有 kernel 完成后再返回 |
 | **N=1 边界** | `N <= 0` 时直接 return；`N=1` 时 `scan_block_kernel` 正确处理（exclusive=0, offset=0, 加回 input 得 input[0]） |
 | **精度** | 平台 `atol=0.01, rtol=0.01`，float 累加误差在容忍范围内 |
+| **易错点** | `scan_block_kernel` 不要提前 `return`（要让所有线程进 `block_exclusive_scan`）；`scan_offsets_kernel` 的 chunk 总和必须放 shared memory，不能读 thread 0 的局部变量 |
+
+> 🐛 **已修复的 bug**：旧版在 `N` 不是 `BLOCK_SIZE` 倍数时，最后不完整 block 的部分线程会提前 `return`，导致 `block_sums` 未写入且 `__syncthreads()` 不完整；同时 `scan_offsets_kernel` 用局部变量 `chunk_total` 接 `block_exclusive_scan` 的总和，但只在 `threadIdx.x == BLOCK_SIZE-1` 时写入，后续 `tid==0` 读到的是垃圾值，造成 `s_running` 错误、后续 block 偏移整体漂移（如 `N=250000` 时结果后部完全错误）。上方代码已修复这两个问题。
 
 ## 5. 性能分析与优化
 
