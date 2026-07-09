@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="460" viewBox="0 0 940 460" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="17" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8"/>
+    </filter>
+  </defs>
+  <rect width="940" height="460" fill="#fdfcf7"/>
+  <text x="470" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">Weight Dequantization：分块 scale × 量化权重</text>
+  <path d="M 300 42 Q 470 50 640 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <text x="470" y="72" text-anchor="middle" font-size="12" fill="#666">Y[i,j] = X[i,j] × S[i/T, j/T] —— 每个 T×T tile 共用一个 scale，element-wise 乘法</text>
+
+  <!-- X 矩阵（量化权重，分块着色）-->
+  <text x="60" y="100" font-size="12" font-weight="bold" fill="#2b6e9e">X [M, N]（量化权重）</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="108" width="240" height="240" rx="4" fill="none" stroke="#4a8edb" stroke-width="1.4"/>
+  </g>
+  <!-- 4×4 tile 着色 -->
+  <g filter="url(#sk)">
+    <g stroke="#4a8edb" stroke-width="0.8">
+      <rect x="60" y="108" width="120" height="120" fill="#bcd6f0" opacity="0.6"/>
+      <rect x="180" y="108" width="120" height="120" fill="#bfe0bf" opacity="0.6"/>
+      <rect x="60" y="228" width="120" height="120" fill="#f0d9a8" opacity="0.6"/>
+      <rect x="180" y="228" width="120" height="120" fill="#f4b8b0" opacity="0.6"/>
+    </g>
+  </g>
+  <text x="120" y="172" text-anchor="middle" font-size="10" fill="#2b6e9e">tile(0,0)</text>
+  <text x="240" y="172" text-anchor="middle" font-size="10" fill="#2e6e2e">tile(0,1)</text>
+  <text x="120" y="292" text-anchor="middle" font-size="10" fill="#7a5415">tile(1,0)</text>
+  <text x="240" y="292" text-anchor="middle" font-size="10" fill="#7a2828">tile(1,1)</text>
+  <text x="180" y="366" text-anchor="middle" font-size="10" fill="#666">T×T tile（T=128）</text>
+
+  <!-- S 矩阵（scale）-->
+  <text x="400" y="100" font-size="12" font-weight="bold" fill="#7a5415">S [M/T, N/T]（scale）</text>
+  <g filter="url(#sk)">
+    <g stroke="#c98a2b" stroke-width="1.2">
+      <rect x="400" y="148" width="60" height="50" rx="3" fill="#f0d9a8"/>
+      <rect x="460" y="148" width="60" height="50" rx="3" fill="#bfe0bf"/>
+      <rect x="400" y="198" width="60" height="50" rx="3" fill="#bcd6f0"/>
+      <rect x="460" y="198" width="60" height="50" rx="3" fill="#f4b8b0"/>
+    </g>
+  </g>
+  <text x="430" y="178" text-anchor="middle" font-size="11" fill="#7a5415" font-weight="bold">s₀₀</text>
+  <text x="490" y="178" text-anchor="middle" font-size="11" fill="#2e6e2e" font-weight="bold">s₀₁</text>
+  <text x="430" y="228" text-anchor="middle" font-size="11" fill="#2b6e9e" font-weight="bold">s₁₀</text>
+  <text x="490" y="228" text-anchor="middle" font-size="11" fill="#7a2828" font-weight="bold">s₁₁</text>
+  <text x="430" y="266" text-anchor="middle" font-size="10" fill="#666">每 tile 一个 scale</text>
+
+  <!-- 乘法 -->
+  <text x="560" y="180" text-anchor="middle" font-size="24" font-weight="bold" fill="#d6a040">×</text>
+  <text x="560" y="200" text-anchor="middle" font-size="10" fill="#666">broadcast</text>
+
+  <!-- Y 矩阵 -->
+  <text x="640" y="100" font-size="12" font-weight="bold" fill="#2e6e2e">Y [M, N]（反量化输出）</text>
+  <g filter="url(#sk)">
+    <rect x="640" y="108" width="240" height="240" rx="4" fill="none" stroke="#4a8e4a" stroke-width="1.4"/>
+    <g stroke="#4a8e4a" stroke-width="0.8">
+      <rect x="640" y="108" width="120" height="120" fill="#d9f0d9" opacity="0.6"/>
+      <rect x="760" y="108" width="120" height="120" fill="#eaf6ee" opacity="0.6"/>
+      <rect x="640" y="228" width="120" height="120" fill="#e8f0fa" opacity="0.6"/>
+      <rect x="760" y="228" width="120" height="120" fill="#fce4ec" opacity="0.6"/>
+    </g>
+  </g>
+  <text x="700" y="172" text-anchor="middle" font-size="10" fill="#2e6e2e">X×s₀₀</text>
+  <text x="820" y="172" text-anchor="middle" font-size="10" fill="#2e6e2e">X×s₀₁</text>
+  <text x="700" y="292" text-anchor="middle" font-size="10" fill="#2e6e2e">X×s₁₀</text>
+  <text x="820" y="292" text-anchor="middle" font-size="10" fill="#2e6e2e">X×s₁₁</text>
+
+  <!-- 底部：memory-bound 分析 -->
+  <g filter="url(#sk)">
+    <rect x="60" y="380" width="820" height="64" rx="8" fill="#fce4ec" stroke="#b85450" stroke-dasharray="5 3"/>
+  </g>
+  <text x="80" y="404" font-size="12" font-weight="bold" fill="#7a2828">memory-bound 特征（今日 ncu 分析对象）</text>
+  <text x="80" y="424" font-size="11" fill="#444">每元素 1 次乘法（FLOPs 极少），但要读 X(M·N) + 读 S(M·N/T²) + 写 Y(M·N) → HBM 流量大</text>
+  <text x="80" y="440" font-size="11" fill="#b03a3a" font-weight="bold">AI ≈ 1 FLOP / 12 Bytes ≈ 0.08 ≪ Ridge(12.6) → 纯 memory-bound，ncu 应测出 dram 高、sm 低</text>
+</svg>

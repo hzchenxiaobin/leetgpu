@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="360" viewBox="0 0 920 360" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="21" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8"/>
+    </filter>
+  </defs>
+  <rect width="920" height="360" fill="#fdfcf7"/>
+  <text x="460" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">ncu Roofline：Weight Dequant 落在带宽斜线</text>
+  <path d="M 290 42 Q 460 50 630 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- Roofline 坐标系 -->
+  <g filter="url(#sk)">
+    <line x1="120" y1="280" x2="820" y2="280" stroke="#3a3a3a" stroke-width="1.4"/>
+    <line x1="120" y1="80" x2="120" y2="280" stroke="#3a3a3a" stroke-width="1.4"/>
+  </g>
+  <text x="470" y="305" text-anchor="middle" font-size="11" fill="#666">算术强度 AI (FLOP/Byte)</text>
+  <text x="100" y="180" text-anchor="middle" font-size="11" fill="#666" transform="rotate(-90 100 180)">吞吐 (FLOP/s)</text>
+
+  <!-- 内存带宽线（斜线）-->
+  <g filter="url(#sk)">
+    <line x1="120" y1="280" x2="380" y2="100" stroke="#b85450" stroke-width="2"/>
+  </g>
+  <text x="220" y="170" font-size="11" fill="#b85450" transform="rotate(-35 220 170)">HBM 带宽</text>
+
+  <!-- 算力线（水平）-->
+  <g filter="url(#sk)">
+    <line x1="380" y1="100" x2="800" y2="100" stroke="#4a8edb" stroke-width="2"/>
+  </g>
+  <text x="600" y="92" text-anchor="middle" font-size="11" fill="#4a8edb">峰值算力</text>
+
+  <!-- Ridge Point -->
+  <g filter="url(#sk)">
+    <circle cx="380" cy="100" r="5" fill="#7a5415" stroke="#fff" stroke-width="1.5"/>
+  </g>
+  <text x="390" y="118" font-size="11" fill="#7a5415">Ridge ≈ 12.6</text>
+
+  <!-- Weight Dequant 点（左侧低 AI）-->
+  <g filter="url(#sk)">
+    <circle cx="180" cy="250" r="6" fill="#b85450"/>
+  </g>
+  <text x="200" y="246" font-size="11" font-weight="bold" fill="#b85450">Weight Dequant</text>
+  <text x="200" y="262" font-size="10" fill="#b85450">AI ≈ 0.08</text>
+  <text x="200" y="276" font-size="10" fill="#b85450">卡在带宽线（memory-bound）</text>
+
+  <!-- Prefill GEMM 点（右侧高 AI）-->
+  <g filter="url(#sk)">
+    <circle cx="700" cy="100" r="6" fill="#2e6e2e"/>
+  </g>
+  <text x="620" y="86" font-size="11" font-weight="bold" fill="#2e6e2e">Prefill GEMM</text>
+  <text x="620" y="102" font-size="10" fill="#2e6e2e">AI ≈ 400</text>
+  <text x="620" y="116" font-size="10" fill="#2e6e2e">卡在算力线</text>
+
+  <!-- 底部 ncu 指标对应 -->
+  <g filter="url(#sk)">
+    <rect x="60" y="320" width="800" height="32" rx="6" fill="#e8f0fa" stroke="#4a8edb"/>
+  </g>
+  <text x="470" y="340" text-anchor="middle" font-size="11" fill="#2b6e9e" font-weight="bold">ncu 实测：Weight Dequant 的 dram__throughput ≈ 90%，sm__throughput ≈ 5% → 确证 memory-bound</text>
+</svg>
