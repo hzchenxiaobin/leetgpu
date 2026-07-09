@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="480" viewBox="0 0 940 480" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="17" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8"/>
+    </filter>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#3a3a3a"/>
+    </marker>
+  </defs>
+  <rect width="940" height="480" fill="#fdfcf7"/>
+  <text x="470" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">MHA vs GQA vs MQA：KV 头数决定 Cache 大小</text>
+  <path d="M 300 42 Q 470 50 640 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- ============ MHA ============ -->
+  <g filter="url(#sk)">
+    <rect x="30" y="64" width="280" height="300" rx="8" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.5"/>
+  </g>
+  <text x="170" y="88" text-anchor="middle" font-size="14" font-weight="bold" fill="#2b6e9e">MHA（标准多头）</text>
+  <text x="170" y="106" text-anchor="middle" font-size="11" fill="#666">num_kv_heads = num_q_heads</text>
+  <!-- Q heads -->
+  <g filter="url(#sk)">
+    <g fill="#bcd6f0" stroke="#4a8edb">
+      <rect x="50" y="120" width="34" height="28" rx="3"/>
+      <rect x="86" y="120" width="34" height="28" rx="3"/>
+      <rect x="122" y="120" width="34" height="28" rx="3"/>
+      <rect x="158" y="120" width="34" height="28" rx="3"/>
+    </g>
+  </g>
+  <text x="210" y="138" font-size="10" fill="#666">Q: 4 heads</text>
+  <!-- KV heads -->
+  <g filter="url(#sk)">
+    <g fill="#d9e8f7" stroke="#4a8edb">
+      <rect x="50" y="180" width="34" height="28" rx="3"/>
+      <rect x="86" y="180" width="34" height="28" rx="3"/>
+      <rect x="122" y="180" width="34" height="28" rx="3"/>
+      <rect x="158" y="180" width="34" height="28" rx="3"/>
+    </g>
+  </g>
+  <text x="210" y="198" font-size="10" fill="#666">K,V: 4 heads</text>
+  <!-- 连线 1:1 -->
+  <g filter="url(#sk)">
+    <line x1="67" y1="148" x2="67" y2="180" stroke="#4a8edb" stroke-width="1.2"/>
+    <line x1="103" y1="148" x2="103" y2="180" stroke="#4a8edb" stroke-width="1.2"/>
+    <line x1="139" y1="148" x2="139" y2="180" stroke="#4a8edb" stroke-width="1.2"/>
+    <line x1="175" y1="148" x2="175" y2="180" stroke="#4a8edb" stroke-width="1.2"/>
+  </g>
+  <g filter="url(#sk)">
+    <rect x="50" y="240" width="240" height="56" rx="5" fill="#fce4ec" stroke="#b85450"/>
+  </g>
+  <text x="170" y="262" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a2828">KV Cache: 4 份</text>
+  <text x="170" y="280" text-anchor="middle" font-size="10" fill="#7a2828">cache 大小 ∝ num_q_heads</text>
+  <text x="170" y="320" text-anchor="middle" font-size="10" fill="#666">代表：原版 Transformer</text>
+
+  <!-- ============ GQA ============ -->
+  <g filter="url(#sk)">
+    <rect x="330" y="64" width="280" height="300" rx="8" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.5"/>
+  </g>
+  <text x="470" y="88" text-anchor="middle" font-size="14" font-weight="bold" fill="#2e6e2e">GQA（分组查询）</text>
+  <text x="470" y="106" text-anchor="middle" font-size="11" fill="#666">num_kv_heads &lt; num_q_heads</text>
+  <!-- Q heads -->
+  <g filter="url(#sk)">
+    <g fill="#bfe0bf" stroke="#4a8e4a">
+      <rect x="350" y="120" width="34" height="28" rx="3"/>
+      <rect x="386" y="120" width="34" height="28" rx="3"/>
+      <rect x="422" y="120" width="34" height="28" rx="3"/>
+      <rect x="458" y="120" width="34" height="28" rx="3"/>
+    </g>
+  </g>
+  <text x="510" y="138" font-size="10" fill="#666">Q: 4 heads</text>
+  <!-- KV heads (2) -->
+  <g filter="url(#sk)">
+    <g fill="#d9f0d9" stroke="#4a8e4a">
+      <rect x="360" y="180" width="48" height="28" rx="3"/>
+      <rect x="432" y="180" width="48" height="28" rx="3"/>
+    </g>
+  </g>
+  <text x="510" y="198" font-size="10" fill="#666">K,V: 2 heads</text>
+  <!-- 连线 2:1 -->
+  <g filter="url(#sk)">
+    <line x1="367" y1="148" x2="384" y2="180" stroke="#4a8e4a" stroke-width="1.2"/>
+    <line x1="403" y1="148" x2="384" y2="180" stroke="#4a8e4a" stroke-width="1.2"/>
+    <line x1="439" y1="148" x2="456" y2="180" stroke="#4a8e4a" stroke-width="1.2"/>
+    <line x1="475" y1="148" x2="456" y2="180" stroke="#4a8e4a" stroke-width="1.2"/>
+  </g>
+  <g filter="url(#sk)">
+    <rect x="350" y="240" width="240" height="56" rx="5" fill="#fce4ec" stroke="#b85450"/>
+  </g>
+  <text x="470" y="262" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a2828">KV Cache: 2 份（省 50%）</text>
+  <text x="470" y="280" text-anchor="middle" font-size="10" fill="#7a2828">cache ∝ num_kv_heads</text>
+  <text x="470" y="320" text-anchor="middle" font-size="10" fill="#666">代表：LLaMA-2/3, Mistral</text>
+
+  <!-- ============ MQA ============ -->
+  <g filter="url(#sk)">
+    <rect x="630" y="64" width="280" height="300" rx="8" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.5"/>
+  </g>
+  <text x="770" y="88" text-anchor="middle" font-size="14" font-weight="bold" fill="#7a5415">MQA（多查询）</text>
+  <text x="770" y="106" text-anchor="middle" font-size="11" fill="#666">num_kv_heads = 1</text>
+  <!-- Q heads -->
+  <g filter="url(#sk)">
+    <g fill="#f0d9a8" stroke="#c98a2b">
+      <rect x="650" y="120" width="34" height="28" rx="3"/>
+      <rect x="686" y="120" width="34" height="28" rx="3"/>
+      <rect x="722" y="120" width="34" height="28" rx="3"/>
+      <rect x="758" y="120" width="34" height="28" rx="3"/>
+    </g>
+  </g>
+  <text x="810" y="138" font-size="10" fill="#666">Q: 4 heads</text>
+  <!-- KV heads (1) -->
+  <g filter="url(#sk)">
+    <rect x="690" y="180" width="60" height="28" rx="3" fill="#f7e4b8" stroke="#c98a2b"/>
+  </g>
+  <text x="810" y="198" font-size="10" fill="#666">K,V: 1 head</text>
+  <!-- 连线 4:1 -->
+  <g filter="url(#sk)">
+    <line x1="667" y1="148" x2="710" y2="180" stroke="#c98a2b" stroke-width="1.2"/>
+    <line x1="703" y1="148" x2="720" y2="180" stroke="#c98a2b" stroke-width="1.2"/>
+    <line x1="739" y1="148" x2="730" y2="180" stroke="#c98a2b" stroke-width="1.2"/>
+    <line x1="775" y1="148" x2="730" y2="180" stroke="#c98a2b" stroke-width="1.2"/>
+  </g>
+  <g filter="url(#sk)">
+    <rect x="650" y="240" width="240" height="56" rx="5" fill="#fce4ec" stroke="#b85450"/>
+  </g>
+  <text x="770" y="262" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a2828">KV Cache: 1 份（省 75%）</text>
+  <text x="770" y="280" text-anchor="middle" font-size="10" fill="#7a2828">cache ∝ 1（最小）</text>
+  <text x="770" y="320" text-anchor="middle" font-size="10" fill="#666">代表：Falcon, PaLI</text>
+
+  <!-- ============ 底部说明 ============ -->
+  <g filter="url(#sk)">
+    <rect x="30" y="380" width="880" height="84" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/>
+  </g>
+  <text x="46" y="404" font-size="12" font-weight="bold" fill="#2b2b2b">KV Cache 大小 = 2 × n_layers × n_kv_heads × seq_len × d_head × bytes</text>
+  <text x="46" y="426" font-size="11" fill="#444">MHA: n_kv_heads = n_q_heads（如 32）→ cache 最大</text>
+  <text x="46" y="444" font-size="11" fill="#2e6e2e">GQA: n_kv_heads &lt; n_q_heads（LLaMA-3: 32Q/8KV → cache 缩 4×）</text>
+  <text x="46" y="460" font-size="11" fill="#7a5415">MQA: n_kv_heads = 1 → cache 最小，但精度损失最大；GQA 是 MHA 与 MQA 的折中</text>
+</svg>

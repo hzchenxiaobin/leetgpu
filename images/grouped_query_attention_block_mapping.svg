@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="420" viewBox="0 0 920 420" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="21" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8"/>
+    </filter>
+    <marker id="ar2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#3a3a3a"/>
+    </marker>
+  </defs>
+  <rect width="920" height="420" fill="#fdfcf7"/>
+  <text x="460" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">GQA 并行映射：block 处理一个 (q_head, seq_row)</text>
+  <path d="M 290 42 Q 460 50 630 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <text x="460" y="72" text-anchor="middle" font-size="12" fill="#666">num_groups = num_q_heads / num_kv_heads；Q head h 共享 KV head h / num_groups</text>
+
+  <!-- Q heads (8) -->
+  <text x="40" y="108" font-size="13" font-weight="bold" fill="#2b6e9e">Q heads (8)</text>
+  <g filter="url(#sk)">
+    <g fill="#bcd6f0" stroke="#4a8edb">
+      <rect x="40" y="116" width="60" height="26" rx="3"/>
+      <rect x="100" y="116" width="60" height="26" rx="3"/>
+      <rect x="160" y="116" width="60" height="26" rx="3"/>
+      <rect x="220" y="116" width="60" height="26" rx="3"/>
+    </g>
+    <g fill="#bfe0bf" stroke="#4a8e4a">
+      <rect x="280" y="116" width="60" height="26" rx="3"/>
+      <rect x="340" y="116" width="60" height="26" rx="3"/>
+      <rect x="400" y="116" width="60" height="26" rx="3"/>
+      <rect x="460" y="116" width="60" height="26" rx="3"/>
+    </g>
+  </g>
+  <text x="160" y="156" text-anchor="middle" font-size="10" fill="#2b6e9e">group 0 (Q0-Q3 → KV0)</text>
+  <text x="370" y="156" text-anchor="middle" font-size="10" fill="#2e6e2e">group 1 (Q4-Q7 → KV1)</text>
+
+  <!-- KV heads (2) -->
+  <text x="40" y="200" font-size="13" font-weight="bold" fill="#7a5415">KV heads (2)</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="208" width="240" height="26" rx="3" fill="#d9e8f7" stroke="#4a8edb"/>
+    <rect x="280" y="208" width="240" height="26" rx="3" fill="#d9f0d9" stroke="#4a8e4a"/>
+  </g>
+  <text x="160" y="226" text-anchor="middle" font-size="11" fill="#2b6e9e">K[0], V[0]</text>
+  <text x="400" y="226" text-anchor="middle" font-size="11" fill="#2e6e2e">K[1], V[1]</text>
+
+  <!-- block 映射 -->
+  <text x="40" y="280" font-size="13" font-weight="bold" fill="#2b2b2b">block 映射 (grid = num_q_heads × seq_len)</text>
+  <g filter="url(#sk)">
+    <g fill="#e8f0fa" stroke="#4a8edb" stroke-width="0.8">
+      <rect x="40" y="290" width="60" height="30" rx="2"/>
+      <rect x="100" y="290" width="60" height="30" rx="2"/>
+      <rect x="160" y="290" width="60" height="30" rx="2"/>
+      <rect x="220" y="290" width="60" height="30" rx="2"/>
+    </g>
+    <g fill="#eaf6ee" stroke="#4a8e4a" stroke-width="0.8">
+      <rect x="280" y="290" width="60" height="30" rx="2"/>
+      <rect x="340" y="290" width="60" height="30" rx="2"/>
+      <rect x="400" y="290" width="60" height="30" rx="2"/>
+      <rect x="460" y="290" width="60" height="30" rx="2"/>
+    </g>
+  </g>
+  <text x="70" y="309" text-anchor="middle" font-size="9" fill="#2b6e9e">Q0,s0</text>
+  <text x="130" y="309" text-anchor="middle" font-size="9" fill="#2b6e9e">Q1,s0</text>
+  <text x="190" y="309" text-anchor="middle" font-size="9" fill="#2b6e9e">Q2,s0</text>
+  <text x="250" y="309" text-anchor="middle" font-size="9" fill="#2b6e9e">Q3,s0</text>
+  <text x="310" y="309" text-anchor="middle" font-size="9" fill="#2e6e2e">Q4,s0</text>
+  <text x="370" y="309" text-anchor="middle" font-size="9" fill="#2e6e2e">Q5,s0</text>
+  <text x="430" y="309" text-anchor="middle" font-size="9" fill="#2e6e2e">Q6,s0</text>
+  <text x="490" y="309" text-anchor="middle" font-size="9" fill="#2e6e2e">Q7,s0</text>
+
+  <!-- 读 KV 的箭头 -->
+  <path d="M 160 244 L 160 288" stroke="#4a8edb" stroke-width="1.3" fill="none" marker-end="url(#ar2)" filter="url(#sk)"/>
+  <text x="175" y="270" font-size="10" fill="#2b6e9e">读 KV0</text>
+  <path d="M 400 244 L 400 288" stroke="#4a8e4a" stroke-width="1.3" fill="none" marker-end="url(#ar2)" filter="url(#sk)"/>
+  <text x="415" y="270" font-size="10" fill="#2e6e2e">读 KV1</text>
+
+  <!-- 右侧说明 -->
+  <g filter="url(#sk)">
+    <rect x="560" y="116" width="340" height="204" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/>
+  </g>
+  <text x="576" y="140" font-size="12" font-weight="bold" fill="#2b2b2b">关键：KV head 索引映射</text>
+  <text x="576" y="164" font-size="12" fill="#234" font-family="monospace">num_groups = num_q_heads / num_kv_heads</text>
+  <text x="576" y="188" font-size="12" fill="#234" font-family="monospace">kv_head = q_head / num_groups</text>
+  <text x="576" y="214" font-size="11" fill="#666">例：8 Q heads, 2 KV heads → groups=4</text>
+  <text x="576" y="232" font-size="11" fill="#666">Q0,Q1,Q2,Q3 → KV0；Q4,Q5,Q6,Q7 → KV1</text>
+  <text x="576" y="260" font-size="12" font-weight="bold" fill="#2e6e2e">Cache 收益</text>
+  <text x="576" y="280" font-size="11" fill="#444">MHA cache ∝ 8 → GQA cache ∝ 2（省 75%）</text>
+  <text x="576" y="298" font-size="11" fill="#444">LLaMA-3 8B: 32Q/8KV → 省 4×</text>
+  <text x="576" y="316" font-size="11" fill="#b03a3a" font-weight="bold">注意：每个 Q head 仍独立计算，只共享 K/V</text>
+
+  <!-- 底部 -->
+  <text x="460" y="362" text-anchor="middle" font-size="11" fill="#666">每个 block 独立做一次完整 attention：Q[h,s] 对 K[kv_h, :seq] 做 1×seq 点积 → softmax → × V[kv_h, :seq]</text>
+  <text x="460" y="384" text-anchor="middle" font-size="11" fill="#666">不同 block 间完全并行；同一 KV head 被多个 Q head 重读（可缓存到 shared memory 复用）</text>
+  <text x="460" y="406" text-anchor="middle" font-size="11" fill="#2e6e2e" font-weight="bold">GQA 本质：用少量 KV 头服务多 Q 头 → cache 小 + Q 头仍丰富表达</text>
+</svg>
