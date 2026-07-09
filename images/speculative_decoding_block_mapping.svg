@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="400" viewBox="0 0 920 400" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="21" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8"/>
+    </filter>
+  </defs>
+  <rect width="920" height="400" fill="#fdfcf7"/>
+  <text x="460" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">并行映射：1 个 block 处理 1 个序列（B 序列并行）</text>
+  <path d="M 290 42 Q 460 50 630 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <text x="460" y="72" text-anchor="middle" font-size="12" fill="#666">B 个序列完全独立，每序列内 T≤16 逐个 accept/reject（串行），reject 时 block 协作算 CDF</text>
+
+  <!-- B 个 block -->
+  <g filter="url(#sk)">
+    <rect x="40" y="90" width="180" height="100" rx="6" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.4"/>
+    <rect x="240" y="90" width="180" height="100" rx="6" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.4"/>
+    <rect x="440" y="90" width="180" height="100" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.5"/>
+    <rect x="640" y="90" width="180" height="100" rx="6" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.4"/>
+  </g>
+  <text x="130" y="114" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">block 0</text>
+  <text x="130" y="134" text-anchor="middle" font-size="10" fill="#444">序列 b=0</text>
+  <text x="130" y="152" text-anchor="middle" font-size="10" fill="#444">T 个 accept/reject</text>
+  <text x="130" y="170" text-anchor="middle" font-size="10" fill="#2e6e2e">全 accept → bonus</text>
+
+  <text x="330" y="114" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">block 1</text>
+  <text x="330" y="134" text-anchor="middle" font-size="10" fill="#444">序列 b=1</text>
+  <text x="330" y="152" text-anchor="middle" font-size="10" fill="#444">reject@pos1</text>
+  <text x="330" y="170" text-anchor="middle" font-size="10" fill="#b03a3a">→ resample CDF</text>
+
+  <text x="530" y="114" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">block 2</text>
+  <text x="530" y="134" text-anchor="middle" font-size="10" fill="#444">序列 b=2</text>
+  <text x="530" y="152" text-anchor="middle" font-size="10" fill="#444">全 accept → bonus</text>
+  <text x="530" y="170" text-anchor="middle" font-size="10" fill="#2e6e2e">（最佳情况）</text>
+
+  <text x="730" y="114" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">block B-1</text>
+  <text x="730" y="134" text-anchor="middle" font-size="10" fill="#444">序列 b=B-1</text>
+  <text x="730" y="152" text-anchor="middle" font-size="10" fill="#444">...</text>
+
+  <!-- block 内部 -->
+  <g filter="url(#sk)">
+    <rect x="40" y="210" width="780" height="160" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/>
+  </g>
+  <text x="60" y="234" font-size="13" font-weight="bold" fill="#2b2b2b">block 内部执行流程（每序列）</text>
+  <text x="60" y="258" font-size="12" fill="#444">① 加载 draft_tokens[b, 0..T-1]（T≤16，可全放寄存器）</text>
+  <text x="60" y="280" font-size="12" fill="#444">② for i in 0..T-1:（串行，T 极小）</text>
+  <text x="80" y="300" font-size="11" fill="#444">gather p = draft_probs[b,i,tok], q = target_probs[b,i,tok]（各 1 元素）</text>
+  <text x="80" y="318" font-size="11" fill="#444">alpha = min(1, q/p); if u_i &lt; alpha → accept(输出 tok); else → reject(break)</text>
+  <text x="60" y="342" font-size="12" fill="#b03a3a" font-weight="bold">③ 若 reject: block 协作算 CDF（流式扫 V 维 max(q-p,0)→归一化→cumsum→查 r）</text>
+  <text x="60" y="362" font-size="12" fill="#2e6e2e" font-weight="bold">④ 若全 accept: bonus = CDF(target_probs[b,T-1]).searchsorted(r) → output[b,T]</text>
+</svg>

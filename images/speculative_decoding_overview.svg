@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="520" viewBox="0 0 940 520" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="17" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8"/>
+    </filter>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#3a3a3a"/>
+    </marker>
+  </defs>
+  <rect width="940" height="520" fill="#fdfcf7"/>
+  <text x="470" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">Speculative Decoding：Draft 提议 → Target 验证</text>
+  <path d="M 300 42 Q 470 50 640 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- Draft model -->
+  <g filter="url(#sk)">
+    <rect x="40" y="70" width="200" height="80" rx="8" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.5"/>
+  </g>
+  <text x="140" y="94" text-anchor="middle" font-size="13" font-weight="bold" fill="#2b6e9e">Draft 模型（小/快）</text>
+  <text x="140" y="114" text-anchor="middle" font-size="11" fill="#444">自回归生成 T 个 token</text>
+  <text x="140" y="132" text-anchor="middle" font-size="11" fill="#444">draft_tokens[b, 0..T-1]</text>
+
+  <!-- draft tokens -->
+  <g filter="url(#sk)">
+    <g fill="#bcd6f0" stroke="#4a8edb">
+      <rect x="270" y="86" width="50" height="48" rx="4"/>
+      <rect x="322" y="86" width="50" height="48" rx="4"/>
+      <rect x="374" y="86" width="50" height="48" rx="4"/>
+      <rect x="426" y="86" width="50" height="48" rx="4"/>
+    </g>
+  </g>
+  <text x="295" y="114" text-anchor="middle" font-size="11" fill="#234">t₀</text>
+  <text x="347" y="114" text-anchor="middle" font-size="11" fill="#234">t₁</text>
+  <text x="399" y="114" text-anchor="middle" font-size="11" fill="#234">t₂</text>
+  <text x="451" y="114" text-anchor="middle" font-size="11" fill="#234">t₃</text>
+  <text x="373" y="152" text-anchor="middle" font-size="10" fill="#666">一次生成 T 个 draft token</text>
+
+  <path d="M 373 158 L 373 178" stroke="#3a3a3a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- Target model -->
+  <g filter="url(#sk)">
+    <rect x="270" y="182" width="206" height="60" rx="8" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.5"/>
+  </g>
+  <text x="373" y="206" text-anchor="middle" font-size="13" font-weight="bold" fill="#2e6e2e">Target 模型（大/准）</text>
+  <text x="373" y="226" text-anchor="middle" font-size="11" fill="#444">一次前向评估 T 个 token（并行）</text>
+
+  <path d="M 373 242 L 373 262" stroke="#3a3a3a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- 验证：逐个 accept/reject -->
+  <text x="470" y="280" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">逐个验证：accept / reject</text>
+
+  <!-- pos 0: accept -->
+  <g filter="url(#sk)">
+    <rect x="60" y="296" width="180" height="56" rx="6" fill="#eaf6ee" stroke="#4a8e4a"/>
+  </g>
+  <text x="150" y="318" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">pos 0: accept</text>
+  <text x="150" y="336" text-anchor="middle" font-size="10" fill="#444">u₀ &lt; min(1, q₀/p₀)</text>
+  <text x="150" y="350" text-anchor="middle" font-size="10" fill="#2e6e2e">→ 输出 t₀</text>
+
+  <!-- pos 1: accept -->
+  <g filter="url(#sk)">
+    <rect x="260" y="296" width="180" height="56" rx="6" fill="#eaf6ee" stroke="#4a8e4a"/>
+  </g>
+  <text x="350" y="318" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">pos 1: accept</text>
+  <text x="350" y="336" text-anchor="middle" font-size="10" fill="#444">u₁ &lt; min(1, q₁/p₁)</text>
+  <text x="350" y="350" text-anchor="middle" font-size="10" fill="#2e6e2e">→ 输出 t₁</text>
+
+  <!-- pos 2: REJECT -->
+  <g filter="url(#sk)">
+    <rect x="460" y="296" width="180" height="56" rx="6" fill="#fce4ec" stroke="#b85450" stroke-width="1.5"/>
+  </g>
+  <text x="550" y="318" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a2828">pos 2: REJECT ✗</text>
+  <text x="550" y="336" text-anchor="middle" font-size="10" fill="#444">u₂ ≥ min(1, q₂/p₂)</text>
+  <text x="550" y="350" text-anchor="middle" font-size="10" fill="#b03a3a">→ resample, break</text>
+
+  <!-- pos 3: 不评估 -->
+  <g filter="url(#sk)">
+    <rect x="660" y="296" width="180" height="56" rx="6" fill="#eee" stroke="#ccc" stroke-dasharray="4 3"/>
+  </g>
+  <text x="750" y="318" text-anchor="middle" font-size="12" fill="#999">pos 3: 跳过</text>
+  <text x="750" y="336" text-anchor="middle" font-size="10" fill="#999">（首次 reject 后停止）</text>
+
+  <!-- resample -->
+  <g filter="url(#sk)">
+    <rect x="460" y="366" width="180" height="70" rx="6" fill="#fef6e6" stroke="#c98a2b"/>
+  </g>
+  <text x="550" y="388" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5415">resample</text>
+  <text x="550" y="406" text-anchor="middle" font-size="10" fill="#444">adjusted = max(q-p, 0)</text>
+  <text x="550" y="422" text-anchor="middle" font-size="10" fill="#444">归一化 → CDF → 查 r</text>
+
+  <!-- 输出 -->
+  <g filter="url(#sk)">
+    <rect x="60" y="456" width="780" height="44" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/>
+  </g>
+  <text x="450" y="482" text-anchor="middle" font-size="12" fill="#2b2b2b">output = [t₀, t₁, <tspan fill="#b03a3a" font-weight="bold">resampled</tspan>]  （首个 reject 处重采样，后续丢弃；全部 accept 则 bonus 一个 token）</text>
+</svg>
