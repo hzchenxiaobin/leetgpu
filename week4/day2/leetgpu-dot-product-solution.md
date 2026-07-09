@@ -65,7 +65,7 @@ __global__ void dot_atomic(const float* a, const float* b, float* out, int N) {
 
 点积 = `N` 个乘法 + `N-1` 次加法。并行化的标准套路与归约几乎一致，只是每个元素的「贡献」从 `input[i]` 变成 `a[i]*b[i]`：
 
-![点积两阶段架构](images/dot_product_overview.svg)
+![点积两阶段架构](images/dot_product_two_level_reduce.svg)
 
 1. **第一阶段（grid-stride 算局部点积）**：grid 的每个 block 用 grid-stride loop 遍历一段数据，每线程累加 `a[i]*b[i]` 到寄存器，再在 block 内做两级归约（warp shuffle + shared memory），得到 1 个部分和，写入 `partial[blockIdx.x]`。
 2. **第二阶段（归约部分和）**：对 `partial[]`（长度 = block 数，通常几千）再做一次归约，得到最终结果。
@@ -88,7 +88,7 @@ __global__ void dot_atomic(const float* a, const float* b, float* out, int N) {
 
 点积与归约共享同一套归约原语，只是「元素贡献」不同。复用 Week2 Day1 的 `warpReduceSum` + `blockReduceSum`：
 
-![warp shuffle 两级归约](images/dot_product_warp_reduce.svg)
+![warp shuffle 两级归约](images/reduction_warp_shuffle.svg)
 
 ```cuda
 __inline__ __device__ float warpReduceSum(float val) {
@@ -106,7 +106,7 @@ __inline__ __device__ float warpReduceSum(float val) {
 
 朴素两步法先把 `c[i]=a[i]*b[i]` 写回 HBM，再读 `c` 归约——多一次 38MB 的往返。**融合版**在 grid-stride loop 里直接 `sum += a[i]*b[i]`，乘积只活在寄存器里，**零中间 IO**：
 
-![kernel 融合对比](images/dot_product_fusion.svg)
+![kernel 融合对比](images/dot_product_fusion_vs_separate.svg)
 
 | 方案 | HBM 读 | HBM 写 | 中间数组 |
 |------|--------|--------|----------|

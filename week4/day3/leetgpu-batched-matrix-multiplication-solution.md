@@ -65,7 +65,7 @@ __global__ void batched_gemm_naive(const float* A, const float* B, float* C,
 }
 ```
 
-![朴素 batched GEMM 访存浪费](images/batched_gemm_naive_problem.svg)
+![朴素 batched GEMM 访存浪费](images/matmul_naive_problem.svg)
 
 **致命问题**：朴素版虽然用 `blockIdx.z` 把 batch 并行了，但**组内仍是 memory-bound**——相邻 thread 的 `A` 行、`B` 列高度重叠却各自从 global 重复读取。算术强度仅 `2 FLOP / 8B = 0.25 FLOP/B`，远低于 A100 平衡点（~60 FLOP/B）。
 
@@ -80,8 +80,6 @@ __global__ void batched_gemm_naive(const float* A, const float* B, float* C,
 - **Batch 级**：`gridDim.z = B`，每个 block 的 `blockIdx.z` 直接索引 batch，**一次 kernel 启动覆盖所有组**，消除 launch 开销与组间串行。
 - **Block 级（Shared Memory Tiling）**：在每个 batch 内，把 `C` 切成 `BM×BN` 的 block tile，对应 block 协作加载 `A` 的 `BM×BK` 子块与 `B` 的 `BK×BN` 子块到 shared memory，沿 `K` 维滑动累加。
 - **Thread 级（Register Blocking / Thread Tile）**：每 thread 负责 block tile 内的 `TM×TN` 输出子块，累加器 `acc[TM][TN]` 常驻寄存器，每 `k` 步做**外积累加**。
-
-![batched GEMM 三层并行：gridDim.z × block tile × thread tile](images/batched_gemm_three_level.svg)
 
 **参数选取**（`M=N=K=512` 友好，与 #22 GEMM 完全一致）：
 

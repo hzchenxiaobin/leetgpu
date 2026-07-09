@@ -79,7 +79,7 @@ __global__ void conv1d_naive(const float* input, const float* kernel,
 
 问题在 **窗口重叠**：相邻输出 `i` 与 `i+1` 的窗口共享 `K-1` 个 input 元素，朴素实现各自从 global 重复读。
 
-![朴素卷积的窗口重叠重复读](images/conv1d_naive_redundant.svg)
+![朴素卷积的窗口重叠重复读](images/conv2d_naive_redundant_reads.svg)
 
 - 每个 input 元素被周围 `K` 个输出 thread 各读一次 → **global 读次数 = N·K**。
 - `K=15` 时每个元素被读 15 次，带宽被冗余读吃光。
@@ -95,7 +95,7 @@ __global__ void conv1d_naive(const float* input, const float* kernel,
 
 输出 tile 长度 `TILE` 需要的 input 区域是 `TILE + 2P`——左右各多出 `P` 个元素就是 **halo（光晕/apron）**，供 tile 边缘输出的卷积窗口读取邻域。
 
-![1D Halo Tiling：block 加载含左右光晕的 tile](images/conv1d_halo_tile.svg)
+![1D Halo Tiling：block 加载含左右光晕的 tile](images/conv2d_halo_tile.svg)
 
 流程（每 block）：
 

@@ -64,7 +64,7 @@ __global__ void histogram_naive(const int* input, int* hist, int N, int B) {
 
 核心思想：**把一份全局 histogram 拆成多份私有 histogram**，让竞争从"全部 vs 全局"降级为"block 内 vs block 私有"，最后再合并。
 
-![Privatization 私有化策略](images/histogramming_privatization.svg)
+![Privatization 私有化策略](images/histogram_shared_privatization.svg)
 
 三步走：
 
@@ -83,8 +83,6 @@ __global__ void histogram_naive(const int* input, int* hist, int N, int B) {
 | **register** | ✓ | 每线程的循环变量、当前 bin 值 |
 
 ### 3.3 关键技巧：两阶段 atomic
-
-![两阶段 atomic 对比](images/histogramming_two_stage.svg)
 
 | 阶段 | 操作 | atomic 次数 | 竞争烈度 | 延迟 |
 |------|------|------------|----------|------|

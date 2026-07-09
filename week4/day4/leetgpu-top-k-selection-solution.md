@@ -67,8 +67,6 @@ __global__ void naive_copy_topk(const float* sorted, float* output, int K) {
 
 设计分两阶段，与归约题的"block 内归约 → 跨 block 归约"结构一致：
 
-![两阶段 Top-K 架构](images/top-k-selection_two_phase.svg)
-
 1. **第一阶段 `topk_kernel`**：grid 的每个 block 用 grid-stride 读多段数据，每段在 shared memory 内做 **bitonic sort**（降序），取前 `K` 个与 running top-K 做 **bitonic merge** 合并。block 处理完后将 `K` 个元素写入 `partial[blockIdx.x * K]`。
 2. **第二阶段迭代归约**：对 `partial[]` 再跑 `topk_kernel`，每轮 block 数减半，直到总量 ≤ `BLOCK_SIZE`。
 3. **最终排序 `topk_merge_final`**：单 block 将剩余元素做 bitonic sort，输出前 `K` 个。
@@ -88,8 +86,6 @@ __global__ void naive_copy_topk(const float* sorted, float* output, int K) {
 #### Bitonic sort 网络
 
 **Bitonic 序列**：先单调增再单调减（或反之）的序列。Bitonic sort 的核心是：对任意无序序列，先逐步构造 bitonic 序列，再逐步归并为有序序列。
-
-![Bitonic Sort 网络结构](images/top-k-selection_bitonic_network.svg)
 
 网络共 `log₂n` 个 stage，每个 stage `k = 2, 4, ..., n` 内部做 `log₂k` 步 compare-exchange，步长 `j = k/2, k/4, ..., 1`。比较方向由 `(i & k)` 决定——这使每一步的 compare-exchange **完全独立**，天然适合 GPU 并行。
 
@@ -114,8 +110,6 @@ for (int k = 2; k <= n; k <<= 1) {
 #### Bitonic merge：合并两个有序 top-K
 
 合并 running top-K 与 chunk top-K 时，两个降序数组拼接后并非 bitonic 序列。但**反转其中一个**即可：降序 + 反转(降序) = 降序 + 升序 = bitonic！
-
-![Bitonic Merge 合并两个 top-K](images/top-k-selection_merge.svg)
 
 随后只需一轮 bitonic merge（`j = K, K/2, ..., 1`）即可将 `2K` 个元素排序。**关键优化**：只需处理前 `K` 个位置——`j = K` 这一步将较大值全部推到前半部分，后续步骤仅在前半部分内部排序，完全不影响 top-K 的正确性。
 

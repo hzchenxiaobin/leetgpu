@@ -53,7 +53,7 @@ __global__ void gemm_naive(const float* A, const float* B, float* C, int M, int 
 }
 ```
 
-![朴素 GEMM 访存浪费](images/gemm_naive_problem.svg)
+![朴素 GEMM 访存浪费](images/matmul_naive_problem.svg)
 
 **致命问题**：相邻 thread 的 `A` 行、`B` 列高度重叠却各自从 global 重复读取。`A` 每元素被读 `N` 次、`B` 每元素被读 `M` 次，算术强度仅 `2 FLOP / 8B = 0.25 FLOP/B`，远低于 A100 平衡点（~60 FLOP/B）。
 
@@ -68,7 +68,7 @@ __global__ void gemm_naive(const float* A, const float* B, float* C, int M, int 
 - **Block 级（Shared Memory Tiling）**：把 `C` 切成 `BM×BN` 的 block tile，对应 block 内协作加载 `A` 的 `BM×BK` 子块与 `B` 的 `BK×BN` 子块到 shared memory，沿 `K` 维滑动累加。
 - **Thread 级（Register Blocking / Thread Tile）**：每个 thread 负责 block tile 内的 `TM×TN` 输出子块，累加器 `acc[TM][TN]` 常驻寄存器，每个 `k` 步从 shared 读 `r_A[TM]` 和 `r_B[TN]`，做**外积累加**。
 
-![Register Blocking 三级数据复用](images/gemm_register_blocking.svg)
+![Register Blocking 三级数据复用](images/gemm_three_level_reuse.svg)
 
 **参数选取**（`M=N=K=1024` 友好）：
 
@@ -83,7 +83,7 @@ shared / block = As[128×8] + Bs[8×128] = 2048 float = 8 KB
 
 ### 3.2 存储层次使用
 
-![Thread Tile 二维映射](images/gemm_thread_tile.svg)
+![Thread Tile 二维映射](images/gemm_thread_tile_layout.svg)
 
 | 层次 | 是否使用 | 说明 |
 |------|----------|------|
