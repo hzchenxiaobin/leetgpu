@@ -1,0 +1,270 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 520" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+    <marker id="arrG" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#4a7a3a"/>
+    </marker>
+    <marker id="arrO" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#d6a040"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="520" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Kernel 1 intra_block_reduce：block 内 inclusive scan</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">warp scan（__shfl_up_sync）→ shared memory → inter-warp Hillis-Steele 蝶形（读前 warp 的 lane 31）</text>
+
+  <!-- ===== Helper: cell positions =====
+       cell w=32, x: 50,82,114,146 | 178,210,242,274 | 306,338,370,402 | 434,466,498,530
+       centers: 66,98,130,162 | 194,226,258,290 | 322,354,386,418 | 450,482,514,546
+       warp centers: 114, 242, 370, 498
+       dividers: 178, 306, 434
+  -->
+
+  <!-- ===== INPUT row ===== -->
+  <text x="30" y="72" font-size="10" fill="#446688" font-weight="bold">input → smem</text>
+  <g font-size="10" fill="#333">
+    <rect x="50"  y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="66"  y="75" text-anchor="middle">3</text>
+    <rect x="82"  y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="98"  y="75" text-anchor="middle">1</text>
+    <rect x="114" y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="75" text-anchor="middle">7</text>
+    <rect x="146" y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="162" y="75" text-anchor="middle">0</text>
+    <rect x="178" y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="194" y="75" text-anchor="middle">4</text>
+    <rect x="210" y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="226" y="75" text-anchor="middle">2</text>
+    <rect x="242" y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="258" y="75" text-anchor="middle">6</text>
+    <rect x="274" y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="290" y="75" text-anchor="middle">3</text>
+    <rect x="306" y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="322" y="75" text-anchor="middle">2</text>
+    <rect x="338" y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="354" y="75" text-anchor="middle">5</text>
+    <rect x="370" y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="386" y="75" text-anchor="middle">1</text>
+    <rect x="402" y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="418" y="75" text-anchor="middle">8</text>
+    <rect x="434" y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="450" y="75" text-anchor="middle">3</text>
+    <rect x="466" y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="482" y="75" text-anchor="middle">7</text>
+    <rect x="498" y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="514" y="75" text-anchor="middle">0</text>
+    <rect x="530" y="60" width="32" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="546" y="75" text-anchor="middle">4</text>
+  </g>
+  <!-- warp dividers -->
+  <g stroke="#aaa" stroke-width="1" stroke-dasharray="3,2" filter="url(#rough2)">
+    <line x1="178" y1="56" x2="178" y2="84"/>
+    <line x1="306" y1="56" x2="306" y2="84"/>
+    <line x1="434" y1="56" x2="434" y2="84"/>
+  </g>
+  <text x="114" y="94" text-anchor="middle" font-size="9" fill="#888">warp 0</text>
+  <text x="242" y="94" text-anchor="middle" font-size="9" fill="#888">warp 1</text>
+  <text x="370" y="94" text-anchor="middle" font-size="9" fill="#888">warp 2</text>
+  <text x="498" y="94" text-anchor="middle" font-size="9" fill="#888">warp 3</text>
+
+  <!-- ===== Step 1 label + arrow ===== -->
+  <path d="M 320 98 L 320 110" stroke="#4a7a3a" stroke-width="1.2" fill="none" marker-end="url(#arrG)" filter="url(#rough2)"/>
+  <text x="340" y="108" font-size="10" fill="#4a7a3a" font-weight="bold">Step 1: warp_pre_sum（每 warp 独立 __shfl_up_sync 蝶形）</text>
+
+  <!-- ===== After warp scan row ===== -->
+  <text x="30" y="130" font-size="10" fill="#4a7a3a" font-weight="bold">warp scan</text>
+  <g font-size="10" fill="#333">
+    <rect x="50"  y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="66"  y="133" text-anchor="middle">3</text>
+    <rect x="82"  y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="98"  y="133" text-anchor="middle">4</text>
+    <rect x="114" y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="133" text-anchor="middle">11</text>
+    <!-- last lane of warp 0 highlighted -->
+    <rect x="146" y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2.5" rx="3" filter="url(#rough2)"/>
+    <text x="162" y="133" text-anchor="middle" font-weight="bold" fill="#4a7a3a">11</text>
+
+    <rect x="178" y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="194" y="133" text-anchor="middle">4</text>
+    <rect x="210" y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="226" y="133" text-anchor="middle">6</text>
+    <rect x="242" y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="258" y="133" text-anchor="middle">12</text>
+    <rect x="274" y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2.5" rx="3" filter="url(#rough2)"/>
+    <text x="290" y="133" text-anchor="middle" font-weight="bold" fill="#4a7a3a">15</text>
+
+    <rect x="306" y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="322" y="133" text-anchor="middle">2</text>
+    <rect x="338" y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="354" y="133" text-anchor="middle">7</text>
+    <rect x="370" y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="386" y="133" text-anchor="middle">8</text>
+    <rect x="402" y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2.5" rx="3" filter="url(#rough2)"/>
+    <text x="418" y="133" text-anchor="middle" font-weight="bold" fill="#4a7a3a">16</text>
+
+    <rect x="434" y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="450" y="133" text-anchor="middle">3</text>
+    <rect x="466" y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="482" y="133" text-anchor="middle">10</text>
+    <rect x="498" y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="514" y="133" text-anchor="middle">10</text>
+    <rect x="530" y="118" width="32" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2.5" rx="3" filter="url(#rough2)"/>
+    <text x="546" y="133" text-anchor="middle" font-weight="bold" fill="#4a7a3a">14</text>
+  </g>
+  <g stroke="#aaa" stroke-width="1" stroke-dasharray="3,2" filter="url(#rough2)">
+    <line x1="178" y1="114" x2="178" y2="144"/>
+    <line x1="306" y1="114" x2="306" y2="144"/>
+    <line x1="434" y1="114" x2="434" y2="144"/>
+  </g>
+  <text x="162" y="154" text-anchor="middle" font-size="8" fill="#4a7a3a" font-weight="bold">↑warp 总和</text>
+  <text x="290" y="154" text-anchor="middle" font-size="8" fill="#4a7a3a" font-weight="bold">↑warp 总和</text>
+  <text x="418" y="154" text-anchor="middle" font-size="8" fill="#4a7a3a" font-weight="bold">↑warp 总和</text>
+  <text x="546" y="154" text-anchor="middle" font-size="8" fill="#4a7a3a" font-weight="bold">↑warp 总和</text>
+
+  <!-- ===== Step 2a: wid_offset=1 ===== -->
+  <text x="30" y="172" font-size="10" fill="#d6a040" font-weight="bold">Step 2a:</text>
+  <text x="80" y="172" font-size="10" fill="#d6a040">wid_offset=1 → warp_id ≥ 1 读 smem[(warp_id-1)*32+31]</text>
+
+  <!-- arrows: lane3 of warp0 → warp1, lane3 of warp1 → warp2, lane3 of warp2 → warp3 -->
+  <g stroke="#d6a040" stroke-width="1.3" fill="none" filter="url(#rough2)">
+    <path d="M 162 140 Q 162 178 194 178" marker-end="url(#arrO)"/>
+    <path d="M 290 140 Q 290 178 322 178" marker-end="url(#arrO)"/>
+    <path d="M 418 140 Q 418 178 450 178" marker-end="url(#arrO)"/>
+  </g>
+  <text x="178" y="174" font-size="9" fill="#d6a040" font-weight="bold">+11</text>
+  <text x="306" y="174" font-size="9" fill="#d6a040" font-weight="bold">+15</text>
+  <text x="434" y="174" font-size="9" fill="#d6a040" font-weight="bold">+16</text>
+
+  <!-- ===== After step 2a row ===== -->
+  <g font-size="10" fill="#333">
+    <rect x="50"  y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="66"  y="197" text-anchor="middle">3</text>
+    <rect x="82"  y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="98"  y="197" text-anchor="middle">4</text>
+    <rect x="114" y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="197" text-anchor="middle">11</text>
+    <rect x="146" y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="2.5" rx="3" filter="url(#rough2)"/>
+    <text x="162" y="197" text-anchor="middle" font-weight="bold" fill="#d6a040">11</text>
+
+    <rect x="178" y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="194" y="197" text-anchor="middle">15</text>
+    <rect x="210" y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="226" y="197" text-anchor="middle">17</text>
+    <rect x="242" y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="258" y="197" text-anchor="middle">23</text>
+    <rect x="274" y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="2.5" rx="3" filter="url(#rough2)"/>
+    <text x="290" y="197" text-anchor="middle" font-weight="bold" fill="#d6a040">26</text>
+
+    <rect x="306" y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="322" y="197" text-anchor="middle">17</text>
+    <rect x="338" y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="354" y="197" text-anchor="middle">22</text>
+    <rect x="370" y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="386" y="197" text-anchor="middle">23</text>
+    <rect x="402" y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="2.5" rx="3" filter="url(#rough2)"/>
+    <text x="418" y="197" text-anchor="middle" font-weight="bold" fill="#d6a040">31</text>
+
+    <rect x="434" y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="450" y="197" text-anchor="middle">19</text>
+    <rect x="466" y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="482" y="197" text-anchor="middle">26</text>
+    <rect x="498" y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="514" y="197" text-anchor="middle">26</text>
+    <rect x="530" y="182" width="32" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="2.5" rx="3" filter="url(#rough2)"/>
+    <text x="546" y="197" text-anchor="middle" font-weight="bold" fill="#d6a040">30</text>
+  </g>
+  <g stroke="#aaa" stroke-width="1" stroke-dasharray="3,2" filter="url(#rough2)">
+    <line x1="178" y1="178" x2="178" y2="208"/>
+    <line x1="306" y1="178" x2="306" y2="208"/>
+    <line x1="434" y1="178" x2="434" y2="208"/>
+  </g>
+
+  <!-- ===== Step 2b: wid_offset=2 ===== -->
+  <text x="30" y="236" font-size="10" fill="#b85450" font-weight="bold">Step 2b:</text>
+  <text x="80" y="236" font-size="10" fill="#b85450">wid_offset=2 → warp_id ≥ 2 读 smem[(warp_id-2)*32+31]</text>
+
+  <!-- arrows: lane3 of warp0 → warp2, lane3 of warp1 → warp3 -->
+  <g stroke="#b85450" stroke-width="1.3" fill="none" filter="url(#rough2)">
+    <path d="M 162 204 Q 162 242 322 242" marker-end="url(#arr)"/>
+    <path d="M 290 204 Q 290 242 450 242" marker-end="url(#arr)"/>
+  </g>
+  <text x="242" y="238" font-size="9" fill="#b85450" font-weight="bold">+11</text>
+  <text x="370" y="238" font-size="9" fill="#b85450" font-weight="bold">+26</text>
+
+  <!-- ===== After step 2b = FINAL row ===== -->
+  <text x="30" y="262" font-size="10" fill="#b85450" font-weight="bold">block scan</text>
+  <g font-size="10" fill="#333">
+    <rect x="50"  y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="66"  y="261" text-anchor="middle">3</text>
+    <rect x="82"  y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="98"  y="261" text-anchor="middle">4</text>
+    <rect x="114" y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="261" text-anchor="middle">11</text>
+    <rect x="146" y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="162" y="261" text-anchor="middle">11</text>
+
+    <rect x="178" y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="194" y="261" text-anchor="middle">15</text>
+    <rect x="210" y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="226" y="261" text-anchor="middle">17</text>
+    <rect x="242" y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="258" y="261" text-anchor="middle">23</text>
+    <rect x="274" y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="290" y="261" text-anchor="middle">26</text>
+
+    <rect x="306" y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="322" y="261" text-anchor="middle">28</text>
+    <rect x="338" y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="354" y="261" text-anchor="middle">33</text>
+    <rect x="370" y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="386" y="261" text-anchor="middle">34</text>
+    <rect x="402" y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="418" y="261" text-anchor="middle">42</text>
+
+    <rect x="434" y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="2.5" rx="3" filter="url(#rough2)"/>
+    <text x="450" y="261" text-anchor="middle">45</text>
+    <rect x="466" y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="482" y="261" text-anchor="middle">52</text>
+    <rect x="498" y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="514" y="261" text-anchor="middle">52</text>
+    <rect x="530" y="246" width="32" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="2.5" rx="3" filter="url(#rough2)"/>
+    <text x="546" y="261" text-anchor="middle" font-weight="bold" fill="#b85450">56</text>
+  </g>
+  <g stroke="#aaa" stroke-width="1" stroke-dasharray="3,2" filter="url(#rough2)">
+    <line x1="178" y1="242" x2="178" y2="272"/>
+    <line x1="306" y1="242" x2="306" y2="272"/>
+    <line x1="434" y1="242" x2="434" y2="272"/>
+  </g>
+
+  <!-- output + g_block_sum -->
+  <path d="M 546 268 L 546 284" stroke="#d6a040" stroke-width="1.3" fill="none" marker-end="url(#arrO)" filter="url(#rough2)"/>
+  <text x="30" y="298" font-size="10" fill="#b85450" font-weight="bold">→ output[]</text>
+  <text x="120" y="298" font-size="10" fill="#555">block 内 inclusive scan（含自身）</text>
+  <text x="30" y="314" font-size="10" fill="#d6a040" font-weight="bold">→ g_block_sum[bid]</text>
+  <text x="120" y="314" font-size="10" fill="#555">= smem[TILE-1] = </text>
+  <text x="225" y="314" font-size="10" fill="#d6a040" font-weight="bold">56</text>
+  <text x="250" y="314" font-size="10" fill="#555">（block 总和）</text>
+
+  <!-- ===== Code box ===== -->
+  <rect x="20" y="328" width="600" height="96" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="34" y="346" font-family="monospace" font-size="9.5" fill="#333">// Step 1: 每 warp 做 __shfl_up_sync 蝶形（offset 1,2,4,8,16 = 5 步，此处 4 lane 示意 2 步）</text>
+  <text x="34" y="360" font-family="monospace" font-size="9.5" fill="#333">r_val = warp_pre_sum(r_val, lane_id);  smem[tid] = r_val;  __syncthreads();</text>
+  <text x="34" y="378" font-family="monospace" font-size="9.5" fill="#333">// Step 2: inter-warp Hillis-Steele on shared memory</text>
+  <text x="34" y="392" font-family="monospace" font-size="9.5" fill="#d6a040">for (int wid_offset = 1; wid_offset &lt;= warp_num/2; wid_offset *= 2) {</text>
+  <text x="34" y="406" font-family="monospace" font-size="9.5" fill="#555">    if (warp_id &gt;= wid_offset) r_val += smem[(warp_id-wid_offset)*32 + 31];  // 读前 warp 的 lane 31</text>
+  <text x="34" y="420" font-family="monospace" font-size="9.5" fill="#555">    __syncthreads(); smem[tid] = r_val; __syncthreads();  // 写回 + 双 sync</text>
+
+  <!-- ===== Key insight box ===== -->
+  <rect x="20" y="436" width="600" height="72" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="34" y="455" font-size="10" fill="#d6a040" font-weight="bold">关键：inter-warp scan 读的是 smem[(warp_id - wid_offset) * 32 + 31]</text>
+  <text x="34" y="471" font-size="10" fill="#555">即"前面第 wid_offset 个 warp 的 lane 31"——该位置持有该 warp 的 inclusive scan 最后一个值 = 该 warp 的总和</text>
+  <text x="34" y="487" font-size="10" fill="#555">wid_offset = 1, 2, 4（3 步，对应 8 个 warp）→ Hillis-Steele 蝶形，每步读前 wid_offset 个 warp 的总和并累加</text>
+  <text x="34" y="503" font-size="10" fill="#b85450" font-weight="bold">结果直接是 inclusive scan（含自身），无需像三阶段方案那样"先 exclusive 再加回 input"</text>
+</svg>

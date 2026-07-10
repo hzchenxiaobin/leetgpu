@@ -821,3 +821,149 @@ ncu --metrics gpu__time_duration.sum, \
 | **block scan 步数** | warp scan 5 步 + warp 间 scan（NUM_WARPS=8 时 3 步）≈ 8 步 |
 
 > 💡 **一句话总结**：scan 是 **warp shuffle** 的进阶应用——把"串行依赖的前缀和"改造成"对数步数的蝶形并行交换"。`__shfl_up_sync` 与归约的 `__shfl_down_sync` 是一对镜像，掌握它们就掌握了 GPU 上所有 prefix 类操作的基础积木。三阶段分块架构（block 内 scan → block 间偏移 scan → 加回）是处理超大数据的标准模板，可直接迁移到 stream compaction、radix sort、segmented scan 等场景。
+
+## 7. 优化版对比：`presum.cu` 为什么更快
+
+实际提交 LeetGPU 后发现，`presum.cu`（两阶段融合方案）比第 4 节的三阶段方案性能更好。本节逐点分析原因。
+
+![presum.cu 两阶段架构总览](images/presum_overview.svg)
+
+### 7.1 两个版本的核心差异
+
+| 维度 | 三阶段方案（本文 4.7 节） | `presum.cu`（优化版） |
+|------|--------------------------|------------------------|
+| **阶段一 scan 类型** | exclusive（不含自身） | **inclusive**（含自身） |
+| **kernel 数量** | 3 个（block scan + offsets scan + add offset） | **2 个**（intra_block_reduce + inter_block_reduce） |
+| **阶段三是否重读 input** | ✅ 需要（`output + offset + input[tid]`） | ❌ **不需要**（`output[offset] += val`） |
+| **block_sums 存储** | `cudaMalloc` 动态分配 + `cudaFree` | **`__device__` 静态全局数组** |
+| **block_offsets 缓冲** | 单独 `cudaMalloc` → 写入 global → 读取 global | **不 materialize**（fuse 进 add-back） |
+| **阶段二算法** | 单 block grid-stride scan，O(B) | 每 block 独立求前缀和，总工作量 O(B²) |
+| **block 内 inter-warp scan** | warp 0 对 `warp_sums[8]` 做 warp shuffle scan | shared memory 上的 Hillis-Steele 蝶形（读前 warp 的 lane 31） |
+| **`__syncthreads` 次数（block scan 内）** | 2 次 | 6 次（3 步蝶形 × 2 sync/步） |
+
+### 7.2 关键优化点逐一解析
+
+#### 优化 1：Inclusive scan 省掉阶段三重读 input（最大收益）
+
+三阶段方案用 exclusive scan，阶段三公式为：
+
+```
+output[tid] = exclusive[tid] + block_offsets[blockIdx.x] + input[tid]
+                                    ↑ 全局偏移              ↑ 必须重读！
+```
+
+阶段一存的是 exclusive（不含 `input[i]`），所以阶段三**必须重读 `input[tid]`** 才能得到 inclusive——这是一整遍 global memory 读（N=16M 时 64MB）。
+
+`presum.cu` 阶段一做 **inclusive** scan，输出已是 block 内 inclusive 前缀和。阶段二只需把"前面所有 block 的总和"加上去：
+
+```cuda
+// inter_block_reduce 中
+output[offset] += val;   // val = g_block_sum[0] + ... + g_block_sum[blockIdx.x-1]
+```
+
+**完全不需要重读 input**。对 memory-bound 的 scan（算术强度仅 0.125 FLOP/B），省掉一整遍 global 读是最大的性能提升来源。
+
+> 💡 这正是第 5.3 节"优化方向 5"提到的思路，`presum.cu` 用 inclusive scan 天然规避了重读。
+
+#### 优化 2：融合阶段二+三为单 kernel（省掉 block_offsets 的 global 写+读）
+
+三阶段方案的数据流：
+
+```
+阶段一: input → output(exclusive) + block_sums → global
+阶段二: block_sums(global读) → block_offsets(global写)     ← 多余的中间往返
+阶段三: output(global读) + block_offsets(global读) + input(global读) → output(global写)
+```
+
+`block_offsets[]` 被写入 global memory 后立刻被阶段三读回，这是一轮**多余的写+读**。
+
+`presum.cu` 的 `inter_block_reduce` 在**同一个 kernel 内**完成"计算前缀偏移 + 加回 output"：
+
+```cuda
+// 每个 block 独立计算自己的全局偏移（前面所有 block 的总和）
+int size = blockIdx.x;
+for (int i = tid; i < size; i += THREAD_PER_BLOCK)
+    val += g_block_sum[i];           // grid-stride 读 g_block_sum
+// shared memory tree reduction
+for (int i = TILE/2; i >= 1; i /= 2) { ... }
+// 直接加回 output，无需中间缓冲
+output[offset] += smem[0];
+```
+
+省掉了 `block_offsets[]` 的 global 写+读，以及一次 kernel launch。
+
+#### 优化 3：`__device__` 静态数组替代 `cudaMalloc`/`cudaFree`
+
+```cuda
+__device__ float g_block_sum[MAX_BLOCK_NUM];  // 静态分配，零运行时开销
+```
+
+三阶段方案在 `solve()` 内 `cudaMalloc` 两个缓冲区、末尾 `cudaFree`。`cudaMalloc` 涉及驱动层内存管理（可能触发同步），`cudaFree` 也可能引起隐式 `cudaDeviceSynchronize`。静态 `__device__` 变量在模块加载时一次性分配，运行时零开销，且 `solve()` 内不再需要 `cudaDeviceSynchronize()` + `cudaFree`。
+
+#### 优化 4：更少的 kernel launch（2 次 vs 3 次）
+
+每次 kernel launch 约 5-10μs 开销。`presum.cu` 少一次 launch，在小数据量场景下占比显著。
+
+### 7.3 block 内 scan 的差异
+
+两个版本在 block 内 inter-warp scan 的实现策略不同：
+
+![presum.cu Kernel 1 intra_block_reduce：warp scan + inter-warp 蝶形](images/presum_intra_block_scan.svg)
+
+**三阶段方案** `block_exclusive_scan`：
+
+1. 每 warp 做 inclusive scan（`__shfl_up_sync`，5 步，无 sync）
+2. lane 31 写 warp 总和到 `warp_sums[8]`（shared memory）
+3. **warp 0** 对 `warp_sums[0..7]` 做 warp scan（shuffle，无 sync）
+4. 读回 `warp_sums[warpId-1]` 作为偏移，计算 `exclusive = warp_offset + (inclusive - val)`
+5. 总共 **2 次 `__syncthreads`**
+
+**`presum.cu`** `intra_block_reduce`：
+
+1. 每 warp 做 inclusive scan（`warp_pre_sum`，5 步，无 sync）
+2. 写回 smem，在 shared memory 上做 **Hillis-Steele 蝶形** inter-warp scan：
+   - `wid_offset = 1, 2, 4`（3 步），每步读前 `wid_offset` 个 warp 的 lane 31（= 该 warp 总和），累加
+3. 总共 **6 次 `__syncthreads`**（3 步 × 2 sync/步）
+
+> 💡 `presum.cu` 的 block scan sync 更多（6 vs 2），但 scan 是 **memory-bound**，sync 开销被 global memory 延迟掩盖。它换来的好处是**直接产出 inclusive scan**——`smem[tid]` 就是 block 内 inclusive 前缀和，`smem[TILE-1]` 就是 block 总和，一步到位，无需"先 exclusive 再加回 input"的繁琐逻辑。
+
+### 7.4 代价与限制
+
+`presum.cu` 的优化并非没有代价：
+
+![presum.cu Kernel 2 inter_block_reduce：全局偏移 + 加回](images/presum_inter_block_addback.svg)
+
+| 代价 | 说明 | 影响 |
+|------|------|------|
+| **`MAX_BLOCK_NUM = 1024` 硬限制** | `g_block_sum[1024]` 只有 1024 个槽位，`numBlocks > 1024` 时越界写 | 限制 `N ≤ 1024 × 256 = 262,144` |
+| **O(B²) 总读取量** | `inter_block_reduce` 中每个 block `b` 读 `g_block_sum[0..b-1]`，总读取 = `B(B-1)/2` | B=1024 时约 50 万次读（~2MB），可接受；B=65536 时约 20 亿次读（~8GB），灾难性 |
+| **不适用超大 N** | 三阶段方案的 grid-stride scan 是 O(B)，`presum.cu` 是 O(B²) | 大规模数据应回归三阶段或递归分块 |
+| **`__device__` 数组无法动态扩容** | 静态大小编译期固定 | 需预估最大 numBlocks |
+
+> ⚠️ `presum.cu` 的设计前提是 **numBlocks ≤ 1024**（即 `N ≤ 262K`）。在此规模下 O(B²) 仅约 50 万次额外读取（~2MB），远小于省掉的收益（一整遍 input 重读 + block_offsets 写读 + cudaMalloc 开销）。当 `N` 远大于 262K 时，三阶段方案的 O(B) 阶段二优势会显现，`presum.cu` 反而会因 O(B²) 退化。
+
+### 7.5 总结
+
+`presum.cu` 更快的核心原因是 **memory-bound 场景下减少了 global memory 访问轮次**：
+
+```
+三阶段方案 global traffic:
+  阶段一: 读 input(N) + 写 output(N) + 写 block_sums(B)
+  阶段二: 读 block_sums(B) + 写 block_offsets(B)
+  阶段三: 读 output(N) + 读 block_offsets(B) + 读 input(N) + 写 output(N)    ← input 重读！
+  合计: 3N(读) + 2N(写) + 4B  +  3次 launch + cudaMalloc/Free
+
+presum.cu global traffic:
+  阶段一: 读 input(N) + 写 output(N) + 写 g_block_sum(B)
+  阶段二: 读 g_block_sum(B²/2) + 读 output(N) + 写 output(N)    ← 无 input 重读！
+  合计: 2N(读) + 2N(写) + B + B²/2  +  2次 launch + 零 malloc
+```
+
+四个优化点的收益排序：
+
+1. **Inclusive scan → 省掉一整遍 input 重读**（省 N×4B 读，最大收益）
+2. **融合 phase 2+3 → 省掉 block_offsets 的 global 写+读**（省 2B 读写 + 1 次 launch）
+3. **`__device__` 静态数组 → 省掉 cudaMalloc/cudaFree 开销**（省 API 调用 + 隐式同步）
+4. **2 kernel vs 3 kernel → 省掉一次 launch**（省 5-10μs）
+
+代价是 O(B²) 的 `inter_block_reduce` 和 `MAX_BLOCK_NUM` 限制，在 numBlocks ≤ 1024 的小规模场景下完全可接受。这印证了 scan 优化的核心原则：**memory-bound kernel 的优化关键在减少 global memory 访问轮次，而非减少计算量**。
