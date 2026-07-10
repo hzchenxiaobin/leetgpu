@@ -1,0 +1,317 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 680" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#888"/>
+    </marker>
+    <marker id="arrG" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#4a7a3a"/>
+    </marker>
+    <marker id="arrO" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#d6a040"/>
+    </marker>
+  </defs>
+
+  <rect width="660" height="680" fill="#fafafa"/>
+
+  <text x="330" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Blelloch 工作高效扫描（Exclusive Scan）</text>
+  <text x="330" y="44" text-anchor="middle" font-size="11" fill="#888">以 8 元素为例（3 步上扫 + 3 步下扫 = 2×log₂8），总工作量 O(N)，每步活跃线程减半/倍增</text>
+
+  <!-- lane labels -->
+  <g font-size="9" fill="#888">
+    <text x="30" y="76" text-anchor="middle">idx</text>
+    <text x="95"  y="76" text-anchor="middle">0</text>
+    <text x="165" y="76" text-anchor="middle">1</text>
+    <text x="235" y="76" text-anchor="middle">2</text>
+    <text x="305" y="76" text-anchor="middle">3</text>
+    <text x="375" y="76" text-anchor="middle">4</text>
+    <text x="445" y="76" text-anchor="middle">5</text>
+    <text x="515" y="76" text-anchor="middle">6</text>
+    <text x="585" y="76" text-anchor="middle">7</text>
+  </g>
+
+  <!-- ===== Step 0: 初始 ===== -->
+  <text x="30" y="100" font-size="11" fill="#446688" font-weight="bold">初始：</text>
+  <g font-size="11" fill="#333">
+    <rect x="70"  y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="95"  y="100" text-anchor="middle">3</text>
+    <rect x="140" y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="165" y="100" text-anchor="middle">1</text>
+    <rect x="210" y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="235" y="100" text-anchor="middle">7</text>
+    <rect x="280" y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="305" y="100" text-anchor="middle">0</text>
+    <rect x="350" y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="375" y="100" text-anchor="middle">4</text>
+    <rect x="420" y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="100" text-anchor="middle">1</text>
+    <rect x="490" y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="515" y="100" text-anchor="middle">6</text>
+    <rect x="560" y="84" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="585" y="100" text-anchor="middle">3</text>
+  </g>
+
+  <!-- ===== UP-SWEEP label ===== -->
+  <text x="30" y="124" font-size="11" fill="#4a7a3a" font-weight="bold">↑ 上扫</text>
+  <text x="80" y="124" font-size="9" fill="#4a7a3a">a[i+2*stride] += a[i+stride-1]</text>
+  <text x="280" y="124" font-size="9" fill="#888">活跃线程：4→2→1（逐步减半）</text>
+
+  <!-- arrows step0→step1: stride=1, pairs (0,1),(2,3),(4,5),(6,7) -->
+  <g stroke="#4a7a3a" stroke-width="1.2" fill="none" filter="url(#rough2)" opacity="0.7">
+    <path d="M 95 108 L 95 118 L 165 118 L 165 126" marker-end="url(#arrG)"/>
+    <path d="M 235 108 L 235 118 L 305 118 L 305 126" marker-end="url(#arrG)"/>
+    <path d="M 375 108 L 375 118 L 445 118 L 445 126" marker-end="url(#arrG)"/>
+    <path d="M 515 108 L 515 118 L 585 118 L 585 126" marker-end="url(#arrG)"/>
+  </g>
+
+  <!-- ===== Up-sweep Step 1: stride=1 ===== -->
+  <text x="30" y="144" font-size="11" fill="#4a7a3a" font-weight="bold">Step 1</text>
+  <text x="80" y="144" font-size="9" fill="#4a7a3a">stride=1</text>
+  <text x="140" y="144" font-size="9" fill="#888">4 对相加 → 2 元素和</text>
+  <g font-size="9" fill="#333">
+    <rect x="70"  y="128" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="95"  y="144" text-anchor="middle">3</text>
+    <rect x="140" y="128" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="165" y="144" text-anchor="middle" font-weight="bold">4</text>
+    <rect x="210" y="128" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="235" y="144" text-anchor="middle">7</text>
+    <rect x="280" y="128" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="305" y="144" text-anchor="middle" font-weight="bold">7</text>
+    <rect x="350" y="128" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="375" y="144" text-anchor="middle">4</text>
+    <rect x="420" y="128" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="144" text-anchor="middle" font-weight="bold">5</text>
+    <rect x="490" y="128" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="515" y="144" text-anchor="middle">6</text>
+    <rect x="560" y="128" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="585" y="144" text-anchor="middle" font-weight="bold">9</text>
+  </g>
+
+  <!-- arrows step1→step2: stride=2, pairs (1,3),(5,7) -->
+  <g stroke="#4a7a3a" stroke-width="1.2" fill="none" filter="url(#rough2)" opacity="0.7">
+    <path d="M 165 152 L 165 162 L 305 162 L 305 170" marker-end="url(#arrG)"/>
+    <path d="M 445 152 L 445 162 L 585 162 L 585 170" marker-end="url(#arrG)"/>
+  </g>
+
+  <!-- ===== Up-sweep Step 2: stride=2 ===== -->
+  <text x="30" y="188" font-size="11" fill="#4a7a3a" font-weight="bold">Step 2</text>
+  <text x="80" y="188" font-size="9" fill="#4a7a3a">stride=2</text>
+  <text x="140" y="188" font-size="9" fill="#888">2 对相加 → 4 元素和</text>
+  <g font-size="9" fill="#333">
+    <rect x="70"  y="172" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="95"  y="188" text-anchor="middle">3</text>
+    <rect x="140" y="172" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="165" y="188" text-anchor="middle">4</text>
+    <rect x="210" y="172" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="235" y="188" text-anchor="middle">7</text>
+    <rect x="280" y="172" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="305" y="188" text-anchor="middle" font-weight="bold">11</text>
+    <rect x="350" y="172" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="375" y="188" text-anchor="middle">4</text>
+    <rect x="420" y="172" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="188" text-anchor="middle">5</text>
+    <rect x="490" y="172" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="515" y="188" text-anchor="middle">6</text>
+    <rect x="560" y="172" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="585" y="188" text-anchor="middle" font-weight="bold">14</text>
+  </g>
+
+  <!-- arrows step2→step3: stride=4, pair (3,7) -->
+  <g stroke="#4a7a3a" stroke-width="1.2" fill="none" filter="url(#rough2)" opacity="0.7">
+    <path d="M 305 196 L 305 206 L 585 206 L 585 214" marker-end="url(#arrG)"/>
+  </g>
+
+  <!-- ===== Up-sweep Step 3: stride=4 ===== -->
+  <text x="30" y="232" font-size="11" fill="#4a7a3a" font-weight="bold">Step 3</text>
+  <text x="80" y="232" font-size="9" fill="#4a7a3a">stride=4</text>
+  <text x="140" y="232" font-size="9" fill="#888">1 对相加 → 8 元素和（总和）</text>
+  <g font-size="9" fill="#333">
+    <rect x="70"  y="216" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="95"  y="232" text-anchor="middle">3</text>
+    <rect x="140" y="216" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="165" y="232" text-anchor="middle">4</text>
+    <rect x="210" y="216" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="235" y="232" text-anchor="middle">7</text>
+    <rect x="280" y="216" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="305" y="232" text-anchor="middle">11</text>
+    <rect x="350" y="216" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="375" y="232" text-anchor="middle">4</text>
+    <rect x="420" y="216" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="232" text-anchor="middle">5</text>
+    <rect x="490" y="216" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="515" y="232" text-anchor="middle">6</text>
+    <rect x="560" y="216" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2.5" rx="3" filter="url(#rough2)"/>
+    <text x="585" y="232" text-anchor="middle" font-weight="bold" fill="#4a7a3a">25</text>
+  </g>
+  <text x="620" y="232" font-size="9" fill="#4a7a3a" font-weight="bold">= 总和</text>
+
+  <!-- ===== Set root to 0 ===== -->
+  <text x="30" y="260" font-size="9" fill="#888">a[7]=0</text>
+  <text x="80" y="260" font-size="9" fill="#888">根节点置 0（identity），准备下扫</text>
+  <!-- arrow showing 25→0 -->
+  <path d="M 585 240 L 585 250" stroke="#888" stroke-width="1" stroke-dasharray="2,2" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- ===== DOWN-SWEEP label ===== -->
+  <text x="30" y="278" font-size="11" fill="#d6a040" font-weight="bold">↓ 下扫</text>
+  <text x="80" y="278" font-size="9" fill="#d6a040">swap + add：左=右旧值, 右+=左旧值</text>
+  <text x="320" y="278" font-size="9" fill="#888">活跃线程：1→2→4（逐步倍增）</text>
+
+  <!-- Set zero row -->
+  <g font-size="9" fill="#333">
+    <rect x="70"  y="260" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="95"  y="276" text-anchor="middle">3</text>
+    <rect x="140" y="260" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="165" y="276" text-anchor="middle">4</text>
+    <rect x="210" y="260" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="235" y="276" text-anchor="middle">7</text>
+    <rect x="280" y="260" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="305" y="276" text-anchor="middle">11</text>
+    <rect x="350" y="260" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="375" y="276" text-anchor="middle">4</text>
+    <rect x="420" y="260" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="276" text-anchor="middle">5</text>
+    <rect x="490" y="260" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="515" y="276" text-anchor="middle">6</text>
+    <rect x="560" y="260" width="50" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="2.5" rx="3" filter="url(#rough2)"/>
+    <text x="585" y="276" text-anchor="middle" font-weight="bold" fill="#d6a040">0</text>
+  </g>
+
+  <!-- arrows setzero→ds1: stride=4, pair (3,7). swap: 7→3, add: 3→7 -->
+  <g stroke="#d6a040" stroke-width="1.2" fill="none" filter="url(#rough2)" opacity="0.8">
+    <!-- swap arrow: right(7) to left(3) -->
+    <path d="M 585 284 L 585 294 L 305 294 L 305 302" marker-end="url(#arrO)"/>
+    <!-- add arrow: left(3) to right(7), dashed -->
+    <path d="M 305 284 L 305 290 L 585 290 L 585 302" stroke-dasharray="3,2" marker-end="url(#arrO)"/>
+  </g>
+  <text x="445" y="293" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold">swap + add</text>
+
+  <!-- ===== Down-sweep Step 1: stride=4 ===== -->
+  <text x="30" y="320" font-size="11" fill="#d6a040" font-weight="bold">Step 4</text>
+  <text x="80" y="320" font-size="9" fill="#d6a040">stride=4</text>
+  <text x="140" y="320" font-size="9" fill="#888">1 对：a[3]↔a[7]</text>
+  <g font-size="9" fill="#333">
+    <rect x="70"  y="304" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="95"  y="320" text-anchor="middle">3</text>
+    <rect x="140" y="304" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="165" y="320" text-anchor="middle">4</text>
+    <rect x="210" y="304" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="235" y="320" text-anchor="middle">7</text>
+    <rect x="280" y="304" width="50" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="305" y="320" text-anchor="middle" font-weight="bold">0</text>
+    <rect x="350" y="304" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="375" y="320" text-anchor="middle">4</text>
+    <rect x="420" y="304" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="320" text-anchor="middle">5</text>
+    <rect x="490" y="304" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="515" y="320" text-anchor="middle">6</text>
+    <rect x="560" y="304" width="50" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="585" y="320" text-anchor="middle" font-weight="bold">11</text>
+  </g>
+  <text x="305" y="340" text-anchor="middle" font-size="8" fill="#888">a[3]=0(←a[7]旧值)</text>
+  <text x="585" y="340" text-anchor="middle" font-size="8" fill="#888">a[7]=0+11=11</text>
+
+  <!-- arrows ds1→ds2: stride=2, pairs (1,3),(5,7) -->
+  <g stroke="#d6a040" stroke-width="1.2" fill="none" filter="url(#rough2)" opacity="0.8">
+    <path d="M 305 328 L 305 348 L 165 348 L 165 356" marker-end="url(#arrO)"/>
+    <path d="M 165 328 L 165 344 L 305 344 L 305 356" stroke-dasharray="3,2" marker-end="url(#arrO)"/>
+    <path d="M 585 328 L 585 348 L 445 348 L 445 356" marker-end="url(#arrO)"/>
+    <path d="M 445 328 L 445 344 L 585 344 L 585 356" stroke-dasharray="3,2" marker-end="url(#arrO)"/>
+  </g>
+
+  <!-- ===== Down-sweep Step 2: stride=2 ===== -->
+  <text x="30" y="364" font-size="11" fill="#d6a040" font-weight="bold">Step 5</text>
+  <text x="80" y="364" font-size="9" fill="#d6a040">stride=2</text>
+  <text x="140" y="364" font-size="9" fill="#888">2 对：a[1]↔a[3], a[5]↔a[7]</text>
+  <g font-size="9" fill="#333">
+    <rect x="70"  y="348" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="95"  y="364" text-anchor="middle">3</text>
+    <rect x="140" y="348" width="50" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="165" y="364" text-anchor="middle" font-weight="bold">0</text>
+    <rect x="210" y="348" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="235" y="364" text-anchor="middle">7</text>
+    <rect x="280" y="348" width="50" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="305" y="364" text-anchor="middle" font-weight="bold">4</text>
+    <rect x="350" y="348" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="375" y="364" text-anchor="middle">4</text>
+    <rect x="420" y="348" width="50" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="364" text-anchor="middle" font-weight="bold">11</text>
+    <rect x="490" y="348" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="515" y="364" text-anchor="middle">6</text>
+    <rect x="560" y="348" width="50" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="585" y="364" text-anchor="middle" font-weight="bold">16</text>
+  </g>
+  <text x="165" y="384" text-anchor="middle" font-size="8" fill="#888">←0</text>
+  <text x="305" y="384" text-anchor="middle" font-size="8" fill="#888">0+4=4</text>
+  <text x="445" y="384" text-anchor="middle" font-size="8" fill="#888">←11</text>
+  <text x="585" y="384" text-anchor="middle" font-size="8" fill="#888">5+11=16</text>
+
+  <!-- arrows ds2→ds3: stride=1, pairs (0,1),(2,3),(4,5),(6,7) -->
+  <g stroke="#d6a040" stroke-width="1.2" fill="none" filter="url(#rough2)" opacity="0.8">
+    <path d="M 165 372 L 165 388 L 95 388 L 95 396" marker-end="url(#arrO)"/>
+    <path d="M 95 372 L 95 386 L 165 386 L 165 396" stroke-dasharray="3,2" marker-end="url(#arrO)"/>
+    <path d="M 305 372 L 305 388 L 235 388 L 235 396" marker-end="url(#arrO)"/>
+    <path d="M 235 372 L 235 386 L 305 386 L 305 396" stroke-dasharray="3,2" marker-end="url(#arrO)"/>
+    <path d="M 445 372 L 445 388 L 375 388 L 375 396" marker-end="url(#arrO)"/>
+    <path d="M 375 372 L 375 386 L 445 386 L 445 396" stroke-dasharray="3,2" marker-end="url(#arrO)"/>
+    <path d="M 585 372 L 585 388 L 515 388 L 515 396" marker-end="url(#arrO)"/>
+    <path d="M 515 372 L 515 386 L 585 386 L 585 396" stroke-dasharray="3,2" marker-end="url(#arrO)"/>
+  </g>
+
+  <!-- ===== Down-sweep Step 3: stride=1 ===== -->
+  <text x="30" y="408" font-size="11" fill="#d6a040" font-weight="bold">Step 6</text>
+  <text x="80" y="408" font-size="9" fill="#d6a040">stride=1</text>
+  <text x="140" y="408" font-size="9" fill="#888">4 对 → 完成 exclusive scan</text>
+  <g font-size="9" fill="#333">
+    <rect x="70"  y="392" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="95"  y="408" text-anchor="middle" font-weight="bold" fill="#b85450">0</text>
+    <rect x="140" y="392" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="165" y="408" text-anchor="middle" font-weight="bold" fill="#b85450">3</text>
+    <rect x="210" y="392" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="235" y="408" text-anchor="middle" font-weight="bold" fill="#b85450">4</text>
+    <rect x="280" y="392" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="305" y="408" text-anchor="middle" font-weight="bold" fill="#b85450">11</text>
+    <rect x="350" y="392" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="375" y="408" text-anchor="middle" font-weight="bold" fill="#b85450">11</text>
+    <rect x="420" y="392" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="408" text-anchor="middle" font-weight="bold" fill="#b85450">15</text>
+    <rect x="490" y="392" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="515" y="408" text-anchor="middle" font-weight="bold" fill="#b85450">16</text>
+    <rect x="560" y="392" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="585" y="408" text-anchor="middle" font-weight="bold" fill="#b85450">22</text>
+  </g>
+  <text x="620" y="408" font-size="10" fill="#b85450" font-weight="bold">✓</text>
+
+  <!-- ===== Result annotation ===== -->
+  <rect x="30" y="424" width="600" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="40" y="439" font-size="10" fill="#b85450">结果 [0, 3, 4, 11, 11, 15, 16, 22] = exclusive prefix sum（不含自身），加回 input[i] 即得 inclusive</text>
+
+  <!-- ===== Separator ===== -->
+  <line x1="20" y1="458" x2="640" y2="458" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <!-- ===== Properties ===== -->
+  <text x="30" y="478" font-size="12" fill="#446688" font-weight="bold">Blelloch 特征</text>
+
+  <rect x="30" y="490" width="290" height="80" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="510" font-size="10" fill="#7a5415" font-weight="bold">上扫（Up-Sweep）</text>
+  <text x="44" y="526" font-size="10" fill="#555">• stride = 1, 2, 4, ... → 归约树</text>
+  <text x="44" y="542" font-size="10" fill="#555">• a[i+2s-1] += a[i+s-1]，每步减半</text>
+  <text x="44" y="558" font-size="10" fill="#555">• 根节点 a[N-1] 持有总和</text>
+
+  <rect x="340" y="490" width="290" height="80" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="354" y="510" font-size="10" fill="#b85450" font-weight="bold">下扫（Down-Sweep）</text>
+  <text x="354" y="526" font-size="10" fill="#555">• a[N-1] = 0，stride = N/2, N/4, ...</text>
+  <text x="354" y="542" font-size="10" fill="#555">• swap(left, right); right += old_left</text>
+  <text x="354" y="558" font-size="10" fill="#555">• 每步活跃线程倍增 → exclusive scan</text>
+
+  <!-- ===== Pseudocode ===== -->
+  <rect x="30" y="582" width="600" height="88" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="44" y="600" font-family="monospace" font-size="9.5" fill="#4a7a3a" font-weight="bold">// 上扫（reduce）—— 构建归约树</text>
+  <text x="44" y="614" font-family="monospace" font-size="9.5" fill="#333">for (stride = 1; stride &lt; N; stride *= 2)       // 1, 2, 4, ...</text>
+  <text x="44" y="628" font-family="monospace" font-size="9.5" fill="#333">    for (i = 0; i &lt; N; i += 2*stride)  a[i+2*stride-1] += a[i+stride-1];</text>
+  <text x="44" y="644" font-family="monospace" font-size="9.5" fill="#d6a040" font-weight="bold">// 下扫（distribute）—— 分发偏移</text>
+  <text x="44" y="658" font-family="monospace" font-size="9.5" fill="#333">a[N-1] = 0;  for (stride = N/2; stride &gt;= 1; stride /= 2)</text>
+  <text x="44" y="672" font-family="monospace" font-size="9.5" fill="#333">    for (i = 0; i &lt; N; i += 2*stride)  { tmp=a[i+stride-1]; a[i+stride-1]=a[i+2*stride-1]; a[i+2*stride-1]+=tmp; }</text>
+</svg>

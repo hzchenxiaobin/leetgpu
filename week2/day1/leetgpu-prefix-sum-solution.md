@@ -102,32 +102,118 @@ for (int offset = 1; offset < WARP_SIZE; offset <<= 1) {
 
 思想：分**上扫（reduce）**和**下扫（distribute）**两遍。上扫构建一棵归约树（每步活跃线程减半，类似归约），下扫沿树逆向分发偏移。总工作量 `O(N)`，是 **work-efficient** 的。
 
+![Blelloch 工作高效扫描：上扫 + 下扫逐步演化](images/prefix_sum_blelloch_detail.svg)
+
+##### 上扫（Up-Sweep / Reduce）：从叶到根
+
+每步让相距 `stride` 的成对元素累加，`stride = 1, 2, 4, ...`，共 `log₂N` 步。形式化地：
+
 ```
-上扫（Up-Sweep / Reduce）：从叶到根，构建部分和树
-  offset = 1, 2, 4, ...：a[i + offset] += a[i]，每步活跃线程减半
-  → 根节点（最后一个元素）持有总和
-
-下扫（Down-Sweep / Distribute）：从根到叶，分发偏移
-  offset = N/2, N/4, ...：交换并累加，每步活跃线程倍增
-  → 每个位置得到 exclusive prefix sum
+a[i + 2*stride - 1] += a[i + stride - 1]    // i = 0, 2*stride, 4*stride, ...
 ```
 
-以 8 元素为例的简要过程：
+每步活跃线程**减半**（类似归约树），最终根节点 `a[N-1]` 持有整个数组的总和。
 
-| 阶段 | step | offset | 操作 | 效果 |
-|------|------|--------|------|------|
-| 上扫 | 1 | 1 | `a[1]+=a[0], a[3]+=a[2], a[5]+=a[4], a[7]+=a[6]` | 2 元素和 |
-| 上扫 | 2 | 2 | `a[3]+=a[1], a[7]+=a[5]` | 4 元素和 |
-| 上扫 | 3 | 4 | `a[7]+=a[3]` | 8 元素和（总和） |
-| 下扫 | 4 | 4 | 交换 a[3], a[7]；a[7]=0 | 分发根 |
-| 下扫 | 5 | 2 | 交换 a[1],a[3]；a[5],a[7] | 分发中间 |
-| 下扫 | 6 | 1 | 交换相邻对 | 完成 exclusive scan |
+##### 下扫（Down-Sweep / Distribute）：从根到叶
+
+先将根节点 `a[N-1]` 置为 0（加法单位元），然后沿树逆向"分发"偏移。`stride = N/2, N/4, ..., 1`，共 `log₂N` 步。每步对每对 `(left=i+stride-1, right=i+2*stride-1)` 执行：
+
+```
+temp  = a[left]           // 暂存左值
+a[left]  = a[right]       // 交换：左 = 右旧值
+a[right] += temp          // 累加：右 += 左旧值
+```
+
+每步活跃线程**倍增**，最终每个位置得到 **exclusive** prefix sum（不含自身）。
+
+##### 以 8 元素 `[3, 1, 7, 0, 4, 1, 6, 3]` 为例的完整推演
+
+**上扫阶段**（活跃线程：4 → 2 → 1）：
+
+| step | stride | 操作 | 数组状态 | 含义 |
+|------|--------|------|----------|------|
+| 0 | — | 初始 | `[3, 1, 7, 0, 4, 1, 6, 3]` | 原始数据 |
+| 1 | 1 | `a[1]+=a[0], a[3]+=a[2], a[5]+=a[4], a[7]+=a[6]` | `[3, 4, 7, 7, 4, 5, 6, 9]` | 2 元素和 |
+| 2 | 2 | `a[3]+=a[1], a[7]+=a[5]` | `[3, 4, 7, 11, 4, 5, 6, 14]` | 4 元素和 |
+| 3 | 4 | `a[7]+=a[3]` | `[3, 4, 7, 11, 4, 5, 6, 25]` | **总和 = 25** |
+
+**下扫阶段**（活跃线程：1 → 2 → 4）：
+
+| step | stride | 操作 | 数组状态 | 含义 |
+|------|--------|------|----------|------|
+| — | — | `a[7] = 0` | `[3, 4, 7, 11, 4, 5, 6, 0]` | 根置 0 |
+| 4 | 4 | swap(a[3], a[7]); a[7]+=旧a[3] | `[3, 4, 7, 0, 4, 5, 6, 11]` | 分发根 |
+| 5 | 2 | swap(a[1],a[3]); swap(a[5],a[7]); 各加旧左值 | `[3, 0, 7, 4, 4, 11, 6, 16]` | 分发中间 |
+| 6 | 1 | 4 对相邻 swap + add | `[0, 3, 4, 11, 11, 15, 16, 22]` | **exclusive scan ✓** |
+
+验证：`[0, 3, 3+1, 3+1+7, ...] = [0, 3, 4, 11, 11, 15, 16, 22]` ✓
+
+##### 伪代码
+
+```cpp
+// 上扫（reduce）—— 构建归约树，根持有总和
+for (stride = 1; stride < N; stride *= 2)          // 1, 2, 4, ...
+    for (i = 0; i < N; i += 2*stride)
+        a[i + 2*stride - 1] += a[i + stride - 1];
+
+// 下扫（distribute）—— 分发偏移，得 exclusive scan
+a[N-1] = 0;                                         // 根置 identity
+for (stride = N/2; stride >= 1; stride /= 2)        // N/2, N/4, ..., 1
+    for (i = 0; i < N; i += 2*stride) {
+        tmp = a[i + stride - 1];
+        a[i + stride - 1]     = a[i + 2*stride - 1]; // 交换：左 ← 右
+        a[i + 2*stride - 1]  += tmp;                 // 累加：右 += 旧左
+    }
+```
+
+##### CUDA 实现要点（shared memory 版）
+
+Blelloch 在 GPU 上需要 shared memory + `__syncthreads`（不像 Hillis-Steele 可用纯 warp shuffle）：
+
+```cuda
+__global__ void blelloch_block_scan(const float* input, float* output, int N) {
+    __shared__ float smem[BLOCK_SIZE];
+    int tid = threadIdx.x;
+    int idx = blockIdx.x * BLOCK_SIZE + tid;
+    smem[tid] = (idx < N) ? input[idx] : 0.0f;
+    __syncthreads();
+
+    // ===== 上扫（reduce）=====
+    for (int stride = 1; stride < BLOCK_SIZE; stride *= 2) {
+        int pos = (tid + 1) * 2 * stride - 1;        // i + 2*stride - 1
+        if (pos < BLOCK_SIZE) {
+            smem[pos] += smem[pos - stride];          // a[i+2s-1] += a[i+s-1]
+        }
+        __syncthreads();
+    }
+
+    // ===== 根置 0 =====
+    if (tid == 0) smem[BLOCK_SIZE - 1] = 0.0f;
+    __syncthreads();
+
+    // ===== 下扫（distribute）=====
+    for (int stride = BLOCK_SIZE / 2; stride >= 1; stride /= 2) {
+        int pos = (tid + 1) * 2 * stride - 1;
+        if (pos < BLOCK_SIZE) {
+            float tmp = smem[pos - stride];
+            smem[pos - stride] = smem[pos];           // 交换：左 ← 右
+            smem[pos] += tmp;                          // 累加：右 += 旧左
+        }
+        __syncthreads();
+    }
+
+    if (idx < N) output[idx] = smem[tid];              // exclusive scan
+}
+```
+
+> ⚠️ 上述 CUDA 代码中 `pos` 的索引映射需仔细对齐 `(tid + 1) * 2 * stride - 1`，确保每个 stride 步骤只有该步活跃的线程参与写操作，其余线程空闲。这正是 Blelloch 在 warp 内效率低于 Hillis-Steele 的原因——每步有大量 lane 空闲但仍在调度。
 
 **关键属性**：
 - **步数（深度）** = `2 × log₂N`（比 Hillis-Steele 多一倍）
-- **工作量** = `O(N)` —— **work-efficient**，无 log 因子
+- **工作量** = `O(N)` —— **work-efficient**，无 log 因子（上扫 `N/2 + N/4 + ... = N-1` 次加法，下扫同理，总计 `~2N` 次 vs Hillis-Steele 的 `N log₂N` 次）
 - **活跃度**：每步活跃线程**逐步减半**（上扫）或**倍增**（下扫），类似归约树
 - **scan 类型**：天然输出 **exclusive** scan（不含自身）
+- **GPU 适配**：需 shared memory + `__syncthreads`，warp shuffle 利用率低（每步大量 lane 空闲）
 
 #### 两种算法对比
 
