@@ -160,6 +160,7 @@ def page_template(title: str, nav_html: str, markdown: str) -> str:
     <link href="../css/prism-tomorrow.min.css" rel="stylesheet">
     <script src="../js/prism.min.js"></script>
     <script src="../js/prism-c.min.js"></script>
+    <script src="../js/prism-cuda.min.js"></script>
     <script src="../js/prism-bash.min.js"></script>
     <script src="../js/prism-python.min.js"></script>
 </head>
