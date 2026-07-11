@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 500" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 560" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
   <defs>
     <filter id="rough2">
       <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
@@ -9,85 +9,90 @@
     </marker>
   </defs>
 
-  <rect width="640" height="500" fill="#fafafa"/>
+  <rect width="760" height="560" fill="#fafafa"/>
 
-  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">GEMM 三级数据复用：Global → Shared → Register</text>
-  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">每多一级复用，算术强度乘以复用倍数，从 0.25 FLOP/B 推到 56 FLOP/B</text>
+  <text x="380" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">GEMM 三级数据复用：Global → Shared → Register</text>
+  <text x="380" y="44" text-anchor="middle" font-size="11" fill="#888">每多一级复用，算术强度乘以复用倍数，从 0.25 FLOP/B 推到 56 FLOP/B</text>
 
   <!-- ===== Level 0: Global Memory ===== -->
-  <rect x="40" y="68" width="560" height="92" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
-  <text x="56" y="88" font-size="13" fill="#b85450" font-weight="bold">L0  Global Memory（HBM）</text>
-  <text x="56" y="106" font-size="10" fill="#555" font-family="monospace">A[M×K]  B[K×N]  —— 每元素被全 grid 读 1 次</text>
-  <text x="56" y="124" font-size="10" fill="#888">延迟 ~400-800 cycle  ·  复用 1×  ·  算术强度 ≈ 0.25 FLOP/B（memory-bound）</text>
-  <text x="56" y="142" font-size="10" fill="#888">带宽 ~1.5-2 TB/s（A100），是朴素 GEMM 的瓶颈</text>
-  <rect x="500" y="76" width="90" height="76" fill="#fff" stroke="#b85450" stroke-width="0.8" rx="4" filter="url(#rough2)"/>
-  <text x="545" y="98" text-anchor="middle" font-size="9" fill="#b85450" font-weight="bold">朴素版</text>
-  <text x="545" y="114" text-anchor="middle" font-size="9" fill="#888">只到这一层</text>
-  <text x="545" y="130" text-anchor="middle" font-size="9" fill="#b85450">~15%</text>
-  <text x="545" y="144" text-anchor="middle" font-size="8" fill="#888">of cuBLAS</text>
+  <rect x="30" y="64" width="700" height="100" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
+  <text x="46" y="86" font-size="13" fill="#b85450" font-weight="bold">L0  Global Memory（HBM）</text>
+  <text x="46" y="106" font-size="10" fill="#555" font-family="monospace">A[M×K]  B[K×N]  —— 每元素被全 grid 读 1 次</text>
+  <text x="46" y="124" font-size="10" fill="#888">延迟 ~400-800 cycle  ·  复用 1×  ·  算术强度 ≈ 0.25 FLOP/B（memory-bound）</text>
+  <text x="46" y="142" font-size="10" fill="#888">带宽 ~1.5-2 TB/s（A100），是朴素 GEMM 的瓶颈</text>
+
+  <rect x="570" y="72" width="150" height="84" fill="#fff" stroke="#b85450" stroke-width="0.8" rx="4" filter="url(#rough2)"/>
+  <text x="645" y="94" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">朴素版</text>
+  <text x="645" y="110" text-anchor="middle" font-size="9" fill="#888">只到这一层</text>
+  <text x="645" y="128" text-anchor="middle" font-size="10" fill="#b85450">~15%</text>
+  <text x="645" y="142" text-anchor="middle" font-size="8" fill="#888">of cuBLAS</text>
 
   <!-- arrow down -->
-  <path d="M 320 162 L 320 178" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
-  <text x="335" y="174" font-size="9" fill="#446688">协作加载 tile（float4 × 256 thread）</text>
+  <path d="M 380 166 L 380 182" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="395" y="178" font-size="9" fill="#446688">协作加载 tile（float4 × 256 thread）</text>
 
   <!-- ===== Level 1: Shared Memory ===== -->
-  <rect x="40" y="182" width="560" height="92" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
-  <text x="56" y="202" font-size="13" fill="#446688" font-weight="bold">L1  Shared Memory（block 内共享）</text>
-  <text x="56" y="220" font-size="10" fill="#555" font-family="monospace">sA[BM][BK]  sB[BK][BN]  —— block 内 BM/BN 个 thread 复用同一 tile</text>
-  <text x="56" y="238" font-size="10" fill="#888">延迟 ~20-30 cycle  ·  复用 ~128×  ·  算术强度 ≈ 8 FLOP/B（仍偏访存）</text>
-  <text x="56" y="256" font-size="10" fill="#888">占用 2×(128×8 + 8×128)×4B = 16 KB（双缓冲）</text>
-  <rect x="500" y="190" width="90" height="76" fill="#fff" stroke="#446688" stroke-width="0.8" rx="4" filter="url(#rough2)"/>
-  <text x="545" y="212" text-anchor="middle" font-size="9" fill="#446688" font-weight="bold">#2 题解</text>
-  <text x="545" y="228" text-anchor="middle" font-size="9" fill="#888">只到这一层</text>
-  <text x="545" y="244" text-anchor="middle" font-size="9" fill="#446688">~30%</text>
-  <text x="545" y="258" text-anchor="middle" font-size="8" fill="#888">of cuBLAS</text>
+  <rect x="30" y="186" width="700" height="100" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
+  <text x="46" y="208" font-size="13" fill="#446688" font-weight="bold">L1  Shared Memory（block 内共享）</text>
+  <text x="46" y="228" font-size="10" fill="#555" font-family="monospace">sA[BM][BK]  sB[BK][BN]  —— block 内 BM/BN 个 thread 复用同一 tile</text>
+  <text x="46" y="246" font-size="10" fill="#888">延迟 ~20-30 cycle  ·  复用 ~128×  ·  算术强度 ≈ 8 FLOP/B（仍偏访存）</text>
+  <text x="46" y="264" font-size="10" fill="#888">占用 2×(128×8 + 8×128)×4B = 16 KB（双缓冲）</text>
+
+  <rect x="570" y="194" width="150" height="84" fill="#fff" stroke="#446688" stroke-width="0.8" rx="4" filter="url(#rough2)"/>
+  <text x="645" y="216" text-anchor="middle" font-size="10" fill="#446688" font-weight="bold">#2 题解</text>
+  <text x="645" y="232" text-anchor="middle" font-size="9" fill="#888">只到这一层</text>
+  <text x="645" y="250" text-anchor="middle" font-size="10" fill="#446688">~30%</text>
+  <text x="645" y="264" text-anchor="middle" font-size="8" fill="#888">of cuBLAS</text>
 
   <!-- arrow down -->
-  <path d="M 320 276 L 320 292" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
-  <text x="335" y="288" font-size="9" fill="#4a7a3a">每 thread 取 TM/TN 个到寄存器</text>
+  <path d="M 380 288 L 380 304" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="395" y="300" font-size="9" fill="#4a7a3a">每 thread 取 TM/TN 个到寄存器</text>
 
   <!-- ===== Level 2: Register ===== -->
-  <rect x="40" y="296" width="560" height="92" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
-  <text x="56" y="316" font-size="13" fill="#4a7a3a" font-weight="bold">L2  Register（thread 私有累加器）</text>
-  <text x="56" y="334" font-size="10" fill="#555" font-family="monospace">acc[TM][TN]  rA[TM]  rB[TN]  —— 同 thread 的 TM×TN 个输出复用</text>
-  <text x="56" y="352" font-size="10" fill="#888">延迟 ~0 cycle  ·  复用 ~64×  ·  算术强度 ≈ 56 FLOP/B（compute-bound）</text>
-  <text x="56" y="370" font-size="10" fill="#888">占用 ~88 register/thread（acc=64 + rA/rB=16 + 索引=8）</text>
-  <rect x="500" y="304" width="90" height="76" fill="#fff" stroke="#4a7a3a" stroke-width="0.8" rx="4" filter="url(#rough2)"/>
-  <text x="545" y="326" text-anchor="middle" font-size="9" fill="#4a7a3a" font-weight="bold">本实现</text>
-  <text x="545" y="342" text-anchor="middle" font-size="9" fill="#888">三级全打通</text>
-  <text x="545" y="358" text-anchor="middle" font-size="9" fill="#4a7a3a">~40%</text>
-  <text x="545" y="372" text-anchor="middle" font-size="8" fill="#888">of cuBLAS</text>
+  <rect x="30" y="308" width="700" height="100" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
+  <text x="46" y="330" font-size="13" fill="#4a7a3a" font-weight="bold">L2  Register（thread 私有累加器）</text>
+  <text x="46" y="350" font-size="10" fill="#555" font-family="monospace">acc[TM][TN]  rA[TM]  rB[TN]  —— 同 thread 的 TM×TN 个输出复用</text>
+  <text x="46" y="368" font-size="10" fill="#888">延迟 ~0 cycle  ·  复用 ~64×  ·  算术强度 ≈ 56 FLOP/B（compute-bound）</text>
+  <text x="46" y="386" font-size="10" fill="#888">占用 ~88 register/thread（acc=64 + rA/rB=16 + 索引=8）</text>
 
-  <!-- ===== Bottom summary: arithmetic intensity bar ===== -->
-  <line x1="20" y1="404" x2="620" y2="404" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
-  <text x="30" y="426" font-size="12" fill="#444" font-weight="bold">算术强度演进（FLOP / Byte）：</text>
+  <rect x="570" y="316" width="150" height="84" fill="#fff" stroke="#4a7a3a" stroke-width="0.8" rx="4" filter="url(#rough2)"/>
+  <text x="645" y="338" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">本实现</text>
+  <text x="645" y="354" text-anchor="middle" font-size="9" fill="#888">三级全打通</text>
+  <text x="645" y="372" text-anchor="middle" font-size="10" fill="#4a7a3a">~40%</text>
+  <text x="645" y="386" text-anchor="middle" font-size="8" fill="#888">of cuBLAS</text>
+
+  <!-- ===== Bottom: arithmetic intensity bar chart ===== -->
+  <line x1="20" y1="426" x2="740" y2="426" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="450" font-size="12" fill="#444" font-weight="bold">算术强度演进（FLOP / Byte）：</text>
 
   <!-- bar 1: naive 0.25 -->
-  <rect x="30" y="436" width="20" height="40" fill="#b85450" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
-  <text x="40" y="486" text-anchor="middle" font-size="9" fill="#b85450">0.25</text>
-  <text x="40" y="496" text-anchor="middle" font-size="8" fill="#888">朴素</text>
+  <rect x="40" y="500" width="24" height="20" fill="#b85450" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+  <text x="52" y="534" text-anchor="middle" font-size="9" fill="#b85450">0.25</text>
+  <text x="52" y="548" text-anchor="middle" font-size="8" fill="#888">朴素</text>
 
-  <text x="70" y="460" font-size="14" fill="#888">→</text>
+  <text x="84" y="514" font-size="14" fill="#888">→</text>
 
   <!-- bar 2: tiling 8 -->
-  <rect x="90" y="416" width="20" height="60" fill="#446688" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
-  <text x="100" y="486" text-anchor="middle" font-size="9" fill="#446688">8</text>
-  <text x="100" y="496" text-anchor="middle" font-size="8" fill="#888">+ tiling</text>
+  <rect x="104" y="480" width="24" height="40" fill="#446688" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+  <text x="116" y="534" text-anchor="middle" font-size="9" fill="#446688">8</text>
+  <text x="116" y="548" text-anchor="middle" font-size="8" fill="#888">+ tiling</text>
 
-  <text x="130" y="460" font-size="14" fill="#888">→</text>
+  <text x="148" y="514" font-size="14" fill="#888">→</text>
 
   <!-- bar 3: register blocking 56 -->
-  <rect x="150" y="408" width="20" height="68" fill="#4a7a3a" stroke="#4a7a3a" stroke-width="1" rx="2" filter="url(#rough2)"/>
-  <text x="160" y="486" text-anchor="middle" font-size="9" fill="#4a7a3a">56</text>
-  <text x="160" y="496" text-anchor="middle" font-size="8" fill="#888">+ register</text>
+  <rect x="168" y="466" width="24" height="54" fill="#4a7a3a" stroke="#4a7a3a" stroke-width="1" rx="2" filter="url(#rough2)"/>
+  <text x="180" y="534" text-anchor="middle" font-size="9" fill="#4a7a3a">56</text>
+  <text x="180" y="548" text-anchor="middle" font-size="8" fill="#888">+ register</text>
 
   <!-- A100 balance point -->
-  <line x1="200" y1="406" x2="200" y2="478" stroke="#d6a040" stroke-width="2" stroke-dasharray="3,3" filter="url(#rough2)"/>
-  <text x="206" y="418" font-size="9" fill="#d6a040" font-weight="bold">A100 平衡点</text>
-  <text x="206" y="432" font-size="9" fill="#d6a040">~60 FLOP/B</text>
-  <text x="206" y="446" font-size="8" fill="#888">compute-bound 临界</text>
+  <line x1="220" y1="462" x2="220" y2="528" stroke="#d6a040" stroke-width="2" stroke-dasharray="3,3" filter="url(#rough2)"/>
+  <text x="228" y="476" font-size="9" fill="#d6a040" font-weight="bold">A100 平衡点</text>
+  <text x="228" y="490" font-size="9" fill="#d6a040">~60 FLOP/B</text>
+  <text x="228" y="504" font-size="8" fill="#888">compute-bound 临界</text>
 
   <!-- annotation -->
-  <text x="300" y="450" font-size="10" fill="#555">每加一级复用，算术强度 ×复用倍数，</text>
-  <text x="300" y="466" font-size="10" fill="#555">瓶颈从带宽转向算力。</text>
+  <text x="360" y="478" font-size="10" fill="#555">每加一级复用，算术强度 ×复用倍数，</text>
+  <text x="360" y="494" font-size="10" fill="#555">瓶颈从带宽转向算力。</text>
+  <text x="360" y="516" font-size="9" fill="#888">朴素 GEMM 每读 4B 只做 0.25 FLOP → memory-bound</text>
+  <text x="360" y="532" font-size="9" fill="#888">Register Blocking 后每读 4B 做 56 FLOP → compute-bound</text>
 </svg>
