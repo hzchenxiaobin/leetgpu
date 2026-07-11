@@ -298,16 +298,15 @@ def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
         section += '</div>\n\n'
         return section
 
-    # Two-column layout on wider screens: each row contains two weeks
-    for i in range(0, len(weeks), 2):
+    # Three-column layout on wider screens: each row contains up to three weeks
+    for i in range(0, len(weeks), 3):
         overview_markdown += '<div class="leetcode-overview-row">\n'
-        overview_markdown += '  <div class="leetcode-col leetcode-col-left">\n'
-        overview_markdown += render_week_section(weeks[i])
-        overview_markdown += '  </div>\n'
-        if i + 1 < len(weeks):
-            overview_markdown += '  <div class="leetcode-col leetcode-col-right">\n'
-            overview_markdown += render_week_section(weeks[i + 1])
-            overview_markdown += '  </div>\n'
+        for j in range(3):
+            if i + j < len(weeks):
+                col_cls = "leetcode-col-left" if j == 0 else "leetcode-col-middle" if j == 1 else "leetcode-col-right"
+                overview_markdown += f'  <div class="leetcode-col {col_cls}">\n'
+                overview_markdown += render_week_section(weeks[i + j])
+                overview_markdown += '  </div>\n'
         overview_markdown += '</div>\n\n'
 
     overview_html = page_template(
