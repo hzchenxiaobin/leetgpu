@@ -297,20 +297,17 @@ def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
         section += '</div>\n\n'
         return section
 
-    # Two-column layout on wider screens: split weeks in half
-    split = (len(weeks) + 1) // 2
-    left_weeks, right_weeks = weeks[:split], weeks[split:]
-
-    overview_markdown += '<div class="leetcode-overview-row">\n'
-    overview_markdown += '  <div class="leetcode-col leetcode-col-left">\n'
-    for w in left_weeks:
-        overview_markdown += render_week_section(w)
-    overview_markdown += '  </div>\n'
-    overview_markdown += '  <div class="leetcode-col leetcode-col-right">\n'
-    for w in right_weeks:
-        overview_markdown += render_week_section(w)
-    overview_markdown += '  </div>\n'
-    overview_markdown += '</div>\n'
+    # Two-column layout on wider screens: each row contains two weeks
+    for i in range(0, len(weeks), 2):
+        overview_markdown += '<div class="leetcode-overview-row">\n'
+        overview_markdown += '  <div class="leetcode-col leetcode-col-left">\n'
+        overview_markdown += render_week_section(weeks[i])
+        overview_markdown += '  </div>\n'
+        if i + 1 < len(weeks):
+            overview_markdown += '  <div class="leetcode-col leetcode-col-right">\n'
+            overview_markdown += render_week_section(weeks[i + 1])
+            overview_markdown += '  </div>\n'
+        overview_markdown += '</div>\n\n'
 
     overview_html = page_template(
         title="LeetGPU 题解",
