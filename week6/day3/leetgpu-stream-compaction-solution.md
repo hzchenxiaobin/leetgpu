@@ -155,6 +155,12 @@ __global__ void scatter_kernel(const int* input, const int* pred, const int* ps,
     }
 }
 
+// predicate：pred[i] = (input[i] != 0) ? 1 : 0
+__global__ void predicate_kernel(const int* input, int* pred, int N) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < N) pred[i] = (input[i] != 0) ? 1 : 0;
+}
+
 int main() {
     int N = 1000000;
     std::vector<int> h_input(N);
@@ -172,35 +178,32 @@ int main() {
 
     // 1. predicate
     int blocks = (N + BLOCK - 1) / BLOCK;
-    // 简化：用单独 kernel 算 pred，这里直接用 input!=0
-    // pred[i] = (input[i] != 0)
-    // 为简洁，把 pred 与 ps 合并：先写 pred 到 d_pred
-    // （实际可融合进 scan kernel 的输入读取）
+    predicate_kernel<<<blocks, BLOCK>>>(d_input, d_pred, N);
 
-    // 2. block 内 exclusive scan（输入为 d_input!=0）
-    block_excl_scan_kernel<<<blocks, BLOCK>>>(d_input /*当作 pred 读!=0 的占位，
-         实际应先算 pred*/, d_ps, d_block_sums, N);
-    // 注：教学版省略 pred kernel，正式版先 d_pred[i]=(input[i]!=0) 再 scan
+    // 2. block 内 exclusive scan
+    block_excl_scan_kernel<<<blocks, BLOCK>>>(d_pred, d_ps, d_block_sums, N);
 
     // 3. 对 block_sums 做 exclusive scan（block 数较少，单 block 够）
     int num_blocks = blocks;
     int* d_block_sums_excl;
     cudaMalloc(&d_block_sums_excl, num_blocks * sizeof(int));
+    int* d_dummy;
+    cudaMalloc(&d_dummy, sizeof(int));   // 第二级 scan 不需要再记录 block 和
     block_excl_scan_kernel<<<(num_blocks + BLOCK - 1) / BLOCK, BLOCK>>>(
-        d_block_sums, d_block_sums_excl, nullptr, num_blocks);
+        d_block_sums, d_block_sums_excl, d_dummy, num_blocks);
 
     // 4. 累加前序 block
     add_prev_blocks<<<blocks, BLOCK>>>(d_ps, d_block_sums_excl, N);
 
     // 5. scatter
-    scatter_kernel<<<blocks, BLOCK>>>(d_input, d_input /*pred 占位*/, d_ps, d_output, N);
+    scatter_kernel<<<blocks, BLOCK>>>(d_input, d_pred, d_ps, d_output, N);
 
     cudaDeviceSynchronize();
 
     // 取回 count = ps[N-1] + pred[N-1]
     int h_ps_last, h_pred_last;
     cudaMemcpy(&h_ps_last, &d_ps[N - 1], sizeof(int), cudaMemcpyDeviceToHost);
-    h_pred_last = (h_input[N - 1] != 0) ? 1 : 0;
+    cudaMemcpy(&h_pred_last, &d_pred[N - 1], sizeof(int), cudaMemcpyDeviceToHost);
     int count = h_ps_last + h_pred_last;
 
     // CPU 验证

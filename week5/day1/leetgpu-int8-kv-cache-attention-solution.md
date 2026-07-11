@@ -273,7 +273,7 @@ int main(int argc, char** argv) {
     printf("kernel time: %.3f ms\n", ms);
 
     // 验证
-    cudaMemcpy(hO, dO, q_bytes, cudaMemcpyDeviceToHost);
+    cudaMemcpy(hO.data(), dO, q_bytes, cudaMemcpyDeviceToHost);
     attention_int8_cpu(hQ.data(), hK.data(), hV.data(), hks.data(), hvs.data(), hRef.data(), H, L, d);
     float maxd = 0;
     for (int i = 0; i < H*d; ++i) maxd = fmaxf(maxd, fabsf(hO[i]-hRef[i]));

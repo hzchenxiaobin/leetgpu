@@ -237,7 +237,7 @@ int main(int argc, char** argv) {
         d_tids, d_pids, d_te, d_pe, d_g, d_bt, d_out, B, T, V, P, D, eps);
     cudaDeviceSynchronize();
 
-    cudaMemcpy(h_out, d_out, out_bytes, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_out.data(), d_out, out_bytes, cudaMemcpyDeviceToHost);
     embed_cpu(h_tids.data(), h_pids.data(), h_te.data(), h_pe.data(),
               h_g.data(), h_bt.data(), h_ref.data(), B, T, V, P, D, eps);
 

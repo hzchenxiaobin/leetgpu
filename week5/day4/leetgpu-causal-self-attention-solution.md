@@ -234,7 +234,7 @@ int main(int argc, char** argv) {
     float ms = 0; cudaEventElapsedTime(&ms, t0, t1);
     printf("kernel time: %.3f ms\n", ms);
 
-    cudaMemcpy(hO, dO, qkv, cudaMemcpyDeviceToHost);
+    cudaMemcpy(hO.data(), dO, qkv, cudaMemcpyDeviceToHost);
     causal_attn_cpu(hQ.data(), hK.data(), hV.data(), hRef.data(), M, d);
     float maxd = 0;
     for (int i = 0; i < M*d; ++i) maxd = fmaxf(maxd, fabsf(hO[i]-hRef[i]));

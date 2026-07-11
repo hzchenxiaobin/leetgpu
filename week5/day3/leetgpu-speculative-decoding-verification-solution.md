@@ -348,7 +348,7 @@ int main(int argc, char** argv) {
     float ms = 0; cudaEventElapsedTime(&ms, t0, t1);
     printf("kernel time: %.3f ms\n", ms);
 
-    cudaMemcpy(h_out, d_out, out_bytes, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_out.data(), d_out, out_bytes, cudaMemcpyDeviceToHost);
     spec_decode_cpu(h_dt.data(), h_dp.data(), h_tp.data(), h_us.data(), h_ref.data(), B, T, V);
     int mism = 0;
     for (int i = 0; i < B * (T + 1); ++i) if (h_out[i] != h_ref[i]) mism++;
