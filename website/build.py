@@ -57,13 +57,14 @@ def parse_title(markdown_text: str) -> str:
 
 
 def display_title(title: str) -> str:
-    """Strip 'LeetGPU ' prefix and ' 题解' suffix for cleaner list/sidebar labels."""
+    """Strip 'LeetGPU ' prefix and ' 题解...' suffix for cleaner list/sidebar labels."""
     t = title
     if t.startswith("LeetGPU "):
         t = t[len("LeetGPU "):]
-    if t.endswith(" 题解"):
-        t = t[: -len(" 题解")]
-    return t
+    # Remove trailing " 题解（...）" / " 题解(...)" / " 题解"
+    t = re.sub(r"\s*题解\s*[（(].*?[）)]$", "", t)
+    t = re.sub(r"\s*题解$", "", t)
+    return t.strip()
 
 
 def pretty_name(name: str) -> str:
