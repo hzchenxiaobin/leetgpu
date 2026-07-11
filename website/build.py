@@ -56,6 +56,16 @@ def parse_title(markdown_text: str) -> str:
     return match.group(1).strip() if match else "题解"
 
 
+def display_title(title: str) -> str:
+    """Strip 'LeetGPU ' prefix and ' 题解' suffix for cleaner list/sidebar labels."""
+    t = title
+    if t.startswith("LeetGPU "):
+        t = t[len("LeetGPU "):]
+    if t.endswith(" 题解"):
+        t = t[: -len(" 题解")]
+    return t
+
+
 def pretty_name(name: str) -> str:
     """'day1' -> 'Day 1', 'week2' -> 'Week 2'."""
     m = re.match(r"^([a-zA-Z]+)(\d+)$", name)
@@ -70,10 +80,10 @@ def sort_key_numeric(name: str) -> int:
 
 
 def build_nav(current_slug: Optional[str], solutions: List[Dict]) -> str:
-    """Build sidebar navigation as a week -> day accordion.
+    """Build sidebar navigation as a week accordion with inline day tags.
 
-    A day with a single solution becomes a direct link (like leetcode/daily).
-    A day with multiple solutions expands into a nested accordion.
+    Each solution is rendered as a single link with its day label and challenge
+    title, matching the LeetCode daily navigation style.
     """
     lines = []
 
@@ -81,15 +91,12 @@ def build_nav(current_slug: Optional[str], solutions: List[Dict]) -> str:
     lines.append(f'<a class="{overview_class}" href="./index.html">📌 LeetGPU 题解</a>')
     lines.append('<div class="nav-section-title">题目</div>')
 
-    # Resolve current solution's [week, day] path for expand state
-    current_path: List[str] = []
+    # Resolve current solution's week for expand state
+    current_week: Optional[str] = None
     if current_slug is not None:
         for s in solutions:
             if s["slug"] == current_slug:
-                if s["week"]:
-                    current_path = [s["week"]]
-                    if s["day"]:
-                        current_path.append(s["day"])
+                current_week = s["week"]
                 break
 
     # Group: week -> day -> [solutions]
@@ -101,7 +108,7 @@ def build_nav(current_slug: Optional[str], solutions: List[Dict]) -> str:
 
     for w in sorted(tree.keys(), key=sort_key_numeric):
         days = tree[w]
-        is_week_expanded = bool(current_path and current_path[0] == w)
+        is_week_expanded = current_week == w
         expanded_cls = " is-expanded" if is_week_expanded else ""
         aria_expanded = "true" if is_week_expanded else "false"
         toggle_icon = "▼" if is_week_expanded else "▶"
@@ -117,35 +124,15 @@ def build_nav(current_slug: Optional[str], solutions: List[Dict]) -> str:
         lines.append('    <div class="nav-section">')
 
         for d in sorted(days.keys(), key=sort_key_numeric):
-            day_solutions = days[d]
-            if not d:
-                for s in day_solutions:
-                    cls = "nav-link active" if current_slug == s["slug"] else "nav-link"
-                    lines.append(f'<a class="{cls}" href="./{s["slug"]}.html">{s["title"]}</a>')
-            elif len(day_solutions) == 1:
-                s = day_solutions[0]
+            day_label = d if d else "未分组"
+            for s in days[d]:
                 cls = "nav-link active" if current_slug == s["slug"] else "nav-link"
-                lines.append(f'<a class="{cls}" href="./{s["slug"]}.html">{pretty_name(d)}</a>')
-            else:
-                is_day_expanded = bool(current_path[:2] == [w, d])
-                d_expanded_cls = " is-expanded" if is_day_expanded else ""
-                d_aria = "true" if is_day_expanded else "false"
-                d_icon = "▼" if is_day_expanded else "▶"
-                lines.append(f'<div class="nav-accordion-item level-2{d_expanded_cls}">')
-                lines.append('  <div class="nav-accordion-header">')
                 lines.append(
-                    f'    <span class="nav-link week-link">{pretty_name(d)}</span>'
-                    f'<button class="nav-accordion-toggle" aria-label="收起/展开 {pretty_name(d)}" aria-expanded="{d_aria}">{d_icon}</button>'
+                    f'<a class="{cls}" href="./{s["slug"]}.html">'
+                    f'<span class="nav-day-tag">{day_label}</span>'
+                    f'{s["display_title"]}'
+                    f'</a>'
                 )
-                lines.append('  </div>')
-                lines.append('  <div class="nav-accordion-content">')
-                lines.append('    <div class="nav-section">')
-                for s in day_solutions:
-                    cls = "nav-link active" if current_slug == s["slug"] else "nav-link"
-                    lines.append(f'<a class="{cls}" href="./{s["slug"]}.html">{s["title"]}</a>')
-                lines.append('    </div>')
-                lines.append('  </div>')
-                lines.append('</div>')
 
         lines.append('    </div>')
         lines.append('  </div>')
@@ -194,10 +181,8 @@ def page_template(title: str, nav_html: str, markdown: str) -> str:
         <main class="main-content">
             <div class="page-header">
                 <h1 class="page-title">{title}</h1>
-                <a class="back-link" href="./index.html">← 返回题解列表</a>
             </div>
             <article class="content" id="content"></article>
-            <div class="day-nav-bottom"><a class="back-link" href="./index.html">← 返回题解列表</a></div>
         </main>
     </div>
 
@@ -273,6 +258,7 @@ def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
         solutions.append({
             "slug": slug,
             "title": title,
+            "display_title": display_title(title),
             "week": week,
             "day": day,
             "markdown": markdown_text,
@@ -284,21 +270,47 @@ def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
         key = (s["week"] or "未分组", s["day"] or "")
         groups.setdefault(key, []).append(s)
 
-    overview_markdown = "# LeetGPU 题解\n\n> CUDA 编程挑战题解，配套每日教程的在线练习。\n\n## 题目列表\n\n"
-    for key in sorted(groups.keys(), key=lambda k: (sort_key_numeric(k[0]), sort_key_numeric(k[1]))):
-        w, d = key
-        heading = pretty_name(w) if not d else f"{pretty_name(w)} · {pretty_name(d)}"
-        overview_markdown += f"### {heading}\n\n"
-        overview_markdown += '<div class="day-cards">\n'
-        for s in groups[key]:
-            card_label = pretty_name(d) if d else s["title"]
-            overview_markdown += (
-                f'<a class="day-card" href="./{s["slug"]}.html">\n'
-                f'  <div class="day-card-number">{card_label}</div>\n'
-                f'  <div class="day-card-title">{s["title"]}</div>\n'
-                f'</a>\n'
-            )
-        overview_markdown += '</div>\n\n'
+    overview_markdown = "> CUDA 编程挑战题解，配套每日教程的在线练习。\n\n"
+
+    # Group by week for a LeetCode-style list overview
+    weekly_groups: Dict[str, Dict[str, List[Dict]]] = {}
+    for s in solutions:
+        w = s["week"] or "未分组"
+        d = s["day"] or ""
+        weekly_groups.setdefault(w, {}).setdefault(d, []).append(s)
+
+    weeks = sorted(weekly_groups.keys(), key=sort_key_numeric)
+
+    def render_week_section(w: str) -> str:
+        section = f'<div class="leetcode-section">\n'
+        section += f'  <div class="leetcode-section-title">{pretty_name(w)}</div>\n'
+        section += f'  <div class="leetcode-problem-list">\n'
+        for d in sorted(weekly_groups[w].keys(), key=sort_key_numeric):
+            for s in weekly_groups[w][d]:
+                section += (
+                    f'    <a class="leetcode-problem-link" href="./{s["slug"]}.html">'
+                    f'<span class="leetcode-problem-day">{d}</span>'
+                    f'<span class="leetcode-problem-title">{s["display_title"]}</span>'
+                    f'</a>\n'
+                )
+        section += '  </div>\n'
+        section += '</div>\n\n'
+        return section
+
+    # Two-column layout on wider screens: split weeks in half
+    split = (len(weeks) + 1) // 2
+    left_weeks, right_weeks = weeks[:split], weeks[split:]
+
+    overview_markdown += '<div class="leetcode-overview-row">\n'
+    overview_markdown += '  <div class="leetcode-col leetcode-col-left">\n'
+    for w in left_weeks:
+        overview_markdown += render_week_section(w)
+    overview_markdown += '  </div>\n'
+    overview_markdown += '  <div class="leetcode-col leetcode-col-right">\n'
+    for w in right_weeks:
+        overview_markdown += render_week_section(w)
+    overview_markdown += '  </div>\n'
+    overview_markdown += '</div>\n'
 
     overview_html = page_template(
         title="LeetGPU 题解",
