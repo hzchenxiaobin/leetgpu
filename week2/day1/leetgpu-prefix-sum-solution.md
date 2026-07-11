@@ -509,6 +509,66 @@ __global__ void scan_offsets_kernel(const float* block_sums,
 >
 > ⚠️ **实现陷阱**：`block_exclusive_scan` 只在 `threadIdx.x == BLOCK_SIZE-1` 时写 `*block_sum`。若用局部变量 `float chunk_total` 接这个值，再在 `tid == 0` 时读取，thread 0 读到的是未初始化的寄存器垃圾，导致 `s_running` 累积错误，后续所有 block 的偏移都会错（例如 LeetGPU 上 `N=250000` 时后部结果完全偏离）。正确做法是把它放进 `__shared__ float s_chunk_total`，由 thread 0 在 `__syncthreads()` 后读取。
 
+#### `s_running` 与 `s_chunk_total` 的作用详解
+
+阶段二需要处理 `numBlocks`（可能远大于 `BLOCK_SIZE`）个 `block_sums`，但单个 block 一次只能 scan `BLOCK_SIZE` 个元素。解决办法是**分 chunk 迭代**，每轮处理一个 chunk（`BLOCK_SIZE` 个元素），用两个 shared 变量在 chunk 之间传递状态：
+
+![s_running 与 s_chunk_total：grid-stride 迭代 scan](images/prefix_sum_srunning_schunktotal.svg)
+
+**`s_chunk_total`：本 chunk 的总和（chunk 内 → chunk 间）**
+
+- **谁写**：`block_exclusive_scan` 内部，只有 `threadIdx.x == BLOCK_SIZE-1`（最后一个线程）写 `*block_sum = s_chunk_total`，值为本 chunk 所有元素之和。
+- **谁读**：`tid == 0` 在 `__syncthreads()` 后读取，用于累加到 `s_running`。
+- **生命周期**：单轮 chunk 内有效，每轮被 `block_exclusive_scan` 覆写。
+- **为什么用 shared 而非寄存器**：写入者（thread 255）和读取者（thread 0）是不同线程，寄存器是线程私有的，无法跨线程传递。必须经 shared memory + `__syncthreads` 可见化。
+
+**`s_running`：跨 chunk 的累积偏移（chunk 间累积器）**
+
+- **谁写**：`tid == 0` 在每轮 chunk 结束时执行 `s_running += s_chunk_total`，把本 chunk 总和累加进去。
+- **谁读**：所有线程在每轮 chunk 开始时读取 `s_running`，加到本 chunk 的 exclusive scan 结果上（`block_offsets[idx] = exclusive + s_running`）。
+- **生命周期**：贯穿整个 kernel，初始化为 0，每轮递增，最终 = 所有 block_sums 的总和。
+- **作用**：把"chunk 内的局部 exclusive scan"修正为"全局 exclusive scan"。第 `k` 轮的 `s_running` = 前 `k` 个 chunk 的总和 = 第 `k` 轮所有元素的全局起始偏移。
+
+**两者协作的数据流**（以 `numBlocks = 700, BLOCK_SIZE = 256` 为例，需 3 轮）：
+
+```
+初始化:  s_running = 0
+
+轮次 0 (chunk 0: block_sums[0..255]):
+  block_exclusive_scan → exclusive[0..255]（chunk 内 exclusive scan）
+  s_chunk_total = Σ block_sums[0..255]                  ← thread 255 写
+  block_offsets[0..255] = exclusive[0..255] + s_running(=0)
+  s_running += s_chunk_total                             ← s_running = Σ[0..255]
+
+轮次 1 (chunk 1: block_sums[256..511]):
+  block_exclusive_scan → exclusive[256..511]
+  s_chunk_total = Σ block_sums[256..511]
+  block_offsets[256..511] = exclusive[256..511] + s_running(=Σ[0..255])
+  s_running += s_chunk_total                             ← s_running = Σ[0..511]
+
+轮次 2 (chunk 2: block_sums[512..699], 不足 256):
+  block_exclusive_scan → exclusive[512..699]（越界线程 val=0）
+  s_chunk_total = Σ block_sums[512..699]
+  block_offsets[512..699] = exclusive[512..699] + s_running(=Σ[0..511])
+  s_running += s_chunk_total                             ← s_running = Σ[0..699]（总和）
+```
+
+> 💡 **一句话总结**：`s_chunk_total` 是"chunk 内的总和"，每轮由最后一个线程算出并经 shared memory 传给 thread 0；`s_running` 是"前序所有 chunk 的累积和"，每轮由 thread 0 更新并广播给所有线程，用于把 chunk 内的局部 scan 修正为全局 scan。两者配合实现了 `numBlocks > BLOCK_SIZE` 时的 grid-stride 迭代 scan。
+
+#### 为什么 `s_running += s_chunk_total` 只由 `tid == 0` 执行
+
+```cuda
+__syncthreads();                          // ① 确保 s_chunk_total 已写入且对 thread 0 可见
+if (tid == 0) s_running += s_chunk_total; //    只有 thread 0 更新，无竞态
+__syncthreads();                          // ② 确保更新后的 s_running 对下一轮所有线程可见
+```
+
+**原因一：避免数据竞争**。`s_running` 是单个 `__shared__` 变量。若 256 个线程同时执行 `s_running += s_chunk_total`，就是 256 个线程对同一地址做 read-modify-write，属于数据竞争，结果未定义。只让 `tid == 0` 写一次即可。
+
+**原因二：只需加一次**。`s_chunk_total` 在 `__syncthreads()` 后对所有线程可见且值相同（它由 `block_exclusive_scan` 内部的最后一个线程写入 shared memory）。所有线程加的都是同一个值，让一个线程加一次就够了。
+
+> ⚠️ **为什么不用 `atomicAdd`？** 若改用 `atomicAdd(&s_running, s_chunk_total)` 让所有线程都执行，则 256 个线程会把**同一个值加 256 次**，结果错误。所以这里**不是**用 atomic 解决竞态的问题，而是用"单线程写 + syncthreads 广播"的正确模式：thread 0 独占写入，两道 `__syncthreads` 分别保证"写前 s_chunk_total 可见"和"写后 s_running 可见"。
+
 ### 4.5 阶段三 `add_offset_kernel`：加回全局偏移 + input → inclusive
 
 **作用**：每个元素最终值 = 阶段一的 exclusive + 本 block 全局偏移 + `input[i]`。一行公式搞定。

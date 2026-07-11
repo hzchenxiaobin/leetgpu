@@ -1,0 +1,288 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 740" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#888"/>
+    </marker>
+    <marker id="arrG" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#4a7a3a"/>
+    </marker>
+    <marker id="arrO" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#d6a040"/>
+    </marker>
+    <marker id="arrR" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#b85450"/>
+    </marker>
+  </defs>
+
+  <rect width="660" height="740" fill="#fafafa"/>
+
+  <text x="330" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">s_running 与 s_chunk_total：grid-stride 迭代 scan</text>
+  <text x="330" y="44" text-anchor="middle" font-size="11" fill="#888">以 numBlocks=10, BLOCK_SIZE=4 为例（3 轮 chunk），每轮算 chunk 内 exclusive scan + 跨 chunk 累积偏移</text>
+
+  <!-- ===== Legend ===== -->
+  <g filter="url(#rough2)">
+    <rect x="120" y="54" width="12" height="9" fill="#e8f0fe" stroke="#446688" stroke-width="1"/>
+    <rect x="270" y="54" width="12" height="9" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1"/>
+    <rect x="430" y="54" width="12" height="9" fill="#fff8e1" stroke="#d6a040" stroke-width="1"/>
+    <rect x="530" y="54" width="12" height="9" fill="#fce4ec" stroke="#b85450" stroke-width="1"/>
+  </g>
+  <text x="136" y="62" font-size="9" fill="#555">block_sums（输入）</text>
+  <text x="286" y="62" font-size="9" fill="#555">chunk 内 exclusive scan</text>
+  <text x="446" y="62" font-size="9" fill="#555">s_chunk_total / s_running</text>
+  <text x="546" y="62" font-size="9" fill="#555">block_offsets（输出）</text>
+
+  <!-- ===== s_running init ===== -->
+  <rect x="20" y="74" width="620" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="30" y="88" font-size="10" fill="#d6a040" font-weight="bold">初始化：s_running = 0</text>
+  <text x="350" y="88" font-size="9" fill="#888">（tid == 0 在循环前设置）</text>
+
+  <!-- ================================================================ -->
+  <!-- Chunk 0 -->
+  <!-- ================================================================ -->
+  <text x="30" y="112" font-size="11" fill="#446688" font-weight="bold">轮次 0（chunk 0: block_sums[0..3]）</text>
+
+  <!-- block_sums chunk 0 -->
+  <text x="30" y="130" font-size="9" fill="#888">block_sums</text>
+  <g font-size="10" fill="#333">
+    <rect x="110" y="116" width="40" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="131" text-anchor="middle">3</text>
+    <rect x="150" y="116" width="40" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="170" y="131" text-anchor="middle">1</text>
+    <rect x="190" y="116" width="40" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="131" text-anchor="middle">7</text>
+    <rect x="230" y="116" width="40" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="250" y="131" text-anchor="middle">0</text>
+  </g>
+  <text x="280" y="131" font-size="9" fill="#888">→ block_exclusive_scan →</text>
+
+  <!-- exclusive scan chunk 0 -->
+  <text x="30" y="158" font-size="9" fill="#888">exclusive</text>
+  <g font-size="10" fill="#333">
+    <rect x="110" y="144" width="40" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="159" text-anchor="middle">0</text>
+    <rect x="150" y="144" width="40" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="170" y="159" text-anchor="middle">3</text>
+    <rect x="190" y="144" width="40" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="159" text-anchor="middle">4</text>
+    <rect x="230" y="144" width="40" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="250" y="159" text-anchor="middle" font-weight="bold">11</text>
+  </g>
+
+  <!-- s_chunk_total chunk 0 -->
+  <path d="M 250 166 L 250 178 L 370 178 L 370 190" stroke="#d6a040" stroke-width="1.2" fill="none" marker-end="url(#arrO)" filter="url(#rough2)"/>
+  <text x="300" y="175" font-size="8" fill="#d6a040">thread 255 写</text>
+  <text x="440" y="158" font-size="9" fill="#888">s_chunk_total</text>
+  <rect x="520" y="144" width="56" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="2" rx="3" filter="url(#rough2)"/>
+  <text x="548" y="159" text-anchor="middle" font-size="11" fill="#d6a040" font-weight="bold">11</text>
+  <text x="584" y="159" font-size="8" fill="#888">= 3+1+7+0</text>
+
+  <!-- syncthreads barrier 1 -->
+  <rect x="100" y="174" width="500" height="14" fill="#f6f6f6" stroke="#ccc" stroke-width="0.5" rx="2" filter="url(#rough2)"/>
+  <text x="350" y="184" text-anchor="middle" font-size="8" fill="#aaa" font-family="monospace">__syncthreads();  // ① s_chunk_total 对 thread 0 可见</text>
+
+  <!-- + s_running -->
+  <text x="30" y="202" font-size="9" fill="#888">+ s_running</text>
+  <rect x="110" y="190" width="180" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="1" stroke-dasharray="3,2" rx="3" filter="url(#rough2)"/>
+  <text x="200" y="204" text-anchor="middle" font-size="10" fill="#d6a040">0</text>
+  <text x="300" y="204" font-size="9" fill="#888">（初始值，所有线程读取）</text>
+
+  <!-- = block_offsets chunk 0 -->
+  <text x="30" y="228" font-size="9" fill="#888">block_offsets</text>
+  <g font-size="10" fill="#333">
+    <rect x="110" y="214" width="40" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="229" text-anchor="middle">0</text>
+    <rect x="150" y="214" width="40" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="170" y="229" text-anchor="middle">3</text>
+    <rect x="190" y="214" width="40" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="229" text-anchor="middle">4</text>
+    <rect x="230" y="214" width="40" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="250" y="229" text-anchor="middle">11</text>
+  </g>
+  <text x="280" y="229" font-size="8" fill="#888">= exclusive + s_running(0)</text>
+
+  <!-- syncthreads barrier 2 -->
+  <rect x="100" y="242" width="500" height="14" fill="#f6f6f6" stroke="#ccc" stroke-width="0.5" rx="2" filter="url(#rough2)"/>
+  <text x="350" y="252" text-anchor="middle" font-size="8" fill="#aaa" font-family="monospace">__syncthreads();  if (tid==0) s_running += s_chunk_total;  __syncthreads();</text>
+
+  <!-- s_running update arrow -->
+  <path d="M 548 166 L 548 238 L 540 238" stroke="#d6a040" stroke-width="1.2" fill="none" stroke-dasharray="3,2" marker-end="url(#arrO)" filter="url(#rough2)"/>
+
+  <!-- s_running after chunk 0 -->
+  <rect x="440" y="258" width="180" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+  <text x="530" y="272" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">s_running = 0 + 11 = 11</text>
+
+  <!-- ================================================================ -->
+  <!-- Chunk 1 -->
+  <!-- ================================================================ -->
+  <text x="30" y="298" font-size="11" fill="#446688" font-weight="bold">轮次 1（chunk 1: block_sums[4..7]）</text>
+
+  <!-- block_sums chunk 1 -->
+  <text x="30" y="316" font-size="9" fill="#888">block_sums</text>
+  <g font-size="10" fill="#333">
+    <rect x="110" y="302" width="40" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="317" text-anchor="middle">4</text>
+    <rect x="150" y="302" width="40" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="170" y="317" text-anchor="middle">1</text>
+    <rect x="190" y="302" width="40" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="317" text-anchor="middle">6</text>
+    <rect x="230" y="302" width="40" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="250" y="317" text-anchor="middle">3</text>
+  </g>
+  <text x="280" y="317" font-size="9" fill="#888">→ block_exclusive_scan →</text>
+
+  <!-- exclusive scan chunk 1 -->
+  <text x="30" y="344" font-size="9" fill="#888">exclusive</text>
+  <g font-size="10" fill="#333">
+    <rect x="110" y="330" width="40" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="345" text-anchor="middle">0</text>
+    <rect x="150" y="330" width="40" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="170" y="345" text-anchor="middle">4</text>
+    <rect x="190" y="330" width="40" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="345" text-anchor="middle">5</text>
+    <rect x="230" y="330" width="40" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="250" y="345" text-anchor="middle" font-weight="bold">11</text>
+  </g>
+
+  <!-- s_chunk_total chunk 1 -->
+  <path d="M 250 352 L 250 364 L 370 364 L 370 376" stroke="#d6a040" stroke-width="1.2" fill="none" marker-end="url(#arrO)" filter="url(#rough2)"/>
+  <text x="300" y="361" font-size="8" fill="#d6a040">thread 255 写</text>
+  <text x="440" y="344" font-size="9" fill="#888">s_chunk_total</text>
+  <rect x="520" y="330" width="56" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="2" rx="3" filter="url(#rough2)"/>
+  <text x="548" y="345" text-anchor="middle" font-size="11" fill="#d6a040" font-weight="bold">14</text>
+  <text x="584" y="345" font-size="8" fill="#888">= 4+1+6+3</text>
+
+  <!-- syncthreads -->
+  <rect x="100" y="360" width="500" height="14" fill="#f6f6f6" stroke="#ccc" stroke-width="0.5" rx="2" filter="url(#rough2)"/>
+  <text x="350" y="370" text-anchor="middle" font-size="8" fill="#aaa" font-family="monospace">__syncthreads();</text>
+
+  <!-- + s_running (now 11) -->
+  <text x="30" y="388" font-size="9" fill="#888">+ s_running</text>
+  <rect x="110" y="376" width="180" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="1" stroke-dasharray="3,2" rx="3" filter="url(#rough2)"/>
+  <text x="200" y="390" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">11</text>
+  <!-- arrow from previous s_running -->
+  <path d="M 530 278 L 530 300 L 290 300 L 290 376" stroke="#d6a040" stroke-width="1" fill="none" stroke-dasharray="2,2" opacity="0.4" marker-end="url(#arrO)" filter="url(#rough2)"/>
+
+  <!-- = block_offsets chunk 1 -->
+  <text x="30" y="414" font-size="9" fill="#888">block_offsets</text>
+  <g font-size="10" fill="#333">
+    <rect x="110" y="400" width="40" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="415" text-anchor="middle">11</text>
+    <rect x="150" y="400" width="40" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="170" y="415" text-anchor="middle">15</text>
+    <rect x="190" y="400" width="40" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="415" text-anchor="middle">16</text>
+    <rect x="230" y="400" width="40" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="250" y="415" text-anchor="middle">22</text>
+  </g>
+  <text x="280" y="415" font-size="8" fill="#888">= exclusive + s_running(11)</text>
+
+  <!-- syncthreads -->
+  <rect x="100" y="428" width="500" height="14" fill="#f6f6f6" stroke="#ccc" stroke-width="0.5" rx="2" filter="url(#rough2)"/>
+  <text x="350" y="438" text-anchor="middle" font-size="8" fill="#aaa" font-family="monospace">__syncthreads();  if (tid==0) s_running += s_chunk_total;  __syncthreads();</text>
+
+  <!-- s_running after chunk 1 -->
+  <rect x="440" y="444" width="180" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+  <text x="530" y="458" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">s_running = 11 + 14 = 25</text>
+
+  <!-- ================================================================ -->
+  <!-- Chunk 2 -->
+  <!-- ================================================================ -->
+  <text x="30" y="484" font-size="11" fill="#446688" font-weight="bold">轮次 2（chunk 2: block_sums[8..9]，不足 4，越界补 0）</text>
+
+  <!-- block_sums chunk 2 -->
+  <text x="30" y="502" font-size="9" fill="#888">block_sums</text>
+  <g font-size="10" fill="#333">
+    <rect x="110" y="488" width="40" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="503" text-anchor="middle">2</text>
+    <rect x="150" y="488" width="40" height="22" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="170" y="503" text-anchor="middle">5</text>
+    <rect x="190" y="488" width="40" height="22" fill="#f6f6f6" stroke="#ccc" stroke-width="1" stroke-dasharray="3,2" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="503" text-anchor="middle" fill="#aaa">0</text>
+    <rect x="230" y="488" width="40" height="22" fill="#f6f6f6" stroke="#ccc" stroke-width="1" stroke-dasharray="3,2" rx="3" filter="url(#rough2)"/>
+    <text x="250" y="503" text-anchor="middle" fill="#aaa">0</text>
+  </g>
+  <text x="280" y="503" font-size="8" fill="#888">→ block_exclusive_scan（越界 val=0）→</text>
+
+  <!-- exclusive scan chunk 2 -->
+  <text x="30" y="530" font-size="9" fill="#888">exclusive</text>
+  <g font-size="10" fill="#333">
+    <rect x="110" y="516" width="40" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="531" text-anchor="middle">0</text>
+    <rect x="150" y="516" width="40" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="170" y="531" text-anchor="middle">2</text>
+    <rect x="190" y="516" width="40" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="531" text-anchor="middle">7</text>
+    <rect x="230" y="516" width="40" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="250" y="531" text-anchor="middle" font-weight="bold">7</text>
+  </g>
+
+  <!-- s_chunk_total chunk 2 -->
+  <path d="M 250 538 L 250 550 L 370 550 L 370 562" stroke="#d6a040" stroke-width="1.2" fill="none" marker-end="url(#arrO)" filter="url(#rough2)"/>
+  <text x="300" y="547" font-size="8" fill="#d6a040">thread 255 写</text>
+  <text x="440" y="530" font-size="9" fill="#888">s_chunk_total</text>
+  <rect x="520" y="516" width="56" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="2" rx="3" filter="url(#rough2)"/>
+  <text x="548" y="531" text-anchor="middle" font-size="11" fill="#d6a040" font-weight="bold">7</text>
+  <text x="584" y="531" font-size="8" fill="#888">= 2+5+0+0</text>
+
+  <!-- syncthreads -->
+  <rect x="100" y="546" width="500" height="14" fill="#f6f6f6" stroke="#ccc" stroke-width="0.5" rx="2" filter="url(#rough2)"/>
+  <text x="350" y="556" text-anchor="middle" font-size="8" fill="#aaa" font-family="monospace">__syncthreads();</text>
+
+  <!-- + s_running (now 25) -->
+  <text x="30" y="574" font-size="9" fill="#888">+ s_running</text>
+  <rect x="110" y="562" width="180" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="1" stroke-dasharray="3,2" rx="3" filter="url(#rough2)"/>
+  <text x="200" y="576" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">25</text>
+  <path d="M 530 464 L 530 486 L 290 486 L 290 562" stroke="#d6a040" stroke-width="1" fill="none" stroke-dasharray="2,2" opacity="0.4" marker-end="url(#arrO)" filter="url(#rough2)"/>
+
+  <!-- = block_offsets chunk 2 -->
+  <text x="30" y="600" font-size="9" fill="#888">block_offsets</text>
+  <g font-size="10" fill="#333">
+    <rect x="110" y="586" width="40" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="130" y="601" text-anchor="middle">25</text>
+    <rect x="150" y="586" width="40" height="22" fill="#fce4ec" stroke="#b85450" stroke-width="1.8" rx="3" filter="url(#rough2)"/>
+    <text x="170" y="601" text-anchor="middle">27</text>
+    <rect x="190" y="586" width="40" height="22" fill="#f6f6f6" stroke="#ccc" stroke-width="1" stroke-dasharray="3,2" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="601" text-anchor="middle" fill="#aaa">—</text>
+    <rect x="230" y="586" width="40" height="22" fill="#f6f6f6" stroke="#ccc" stroke-width="1" stroke-dasharray="3,2" rx="3" filter="url(#rough2)"/>
+    <text x="250" y="601" text-anchor="middle" fill="#aaa">—</text>
+  </g>
+  <text x="280" y="601" font-size="8" fill="#888">= exclusive + s_running(25)</text>
+
+  <!-- ===== Final result ===== -->
+  <line x1="20" y1="624" x2="640" y2="624" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="644" font-size="11" fill="#b85450" font-weight="bold">最终 block_offsets =</text>
+  <g font-size="10" fill="#b85450" font-weight="bold">
+    <rect x="150" y="632" width="40" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="170" y="646" text-anchor="middle">0</text>
+    <rect x="190" y="632" width="40" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="210" y="646" text-anchor="middle">3</text>
+    <rect x="230" y="632" width="40" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="250" y="646" text-anchor="middle">4</text>
+    <rect x="270" y="632" width="40" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="290" y="646" text-anchor="middle">11</text>
+    <rect x="310" y="632" width="40" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="330" y="646" text-anchor="middle">11</text>
+    <rect x="350" y="632" width="40" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="370" y="646" text-anchor="middle">15</text>
+    <rect x="390" y="632" width="40" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="410" y="646" text-anchor="middle">16</text>
+    <rect x="430" y="632" width="40" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="450" y="646" text-anchor="middle">22</text>
+    <rect x="470" y="632" width="40" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="490" y="646" text-anchor="middle">25</text>
+    <rect x="510" y="632" width="40" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="530" y="646" text-anchor="middle">27</text>
+  </g>
+  <text x="560" y="646" font-size="9" fill="#888">✓ 全局 exclusive</text>
+
+  <!-- ===== tid==0 + syncthreads pattern ===== -->
+  <rect x="20" y="664" width="620" height="68" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="34" y="684" font-size="10" fill="#d6a040" font-weight="bold">"单线程写 + syncthreads 广播"模式（每轮 chunk 末尾）</text>
+  <text x="34" y="700" font-family="monospace" font-size="9" fill="#333">__syncthreads();                          // ① s_chunk_total（thread 255 写）对 thread 0 可见</text>
+  <text x="34" y="714" font-family="monospace" font-size="9" fill="#333">if (tid == 0) s_running += s_chunk_total; //    只加一次，避免 256 线程竞态 / atomicAdd 加 256 次</text>
+  <text x="34" y="728" font-family="monospace" font-size="9" fill="#333">__syncthreads();                          // ② 更新后的 s_running 对下一轮所有线程可见</text>
+</svg>
