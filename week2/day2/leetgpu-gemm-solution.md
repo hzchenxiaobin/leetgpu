@@ -275,13 +275,20 @@ int main(int argc, char** argv) {
     cublasHandle_t handle;
     CHECK_CUBLAS(cublasCreate(&handle));
     float alpha = 1.0f, beta = 0.0f;
-    cudaEventRecord(t0);
+    // warmup：避免 cuBLAS 首次调用 JIT / 内核加载开销
     CHECK_CUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
                              N, M, K, &alpha, dB, N, dA, K, &beta, dC, N));
+    CHECK_CUDA(cudaDeviceSynchronize());
+    // 同样跑 10 次取平均，与我们的 kernel 对齐
+    cudaEventRecord(t0);
+    for (int it = 0; it < 10; ++it)
+        CHECK_CUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
+                                 N, M, K, &alpha, dB, N, dA, K, &beta, dC, N));
     cudaEventRecord(t1);
     CHECK_CUDA(cudaDeviceSynchronize());
     float ms_cb = 0.0f;
     cudaEventElapsedTime(&ms_cb, t0, t1);
+    ms_cb /= 10.0f;
     double tflops_cb = (2.0 * M * N * K / 1e12) / (ms_cb / 1e3);
     CHECK_CUDA(cudaMemcpy(hRef, dC, cB, cudaMemcpyDeviceToHost));
 
@@ -324,19 +331,29 @@ nvcc -O3 -arch=sm_120 -lcublas gemm_register_blocking.cu -o gemm
 ./gemm 1024 1024 1024
 ```
 
-典型输出（RTX 5090，`M=N=K=1024`）：
+实测输出（RTX 5090，已做 cuBLAS warmup）：
+
+`M=N=K=1024`：
 
 ```text
 A:1024x1024 B:1024x1024 C:1024x1024  FLOPs=2.15 GFLOP
 launch: blocks=(8,8) threads=(16,16)
 
-[Register Blocking] 0.42 ms  5.12 TFLOPS
-[cuBLAS           ] 0.19 ms  11.32 TFLOPS
-[ratio            ] 45.2% of cuBLAS
+[Register Blocking] 0.158 ms  13.56 TFLOPS
+[cuBLAS           ] 0.053 ms  40.75 TFLOPS
+[ratio            ] 33.3% of cuBLAS
 verify: PASS
 ```
 
-相比朴素 tiling（每 thread 1 输出，≈15% cuBLAS），Register Blocking 直接拉到 **≈45% cuBLAS**，提升约 3×。
+不同规模下的表现：
+
+| M=N=K | Register Blocking | cuBLAS | 占比 | verify |
+|-------|-------------------|--------|------|--------|
+| 1024  | 0.158 ms / 13.56 TFLOPS | 0.053 ms / 40.75 TFLOPS | 33.3% | PASS |
+| 2048  | 0.624 ms / 27.53 TFLOPS | 0.277 ms / 61.93 TFLOPS | 44.4% | PASS |
+| 4096  | 4.315 ms / 31.85 TFLOPS | 2.153 ms / 63.84 TFLOPS | 49.9% | PASS |
+
+随着问题规模增大，RB 的利用率逐渐上升，在 4096³ 时达到 **≈50% cuBLAS**；相比朴素 tiling（每 thread 1 输出，通常只有 10-20% cuBLAS），Register Blocking 提升约 2-3×。
 
 ### 5.2 寄存器用量与占用率
 
@@ -345,11 +362,14 @@ nvcc -O3 -arch=sm_120 -Xptxas -v gemm_register_blocking.cu -o gemm 2>&1 | rg "re
 ```
 
 ```text
-ptxas info : Used 88 registers, 8192 bytes smem, 256 bytes cmem[0]
+ptxas info    : Used 129 registers, used 1 barriers, 8192 bytes smem
+                0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ```
 
-- **寄存器预算**：`acc[8][8]=64` + `rA[8]+rB[8]=16` + 控制 ≈ **88 regs/thread**
-- **占用率**：`256 thread × 88 = 22528 regs/block`，RTX 5090 每 SM 65536 regs → **2 block/SM**，理论占用 **50%**。无寄存器溢出（`spill`）即可。
+- **寄存器用量**：编译器展开后实际使用 **129 regs/thread**（`acc[8][8]`、`rA[8]`、`rB[8]` 及地址计算等）。
+- **shared memory**：`As[128][8] + Bs[8][128] = 8192 bytes/block`，无 bank-conflict padding。
+- **占用率**：`256 thread × 129 reg = 33024 regs/block`，RTX 5090 每 SM 65536 regs → 寄存器限制只能容纳 **1 block/SM**，对应 256 threads / 2048 = **12.5% 理论占用率**。但 kernel 是 compute-bound，实际 throughput 仍随规模上升。
+- **无寄存器溢出**：`0 bytes spill stores/loads`。
 
 ### 5.3 用 ncu 分析瓶颈类型
 
@@ -389,8 +409,8 @@ ncu --metrics gpu__time_duration.sum, \
 | **空间复杂度** | `O(MK + KN + MN)` 三个矩阵 + `O(BM·BK + BK·BN) = 8 KB` shared/block |
 | **算术强度** | `~2d FLOP/Byte`（`d = TM×TN / (TM+TN) × BK`），本题 `≈ 2×64/(16)×8 ≈ 高` → **compute-bound** |
 | **瓶颈类型** | **compute-bound**：`sm__throughput ≫ dram__throughput`，算力受限 |
-| **寄存器用量** | `TM×TN + TM + TN ≈ 64 + 8 + 8 = 88 regs/thread`，占用率 ~50% |
+| **寄存器用量** | 编译后实际 **129 regs/thread**（无 spill），占用率受寄存器限制约 12.5% |
 | **shared 占用** | `(128×8 + 8×128) × 4B = 8192 B/block` |
 | **总 FLOPS** | `2MNK = 2×1024³ ≈ 2.15 GFLOP`（`M=N=K=1024`） |
 
-> 💡 **一句话总结**：GEMM #22 的核心是 **Register Blocking**——用 `acc[TM][TN]` 寄存器驻留 + 外积累加，把每 thread 从「算 1 个」变成「算 64 个」，算术强度飙升、瓶颈从 memory-bound 翻转为 **compute-bound**，性能直冲 cuBLAS 的 **45%**。掌握它，你就拿到了通往 CUTLASS / Tensor Core / FlashAttention 的入场券——它们本质上都是「分块 + 寄存器累加 + 软件流水线」的同一套范式。
+> 💡 **一句话总结**：GEMM #22 的核心是 **Register Blocking**——用 `acc[TM][TN]` 寄存器驻留 + 外积累加，把每 thread 从「算 1 个」变成「算 64 个」，算术强度飙升、瓶颈从 memory-bound 翻转为 **compute-bound**，性能在 1024³ 时达到 cuBLAS 的 **33%**，随规模增大上升至 4096³ 的 **50%**。掌握它，你就拿到了通往 CUTLASS / Tensor Core / FlashAttention 的入场券——它们本质上都是「分块 + 寄存器累加 + 软件流水线」的同一套范式。
