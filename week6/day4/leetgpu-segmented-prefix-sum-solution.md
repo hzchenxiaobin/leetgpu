@@ -82,7 +82,7 @@ __global__ void naive_segmented_scan(const int* input, int* output,
 
 ```cuda
 // segmented_prefix_sum.cu —— Segmented Exclusive Prefix Sum（段内 scan + 段边界归零）
-// 编译命令: nvcc -O3 -arch=sm_80 segmented_prefix_sum.cu -o segmented_prefix_sum
+// 编译命令: nvcc -O3 -arch=sm_120 segmented_prefix_sum.cu -o segmented_prefix_sum
 // 运行:     ./segmented_prefix_sum
 
 #include <cstdio>
@@ -194,7 +194,7 @@ int main() {
 ## 5. 性能分析与优化
 
 ```bash
-nvcc -O3 -arch=sm_80 segmented_prefix_sum.cu -o segmented_prefix_sum
+nvcc -O3 -arch=sm_120 segmented_prefix_sum.cu -o segmented_prefix_sum
 ncu --set full ./segmented_prefix_sum | rg -i "Memory Throughput|Occupancy| DRAM"
 ```
 

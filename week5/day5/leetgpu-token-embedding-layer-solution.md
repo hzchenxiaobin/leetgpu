@@ -104,7 +104,7 @@ void embed_cpu(const int* token_ids, const int* pos_ids,
 
 ```cuda
 // token_embedding_layer.cu —— Token Embedding + LayerNorm 融合 kernel
-// 编译命令: nvcc -O3 -arch=sm_80 token_embedding_layer.cu -o token_emb -lineinfo
+// 编译命令: nvcc -O3 -arch=sm_120 token_embedding_layer.cu -o token_emb -lineinfo
 // 运行:     ./token_emb 32 512 30000 2048 768
 
 #include <cstdio>
@@ -258,12 +258,12 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 token_embedding_layer.cu -o token_emb -lineinfo
+nvcc -O3 -arch=sm_120 token_embedding_layer.cu -o token_emb -lineinfo
 ./token_emb 32 512 30000 2048 768      # BERT-base 配置
 ./token_emb 1 8 100 16 64              # 小尺寸验证
 ```
 
-典型输出（A100，`B=32, T=512, D=768`）：
+典型输出（RTX 5090，`B=32, T=512, D=768`）：
 
 ```text
 B=32 T=512 V=30000 P=2048 D=768

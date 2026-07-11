@@ -124,7 +124,7 @@ void spec_decode_verify_cpu(const int* draft_tokens, const float* draft_probs,
 
 ```cuda
 // speculative_decoding_verification.cu —— 投机解码验证 kernel
-// 编译命令: nvcc -O3 -arch=sm_80 speculative_decoding_verification.cu -o spec_decode -lineinfo
+// 编译命令: nvcc -O3 -arch=sm_120 speculative_decoding_verification.cu -o spec_decode -lineinfo
 // 运行:     ./spec_decode 64 8 32768
 
 #include <cstdio>
@@ -368,12 +368,12 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 speculative_decoding_verification.cu -o spec_decode -lineinfo
+nvcc -O3 -arch=sm_120 speculative_decoding_verification.cu -o spec_decode -lineinfo
 ./spec_decode 64 8 32768      # 性能测试尺寸
 ./spec_decode 4 4 256         # 小尺寸验证
 ```
 
-典型输出（A100，`B=64, T=8, V=32768`）：
+典型输出（RTX 5090，`B=64, T=8, V=32768`）：
 
 ```text
 B=64 T=8 V=32768

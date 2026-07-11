@@ -122,7 +122,7 @@ __global__ void conv2d_naive(const float* input, const float* kernel,
 
 ```cuda
 // conv2d_shared_halo.cu —— shared memory halo + __constant__ 权重实现 2D valid 卷积
-// 编译命令: nvcc -O3 -arch=sm_80 conv2d_shared_halo.cu -o conv2d
+// 编译命令: nvcc -O3 -arch=sm_120 conv2d_shared_halo.cu -o conv2d
 // 运行:     ./conv2d 4096 4096 3
 
 #include <cstdio>
@@ -285,12 +285,12 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 conv2d_shared_halo.cu -o conv2d
+nvcc -O3 -arch=sm_120 conv2d_shared_halo.cu -o conv2d
 ./conv2d 4096 4096 3
 ./conv2d 4096 4096 5
 ```
 
-典型输出（A100 / SM=108）：
+典型输出（RTX 5090 / SM=108）：
 
 ```text
 input: 4096x4096  kernel: 3x3  output: 4094x4094
@@ -319,7 +319,7 @@ ncu --set full \
 | `gpu__time_duration.sum` | 基线 | **~5-8× 加速（K=5）** |
 | 瓶颈类型 | memory-bound（更严重） | memory-bound（接近带宽上限） |
 
-> 💡 观察 `dram__throughput` 走高而 `sm__throughput`（算力）很低 → 典型 **memory-bound**。算术强度仅 `K² FLOP / (2K²·4B) ≈ 0.125 FLOP/B`（K=3），远低于 A100 的 roofline 拐点，带宽是天花板。进一步提升靠减少 halo 冗余、向量化加载，而非堆算力。
+> 💡 观察 `dram__throughput` 走高而 `sm__throughput`（算力）很低 → 典型 **memory-bound**。算术强度仅 `K² FLOP / (2K²·4B) ≈ 0.125 FLOP/B`（K=3），远低于 RTX 5090 的 roofline 拐点，带宽是天花板。进一步提升靠减少 halo 冗余、向量化加载，而非堆算力。
 
 ### 5.3 优化方向
 

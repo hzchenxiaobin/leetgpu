@@ -55,7 +55,7 @@ for (int i = 0; i <= N - window_size; i++) {
 
 ```cuda
 // max_subarray_sum.cu —— 滑动窗口最大和（prefix sum + reduction）
-// 编译命令: nvcc -O3 -arch=sm_80 max_subarray_sum.cu -o max_subarray
+// 编译命令: nvcc -O3 -arch=sm_120 max_subarray_sum.cu -o max_subarray
 // 运行:     ./max_subarray
 
 #include <cstdio>

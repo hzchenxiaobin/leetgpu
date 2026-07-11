@@ -80,7 +80,7 @@ __global__ void naive_compact(const int* input, int* output, int* count, int N) 
 
 ```cuda
 // stream_compaction.cu —— Stream Compaction（predicate + exclusive scan + scatter）
-// 编译命令: nvcc -O3 -arch=sm_80 stream_compaction.cu -o stream_compaction
+// 编译命令: nvcc -O3 -arch=sm_120 stream_compaction.cu -o stream_compaction
 // 运行:     ./stream_compaction
 
 #include <cstdio>
@@ -228,7 +228,7 @@ int main() {
 
 ```bash
 # 编译
-nvcc -O3 -arch=sm_80 stream_compaction.cu -o stream_compaction
+nvcc -O3 -arch=sm_120 stream_compaction.cu -o stream_compaction
 # ncu profiling
 ncu --set full --target-processes all ./stream_compaction \
   | rg -i "Memory Throughput|Compute|Occupancy| DRAM"

@@ -73,7 +73,7 @@ __global__ void naive_dot(const float* a, const float* b, float* result, int N) 
 
 ```cuda
 // dot_product.cu —— Dot Product（两级归约：block 内 warp shuffle + 跨 block atomicAdd）
-// 编译命令: nvcc -O3 -arch=sm_80 dot_product.cu -o dot_product
+// 编译命令: nvcc -O3 -arch=sm_120 dot_product.cu -o dot_product
 // 运行:     ./dot_product
 
 #include <cstdio>
@@ -161,7 +161,7 @@ int main() {
 ## 5. 性能分析与优化
 
 ```bash
-nvcc -O3 -arch=sm_80 dot_product.cu -o dot_product
+nvcc -O3 -arch=sm_120 dot_product.cu -o dot_product
 ncu --set full ./dot_product | rg -i "Memory Throughput|Occupancy| DRAM"
 ```
 

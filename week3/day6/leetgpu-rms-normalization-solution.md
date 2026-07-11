@@ -115,7 +115,7 @@ RMSNorm 只需一次 sum 归约。直接复用 [Day 4 Reduction](../week1/day4/l
 
 ```cuda
 // rmsnorm.cu —— RMSNorm：一次 reduce（sum of squares）+ 归一化
-// 编译命令: nvcc -O3 -arch=sm_80 rmsnorm.cu -o rmsnorm -lineinfo
+// 编译命令: nvcc -O3 -arch=sm_120 rmsnorm.cu -o rmsnorm -lineinfo
 // 运行:     ./rmsnorm 128 8192
 
 #include <cstdio>
@@ -244,11 +244,11 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 rmsnorm.cu -o rmsnorm -lineinfo
+nvcc -O3 -arch=sm_120 rmsnorm.cu -o rmsnorm -lineinfo
 ./rmsnorm 128 8192
 ```
 
-典型输出（A100）：
+典型输出（RTX 5090）：
 
 ```text
 M=128, D=8192  (4.0 MB)
@@ -297,7 +297,7 @@ Bytes（每元素，FP32）:
 AI = 5 / 12 ≈ 0.42 FLOP/Byte
 ```
 
-A100 Ridge Point ≈ 12.6 FLOP/Byte，`AI=0.42 << 12.6` → 纯 memory-bound。理论峰值带宽 1550 GB/s，本实现 ~89 GB/s 仅占 ~6%——**两遍 global 读是主要浪费**。
+RTX 5090 Ridge Point ≈ 12.6 FLOP/Byte，`AI=0.42 << 12.6` → 纯 memory-bound。理论峰值带宽 1550 GB/s，本实现 ~89 GB/s 仅占 ~6%——**两遍 global 读是主要浪费**。
 
 ### 5.4 优化方向
 

@@ -304,7 +304,7 @@ for (int offset = 1; offset < WARP_SIZE; offset <<= 1) {
 
 ```cuda
 // prefix_sum.cu —— 三阶段分块 scan：warp shuffle + block scan + 全局偏移加回
-// 编译命令: nvcc -O3 -arch=sm_80 prefix_sum.cu -o prefix_sum
+// 编译命令: nvcc -O3 -arch=sm_120 prefix_sum.cu -o prefix_sum
 // 运行:     ./prefix_sum 16777216
 
 #include <cstdio>
@@ -607,7 +607,7 @@ input[tid]                      = 自身                                       (
 
 ```cuda
 // prefix_sum.cu —— 三阶段分块 scan：warp shuffle + block scan + 全局偏移加回
-// 编译命令: nvcc -O3 -arch=sm_80 prefix_sum.cu -o prefix_sum
+// 编译命令: nvcc -O3 -arch=sm_120 prefix_sum.cu -o prefix_sum
 // 运行:     ./prefix_sum 16777216
 
 #include <cstdio>
@@ -907,11 +907,11 @@ extern "C" void solve(const float* input, float* output, int N) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 prefix_sum.cu -o prefix_sum
+nvcc -O3 -arch=sm_120 prefix_sum.cu -o prefix_sum
 ./prefix_sum 16777216
 ```
 
-典型输出（A100 / SM=108）：
+典型输出（RTX 5090 / SM=108）：
 
 ```text
 N = 16777216  (64.0 MB)

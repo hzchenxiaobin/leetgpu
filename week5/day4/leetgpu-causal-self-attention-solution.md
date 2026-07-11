@@ -104,7 +104,7 @@ void causal_attn_cpu(const float* Q, const float* K, const float* V, float* O, i
 
 ```cuda
 // causal_self_attention.cu —— Causal Self-Attention（fused, online softmax, 不物化 S/P）
-// 编译命令: nvcc -O3 -arch=sm_80 causal_self_attention.cu -o causal_attn -lineinfo
+// 编译命令: nvcc -O3 -arch=sm_120 causal_self_attention.cu -o causal_attn -lineinfo
 // 运行:     ./causal_attn 5000 128
 
 #include <cstdio>
@@ -258,12 +258,12 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 causal_self_attention.cu -o causal_attn -lineinfo
+nvcc -O3 -arch=sm_120 causal_self_attention.cu -o causal_attn -lineinfo
 ./causal_attn 5000 128      # 性能测试尺寸
 ./causal_attn 256 64        # 小尺寸验证
 ```
 
-典型输出（A100，`M=5000, d=128`）：
+典型输出（RTX 5090，`M=5000, d=128`）：
 
 ```text
 M=5000 d=128

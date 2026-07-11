@@ -84,7 +84,7 @@ __global__ void naive_batched_matmul(const float* A, const float* B, float* C,
 
 ```cuda
 // batched_matmul.cu —— Batched Matrix Multiplication（batch 维 + tiled matmul）
-// 编译命令: nvcc -O3 -arch=sm_80 batched_matmul.cu -o batched_matmul
+// 编译命令: nvcc -O3 -arch=sm_120 batched_matmul.cu -o batched_matmul
 // 运行:     ./batched_matmul
 
 #include <cstdio>
@@ -174,7 +174,7 @@ int main() {
 ## 5. 性能分析与优化
 
 ```bash
-nvcc -O3 -arch=sm_80 batched_matmul.cu -o batched_matmul
+nvcc -O3 -arch=sm_120 batched_matmul.cu -o batched_matmul
 ncu --set full ./batched_matmul | rg -i "Memory Throughput|Compute|Occupancy"
 ```
 

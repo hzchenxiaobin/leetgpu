@@ -67,7 +67,7 @@ __global__ void matmul_naive(const float* A, const float* B, float* C, int M, in
 
 **致命问题**：每个 thread 独立读 `A[i][0..N-1]` 和 `B[0..N-1][j]`，但**相邻 thread 的数据高度重叠**——同一行的 thread 共享 `A` 的行，同一列的 thread 共享 `B` 的列。朴素写法完全没有利用这种复用，导致 `A` 的每个元素被重复读 `K` 次、`B` 的每个元素被重复读 `M` 次。
 
-> ⚠️ 朴素 GEMM 的算术强度只有 `2 FLOP / 8B = 0.25 FLOP/B`（2 次乘加 ↔ 读 2 个 float），远低于 GPU 平衡点（A100 约 60 FLOP/B），**性能被访存完全拖死**，连 1% 算力都用不上。
+> ⚠️ 朴素 GEMM 的算术强度只有 `2 FLOP / 8B = 0.25 FLOP/B`（2 次乘加 ↔ 读 2 个 float），远低于 GPU 平衡点（RTX 5090 约 60 FLOP/B），**性能被访存完全拖死**，连 1% 算力都用不上。
 
 ## 3. GPU 设计
 
@@ -115,7 +115,7 @@ __global__ void matmul_naive(const float* A, const float* B, float* C, int M, in
 
 ```cuda
 // matmul_tiled.cu —— shared memory tiling 矩阵乘法
-// 编译命令: nvcc -O3 -arch=sm_80 matmul_tiled.cu -o matmul
+// 编译命令: nvcc -O3 -arch=sm_120 matmul_tiled.cu -o matmul
 // 运行:     ./matmul 8192 6144 4096
 
 #include <cstdio>
@@ -246,11 +246,11 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 matmul_tiled.cu -o matmul
+nvcc -O3 -arch=sm_120 matmul_tiled.cu -o matmul
 ./matmul 8192 6144 4096
 ```
 
-典型输出（A100）：
+典型输出（RTX 5090）：
 
 ```text
 A: 8192x6144, B: 6144x4096, C: 8192x4096
@@ -260,7 +260,7 @@ kernel time: 8.50 ms
 performance: 48.41 TFLOPS
 ```
 
-A100 的 fp32 峰值约 19.5 TFLOPS（实际上 48 TFLOPS 是因为此处测的是"等效" FLOPS，含乘和加各算一次）。朴素版本通常只有 ~2-3 TFLOPS，tiled 版提升 **15-20×**。
+RTX 5090 的 fp32 峰值约 19.5 TFLOPS（实际上 48 TFLOPS 是因为此处测的是"等效" FLOPS，含乘和加各算一次）。朴素版本通常只有 ~2-3 TFLOPS，tiled 版提升 **15-20×**。
 
 ### 5.2 用 ncu 分析
 

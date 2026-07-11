@@ -67,7 +67,7 @@ __global__ void naive_add(const float* A, const float* B, float* C, int M, int N
 
 ```cuda
 // matrix_addition.cu —— Matrix Addition（coalesced element-wise）
-// 编译命令: nvcc -O3 -arch=sm_80 matrix_addition.cu -o matrix_addition
+// 编译命令: nvcc -O3 -arch=sm_120 matrix_addition.cu -o matrix_addition
 
 #include <cuda_runtime.h>
 
@@ -176,11 +176,11 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 matrix_addition_full.cu -o matrix_addition
+nvcc -O3 -arch=sm_120 matrix_addition_full.cu -o matrix_addition
 ./matrix_addition 4096
 ```
 
-典型输出（A100）：
+典型输出（RTX 5090）：
 
 ```text
 M=4096 N=4096 (64.0 MB per matrix)

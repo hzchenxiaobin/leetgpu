@@ -98,7 +98,7 @@ __global__ void histogram_naive(const int* input, int* hist, int N, int B) {
 
 ```cuda
 // histogram_privatized.cu —— shared memory privatization 直方图
-// 编译命令: nvcc -O3 -arch=sm_80 histogram_privatized.cu -o histogram
+// 编译命令: nvcc -O3 -arch=sm_120 histogram_privatized.cu -o histogram
 // 运行:     ./histogram 10000000 256
 
 #include <cstdio>
@@ -249,11 +249,11 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 histogram_privatized.cu -o histogram
+nvcc -O3 -arch=sm_120 histogram_privatized.cu -o histogram
 ./histogram 10000000 256
 ```
 
-典型输出（A100 / SM=108，`B=256`）：
+典型输出（RTX 5090 / SM=108，`B=256`）：
 
 ```text
 N = 10000000, B = 256  (38.1 MB input)

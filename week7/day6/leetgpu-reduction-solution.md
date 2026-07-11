@@ -80,7 +80,7 @@ for (int offset = 16; offset > 0; offset >>= 1) {
 
 ```cuda
 // reduction.cu —— Warp shuffle 两阶段归约
-// 编译命令: nvcc -O3 -arch=sm_80 reduction.cu -o reduction
+// 编译命令: nvcc -O3 -arch=sm_120 reduction.cu -o reduction
 
 #include <cuda_runtime.h>
 
@@ -171,7 +171,7 @@ ncu --metrics sm__throughput.avg.pct_of_peak_sustained_elapsed,\
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 reduction.cu -o reduction
+nvcc -O3 -arch=sm_120 reduction.cu -o reduction
 ./reduction 10000000
 ```
 

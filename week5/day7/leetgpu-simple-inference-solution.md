@@ -88,7 +88,7 @@ for bs in [1, 10, 100, 1000]:
 "
 ```
 
-典型输出（A100）：
+典型输出（RTX 5090）：
 
 ```text
 bs=    1: 0.012 ms, 0.26 GFLOPS, 21.7 GFLOP/s    ← memory-bound

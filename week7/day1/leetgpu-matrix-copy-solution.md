@@ -73,7 +73,7 @@ __global__ void naive_copy(const float* src, float* dst, int M, int N) {
 
 ```cuda
 // matrix_copy.cu —— Matrix Copy（coalesced + float4 向量化）
-// 编译命令: nvcc -O3 -arch=sm_80 matrix_copy.cu -o matrix_copy
+// 编译命令: nvcc -O3 -arch=sm_120 matrix_copy.cu -o matrix_copy
 // 运行:     ./matrix_copy
 
 #include <cstdio>
@@ -137,7 +137,7 @@ int main() {
     float ms;
     cudaEventElapsedTime(&ms, start, stop);
     float gb = 2.0f * 10 * bytes / 1e9;   // 读+写 = 2倍
-    printf("Bandwidth: %.1f GB/s (theory ~1555 GB/s on A100)\n", gb / (ms / 1000));
+    printf("Bandwidth: %.1f GB/s (theory ~1555 GB/s on RTX 5090)\n", gb / (ms / 1000));
 
     cudaFree(d_src); cudaFree(d_dst);
     return 0;
@@ -149,7 +149,7 @@ int main() {
 ## 5. 性能分析与优化
 
 ```bash
-nvcc -O3 -arch=sm_80 matrix_copy.cu -o matrix_copy
+nvcc -O3 -arch=sm_120 matrix_copy.cu -o matrix_copy
 ncu --set full --kernel matrix_copy_kernel ./matrix_copy | rg -i "Memory Throughput|DRAM"
 ```
 
@@ -159,13 +159,13 @@ ncu --set full --kernel matrix_copy_kernel ./matrix_copy | rg -i "Memory Through
 |------|---------------------|-----------|---------------------|
 | 内存事务/warp | 32 | 1 | 1 |
 | 带宽利用率 | ~3% | ~70% | ~85% |
-| A100 实测 | ~50 GB/s | ~1100 GB/s | ~1300 GB/s |
+| RTX 5090 实测 | ~50 GB/s | ~1100 GB/s | ~1300 GB/s |
 
 **优化方向**：
 
 1. **float4 向量化**：每 thread 拷 16 byte，减少 thread 数、提升带宽
 2. **grid-stride loop**：大矩阵用 grid-stride，减少 launch 开销
-3. **async copy**：用 `cp.async`（Ampere+）overlap 数据搬运与计算（但纯 copy 无计算可 overlap）
+3. **async copy**：用 `cp.async`（Blackwell+）overlap 数据搬运与计算（但纯 copy 无计算可 overlap）
 4. **避免 bank conflict**：若用 shared memory 中转，注意 padding（纯 copy 不需要）
 
 ## 6. 复杂度分析

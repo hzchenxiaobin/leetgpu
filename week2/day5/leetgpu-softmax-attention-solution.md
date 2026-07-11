@@ -116,7 +116,7 @@ void attention_cpu(const float* Q, const float* K, const float* V, float* O, int
 
 ```cuda
 // attention.cu —— naive(物化 S/P) vs fused(online softmax) 对比
-// 编译命令: nvcc -O3 -arch=sm_80 attention.cu -o attention -lineinfo
+// 编译命令: nvcc -O3 -arch=sm_120 attention.cu -o attention -lineinfo
 // 运行:     ./attention 1024 64
 
 #include <cstdio>
@@ -298,12 +298,12 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 attention.cu -o attention -lineinfo
+nvcc -O3 -arch=sm_120 attention.cu -o attention -lineinfo
 ./attention 1024 64
 ./attention 4096 128      # 观察 naive 的 S/P 显存占用
 ```
 
-典型输出（A100，`N=1024, d=64`）：
+典型输出（RTX 5090，`N=1024, d=64`）：
 
 ```text
 N=1024 d=64  QKV=0.75 MB  S/P(naive)=4.00 MB each

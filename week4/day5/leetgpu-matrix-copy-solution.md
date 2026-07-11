@@ -114,7 +114,7 @@ for (int i = tid; i < vec_n; i += stride) {
 
 **收益**：内存事务/指令数从 `N`（每元素 1 条 4B）降到 `N/4`（每 4 元素 1 条 16B），减少 4× 地址计算和事务开销。`float4` 要求源地址 **16-byte 对齐**（`cudaMalloc` 天然满足）；`N%4 != 0` 时尾部用逐元素 fallback，本题 `N=4096` 无尾部。
 
-**Roofline 判定**：算术强度 `AI = 0 FLOP / 8B`（0 次计算 ↔ 读 4B + 写 4B）= **0**。A100 平衡点约 `60 FLOP/B`，`AI = 0 ≪ Ridge Point` → **极端 memory-bound**，性能上限**完全由 HBM 带宽决定**，再怎么优化计算（本来就没有）都无用，只能从「减少访存量 / 提高每次访问效率」入手。
+**Roofline 判定**：算术强度 `AI = 0 FLOP / 8B`（0 次计算 ↔ 读 4B + 写 4B）= **0**。RTX 5090 平衡点约 `60 FLOP/B`，`AI = 0 ≪ Ridge Point` → **极端 memory-bound**，性能上限**完全由 HBM 带宽决定**，再怎么优化计算（本来就没有）都无用，只能从「减少访存量 / 提高每次访问效率」入手。
 
 > 💡 这是整个 LeetGPU 题库里 AI 最低的题之一。它的存在就是为了让你**亲眼看到「带宽天花板」长什么样**：当你把 `dram__throughput` 推到 >80% peak 时，这题就到头了。
 
@@ -124,7 +124,7 @@ for (int i = tid; i < vec_n; i += stride) {
 
 ```cuda
 // matrix_copy.cu —— Coalesced Matrix Copy with Bandwidth Measurement
-// 编译命令: nvcc -O3 -std=c++14 -arch=sm_80 matrix_copy.cu -o matrix_copy
+// 编译命令: nvcc -O3 -std=c++14 -arch=sm_120 matrix_copy.cu -o matrix_copy
 // 运行:     ./matrix_copy 4096 4096
 
 #include <cstdio>
@@ -252,14 +252,14 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-# 编译（按本机 SM 调 -arch，如 sm_80 / sm_89 / sm_90）
-nvcc -O3 -std=c++14 -arch=sm_80 matrix_copy.cu -o matrix_copy
+# 编译（按本机 SM 调 -arch，如 sm_120）
+nvcc -O3 -std=c++14 -arch=sm_120 matrix_copy.cu -o matrix_copy
 
 # 运行（默认 M=N=4096）
 ./matrix_copy 4096 4096
 ```
 
-典型输出（A100 / SM=108）：
+典型输出（RTX 5090 / SM=108）：
 
 ```text
 M=4096, N=4096  (64.0 MB per matrix)
@@ -273,7 +273,7 @@ cudaMemcpy  : 0.043 ms              cudaMemcpy  : 2976.7 GB/s
 verify: PASS  (0 / 16777216 mismatch)
 ```
 
-A100 的 HBM 理论带宽约 `1555 GB/s`（上表 `2×bytes` 口径把读和写各算一遍，数值约为单端口带宽的 ~2 倍）。`float4` 版已逼近 `cudaMemcpy` 金标准，差距在 `5%` 以内——手写 kernel 基本榨干 HBM。标量版因事务/指令开销偏高，落后约 `25%`。
+RTX 5090 的 HBM 理论带宽约 `1555 GB/s`（上表 `2×bytes` 口径把读和写各算一遍，数值约为单端口带宽的 ~2 倍）。`float4` 版已逼近 `cudaMemcpy` 金标准，差距在 `5%` 以内——手写 kernel 基本榨干 HBM。标量版因事务/指令开销偏高，落后约 `25%`。
 
 > ⚠️ 注意带宽口径：`cudaEvent` 计时含一次冷启动，且不同口径（单端口 `bytes` vs 双端口 `2×bytes`）数值差一倍。统一用 `ncu` 的 `dram__throughput` 才能跨实现公平比较。
 

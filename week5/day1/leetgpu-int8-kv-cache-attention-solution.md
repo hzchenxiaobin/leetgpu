@@ -111,7 +111,7 @@ void attention_int8_cpu(const float* Q, const int8_t* K_int8, const int8_t* V_in
 
 ```cuda
 // int8_kv_cache_attention.cu —— INT8 KV-Cache Decode Attention（fused, online softmax）
-// 编译命令: nvcc -O3 -arch=sm_80 int8_kv_cache_attention.cu -o int8_kv_attn -lineinfo
+// 编译命令: nvcc -O3 -arch=sm_120 int8_kv_cache_attention.cu -o int8_kv_attn -lineinfo
 // 运行:     ./int8_kv_attn 32 8192 128
 
 #include <cstdio>
@@ -298,12 +298,12 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 int8_kv_cache_attention.cu -o int8_kv_attn -lineinfo
+nvcc -O3 -arch=sm_120 int8_kv_cache_attention.cu -o int8_kv_attn -lineinfo
 ./int8_kv_attn 32 8192 128      # 性能测试尺寸
 ./int8_kv_attn 8 256 64         # 小尺寸验证
 ```
 
-典型输出（A100，`H=32, L=8192, d=128`）：
+典型输出（RTX 5090，`H=32, L=8192, d=128`）：
 
 ```text
 H=32 L=8192 d=128  int8 KV=268.43 MB  (fp32 KV would be 1073.74 MB, 4x)

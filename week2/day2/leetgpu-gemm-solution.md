@@ -55,7 +55,7 @@ __global__ void gemm_naive(const float* A, const float* B, float* C, int M, int 
 
 ![朴素 GEMM 访存浪费](images/matmul_naive_problem.svg)
 
-**致命问题**：相邻 thread 的 `A` 行、`B` 列高度重叠却各自从 global 重复读取。`A` 每元素被读 `N` 次、`B` 每元素被读 `M` 次，算术强度仅 `2 FLOP / 8B = 0.25 FLOP/B`，远低于 A100 平衡点（~60 FLOP/B）。
+**致命问题**：相邻 thread 的 `A` 行、`B` 列高度重叠却各自从 global 重复读取。`A` 每元素被读 `N` 次、`B` 每元素被读 `M` 次，算术强度仅 `2 FLOP / 8B = 0.25 FLOP/B`，远低于 RTX 5090 平衡点（~60 FLOP/B）。
 
 > ⚠️ 朴素版的 `dram__throughput` 很高但 `sm__throughput` 极低，是典型的 **memory-bound**——带宽吃满、算力闲置，通常只有 peak 的 **1-3%**。要破局必须减少 global 访问：**Shared Memory Tiling** 复用 `A/B` 子块，再上 **Register Blocking** 让每 thread 多算几个输出。
 
@@ -79,7 +79,7 @@ NUM_THREADS = (BM/TM) × (BN/TN) = 16 × 16 = 256
 shared / block = As[128×8] + Bs[8×128] = 2048 float = 8 KB
 ```
 
-> 💡 `BK` 取 8 而非 32：**Register Blocking** 下每 `k` 步要把 `As` 的一列（`BM=128` 个值）和 `Bs` 的一行（`BN=128` 个值）广播给所有 thread，`BK` 小则 shared 占用低、外积循环短、寄存器压力可控。`BK=8` 在 sm_80 上是经验最优区间。
+> 💡 `BK` 取 8 而非 32：**Register Blocking** 下每 `k` 步要把 `As` 的一列（`BM=128` 个值）和 `Bs` 的一行（`BN=128` 个值）广播给所有 thread，`BK` 小则 shared 占用低、外积循环短、寄存器压力可控。`BK=8` 在 sm_120 上是经验最优区间。
 
 ### 3.2 存储层次使用
 
@@ -102,13 +102,17 @@ shared / block = As[128×8] + Bs[8×128] = 2048 float = 8 KB
 
 > ⚠️ 写回阶段仍要判 `r < M && c < N`，避免越界写 `C`。
 
+下图汇总了 kernel 中各关键变量的含义，可配合上面的代码一起阅读：
+
+![GEMM kernel 关键变量作用一览](images/gemm_variables.svg)
+
 ## 4. Kernel 实现
 
 完整可编译版本，含 cuBLAS 对比、GFLOPS 计算与正确性验证：
 
 ```cuda
 // gemm_register_blocking.cu —— Shared Memory Tiling + Register Blocking GEMM
-// 编译命令: nvcc -O3 -arch=sm_80 -lcublas gemm_register_blocking.cu -o gemm
+// 编译命令: nvcc -O3 -arch=sm_120 -lcublas gemm_register_blocking.cu -o gemm
 // 运行:     ./gemm 1024 1024 1024
 
 #include <cstdio>
@@ -150,7 +154,9 @@ __global__ void gemm_rb(const float* A, const float* B, float* C,
 
     const int bx = blockIdx.x, by = blockIdx.y;
     const int tx = threadIdx.x, ty = threadIdx.y;          // 16×16
-    const int linear = ty * (BN / TN) + tx;                // 0..255
+    // 将 2D threadIdx 展平为 0..255 的线性线程编号，用于协作加载 As/Bs。
+    // ty * (BN / TN) 是前 ty 行的线程数，+ tx 得到当前 thread 在 block 内的唯一序号。
+    const int linear = ty * (BN / TN) + tx;
 
     // 本 thread 负责的输出子块在 C 中的左上角
     const int row_base = by * BM + ty * TM;                 // M 维
@@ -314,11 +320,11 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 -lcublas gemm_register_blocking.cu -o gemm
+nvcc -O3 -arch=sm_120 -lcublas gemm_register_blocking.cu -o gemm
 ./gemm 1024 1024 1024
 ```
 
-典型输出（A100，`M=N=K=1024`）：
+典型输出（RTX 5090，`M=N=K=1024`）：
 
 ```text
 A:1024x1024 B:1024x1024 C:1024x1024  FLOPs=2.15 GFLOP
@@ -330,12 +336,12 @@ launch: blocks=(8,8) threads=(16,16)
 verify: PASS
 ```
 
-相比朴素 tiling（每 thread 1 输出，~15% cuBLAS），Register Blocking 直接拉到 **~45% cuBLAS**，提升约 3×。
+相比朴素 tiling（每 thread 1 输出，≈15% cuBLAS），Register Blocking 直接拉到 **≈45% cuBLAS**，提升约 3×。
 
 ### 5.2 寄存器用量与占用率
 
 ```bash
-nvcc -O3 -arch=sm_80 -Xptxas -v gemm_register_blocking.cu -o gemm 2>&1 | rg "registers|spill|stack"
+nvcc -O3 -arch=sm_120 -Xptxas -v gemm_register_blocking.cu -o gemm 2>&1 | rg "registers|spill|stack"
 ```
 
 ```text
@@ -343,7 +349,7 @@ ptxas info : Used 88 registers, 8192 bytes smem, 256 bytes cmem[0]
 ```
 
 - **寄存器预算**：`acc[8][8]=64` + `rA[8]+rB[8]=16` + 控制 ≈ **88 regs/thread**
-- **占用率**：`256 thread × 88 = 22528 regs/block`，A100 每 SM 65536 regs → **2 block/SM**，理论占用 **50%**。无寄存器溢出（`spill`）即可。
+- **占用率**：`256 thread × 88 = 22528 regs/block`，RTX 5090 每 SM 65536 regs → **2 block/SM**，理论占用 **50%**。无寄存器溢出（`spill`）即可。
 
 ### 5.3 用 ncu 分析瓶颈类型
 

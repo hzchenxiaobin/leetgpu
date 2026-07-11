@@ -115,7 +115,7 @@ void mha_cpu(const float* Q, const float* K, const float* V, float* O,
 
 ```cuda
 // multi_head_attention.cu —— Multi-Head FlashAttention
-// 编译命令: nvcc -O3 -arch=sm_80 multi_head_attention.cu -o mha
+// 编译命令: nvcc -O3 -arch=sm_120 multi_head_attention.cu -o mha
 // 运行:     ./mha 2 4 512 64   (B H N d)
 
 #include <cstdio>
@@ -407,12 +407,12 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 multi_head_attention.cu -o mha -lineinfo
+nvcc -O3 -arch=sm_120 multi_head_attention.cu -o mha -lineinfo
 ./mha 2 4 512 64       # 小规模：快速验证正确性
 ./mha 4 8 1024 64      # 中规模：观察 flash 优势
 ```
 
-典型输出（A100，`B=2, H=4, N=512, d=64`）：
+典型输出（RTX 5090，`B=2, H=4, N=512, d=64`）：
 
 ```text
 B=2 H=4 N=512 d=64  QKV=3.00 MB  S/P(std)=8.00 MB each
@@ -444,7 +444,7 @@ ncu --kernel-name regex:"mha_standard_kernel|mha_flash_kernel" \
 
 ### 5.3 优化方向
 
-1. **`cp.async` 异步加载**：用 `cp.async`（sm_80+）在计算当前 K/V tile 时预取下一 tile 到 shared memory，隐藏 HBM 延迟（double buffer）。
+1. **`cp.async` 异步加载**：用 `cp.async`（sm_120+）在计算当前 K/V tile 时预取下一 tile 到 shared memory，隐藏 HBM 延迟（double buffer）。
 2. **FP16/BF16 混合精度 + Tensor Core**：`Q/K/V` 用 fp16，`mma` 指令做 GEMM（`QK^T` 和 `PV`），累加器和 softmax 用 fp32 保精度。这是工业级 FlashAttention 的标配，吞吐提升 4-8×。
 3. **FlashAttention-2 warp group 调度**：FA2 把 `QK^T` 和 `PV` 的 GEMM 重排为 warp group 级别的流水线，减少 rescale（non-matmul FLOPs），提升算术强度。
 4. **增大 `Br`**：本实现 `Br=8`，K/V 仅复用 8×。增大 `Br`（如 64）可进一步减少 K/V HBM 流量，但受 shared memory 容量限制（`s_K[Bc][d]` 随 `Bc` 增大）。

@@ -19,7 +19,7 @@
   <text x="46" y="86" font-size="13" fill="#b85450" font-weight="bold">L0  Global Memory（HBM）</text>
   <text x="46" y="106" font-size="10" fill="#555" font-family="monospace">A[M×K]  B[K×N]  —— 每元素被全 grid 读 1 次</text>
   <text x="46" y="124" font-size="10" fill="#888">延迟 ~400-800 cycle  ·  复用 1×  ·  算术强度 ≈ 0.25 FLOP/B（memory-bound）</text>
-  <text x="46" y="142" font-size="10" fill="#888">带宽 ~1.5-2 TB/s（A100），是朴素 GEMM 的瓶颈</text>
+  <text x="46" y="142" font-size="10" fill="#888">带宽 ~1.5-2 TB/s（RTX 5090），是朴素 GEMM 的瓶颈</text>
 
   <rect x="570" y="72" width="150" height="84" fill="#fff" stroke="#b85450" stroke-width="0.8" rx="4" filter="url(#rough2)"/>
   <text x="645" y="94" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">朴素版</text>
@@ -84,9 +84,9 @@
   <text x="180" y="534" text-anchor="middle" font-size="9" fill="#4a7a3a">56</text>
   <text x="180" y="548" text-anchor="middle" font-size="8" fill="#888">+ register</text>
 
-  <!-- A100 balance point -->
+  <!-- RTX 5090 balance point -->
   <line x1="220" y1="462" x2="220" y2="528" stroke="#d6a040" stroke-width="2" stroke-dasharray="3,3" filter="url(#rough2)"/>
-  <text x="228" y="476" font-size="9" fill="#d6a040" font-weight="bold">A100 平衡点</text>
+  <text x="228" y="476" font-size="9" fill="#d6a040" font-weight="bold">RTX 5090 平衡点</text>
   <text x="228" y="490" font-size="9" fill="#d6a040">~60 FLOP/B</text>
   <text x="228" y="504" font-size="8" fill="#888">compute-bound 临界</text>
 

@@ -77,7 +77,7 @@ smem[tid_x][tid_y] → dst[j*M+i]    // 按 col 读出 smem（转置），按 ro
 
 ```cuda
 // matrix_transpose.cu —— Shared memory tiling + bank conflict padding
-// 编译命令: nvcc -O3 -arch=sm_80 matrix_transpose.cu -o matrix_transpose
+// 编译命令: nvcc -O3 -arch=sm_120 matrix_transpose.cu -o matrix_transpose
 
 #include <cuda_runtime.h>
 
@@ -195,11 +195,11 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 matrix_transpose_full.cu -o matrix_transpose
+nvcc -O3 -arch=sm_120 matrix_transpose_full.cu -o matrix_transpose
 ./matrix_transpose 4096
 ```
 
-典型输出（A100）：
+典型输出（RTX 5090）：
 
 ```text
 M=4096 N=4096 (64.0 MB)

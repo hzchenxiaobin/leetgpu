@@ -108,7 +108,7 @@ void gqa_cpu(const float* Q, const float* K, const float* V, float* O,
 
 ```cuda
 // grouped_query_attention.cu —— GQA（fused, online softmax, 不 expand KV）
-// 编译命令: nvcc -O3 -arch=sm_80 grouped_query_attention.cu -o gqa -lineinfo
+// 编译命令: nvcc -O3 -arch=sm_120 grouped_query_attention.cu -o gqa -lineinfo
 // 运行:     ./gqa 32 8 1024 128
 
 #include <cstdio>
@@ -284,12 +284,12 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 grouped_query_attention.cu -o gqa -lineinfo
+nvcc -O3 -arch=sm_120 grouped_query_attention.cu -o gqa -lineinfo
 ./gqa 32 8 1024 128      # LLaMA-3 8B 配置
 ./gqa 4 2 64 64          # 小尺寸验证
 ```
 
-典型输出（A100，`nq=32, nkv=8, S=1024, d=128`）：
+典型输出（RTX 5090，`nq=32, nkv=8, S=1024, d=128`）：
 
 ```text
 nq=32 nkv=8 group=4 S=1024 d=128

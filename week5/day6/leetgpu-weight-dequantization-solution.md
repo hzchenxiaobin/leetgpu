@@ -78,7 +78,7 @@ void dequant_cpu(const float* X, const float* S, float* Y,
 3. **scale 缓存**：`S` 很小（`M/T × N/T`，如 `8192/128=64`，64×64=4096 个 float = 16KB），几乎全在 L2 cache，无需显式 shared。
 4. **grid-stride**：用 grid-stride loop 让 grid 覆盖任意 M·N，block 数适配 SM 数。
 
-> 💡 **为什么是 memory-bound**：每元素 1 次乘法（2 FLOPs），但要读 X（4B）+ 读 S（4B，amortized 到 T² 个元素很小）+ 写 Y（4B）≈ 12 Bytes。`AI = 2/12 ≈ 0.17 FLOP/Byte`（考虑 S 的 amortized 后更低），远低于 A100 Ridge Point（12.6）。ncu 应测出 `dram__throughput` 接近峰值、`sm__throughput` 极低。
+> 💡 **为什么是 memory-bound**：每元素 1 次乘法（2 FLOPs），但要读 X（4B）+ 读 S（4B，amortized 到 T² 个元素很小）+ 写 Y（4B）≈ 12 Bytes。`AI = 2/12 ≈ 0.17 FLOP/Byte`（考虑 S 的 amortized 后更低），远低于 RTX 5090 Ridge Point（12.6）。ncu 应测出 `dram__throughput` 接近峰值、`sm__throughput` 极低。
 
 ## 4. Kernel 实现
 
@@ -86,7 +86,7 @@ void dequant_cpu(const float* X, const float* S, float* Y,
 
 ```cuda
 // weight_dequantization.cu —— Weight Dequantization（element-wise, memory-bound）
-// 编译命令: nvcc -O3 -arch=sm_80 weight_dequantization.cu -o dequant -lineinfo
+// 编译命令: nvcc -O3 -arch=sm_120 weight_dequantization.cu -o dequant -lineinfo
 // 运行:     ./dequant 8192 8192 128
 
 #include <cstdio>
@@ -172,7 +172,7 @@ int main(int argc, char** argv) {
     float achieved_bw = bytes / (ms/1000) / 1e9;    // GB/s
     printf("\n[Roofline] FLOPs=%.2fG  Bytes=%.2fMB  AI=%.2f FLOP/Byte\n",
            flops/1e9, bytes/1e6, ai);
-    printf("[Roofline] achieved BW = %.1f GB/s (A100 peak ~1555 GB/s)\n", achieved_bw);
+    printf("[Roofline] achieved BW = %.1f GB/s (RTX 5090 peak ~1555 GB/s)\n", achieved_bw);
     printf("[Roofline] AI=%.2f ≪ Ridge(12.6) → memory-bound\n", ai);
 
     cudaFree(dX); cudaFree(dS); cudaFree(dY);
@@ -187,12 +187,12 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 weight_dequantization.cu -o dequant -lineinfo
+nvcc -O3 -arch=sm_120 weight_dequantization.cu -o dequant -lineinfo
 ./dequant 8192 8192 128      # 性能测试尺寸
 ./dequant 4 4 2              # 小尺寸验证
 ```
 
-典型输出（A100，`M=N=8192, T=128`）：
+典型输出（RTX 5090，`M=N=8192, T=128`）：
 
 ```text
 M=8192 N=8192 T=128  s_rows=64 s_cols=64
@@ -201,7 +201,7 @@ kernel time: x.xx ms
 max diff: 0.00e+00 (PASS, tol=1e-5)
 
 [Roofline] FLOPs=0.07G  Bytes=536.87MB  AI=0.17 FLOP/Byte
-[Roofline] achieved BW = xxx.x GB/s (A100 peak ~1555 GB/s)
+[Roofline] achieved BW = xxx.x GB/s (RTX 5090 peak ~1555 GB/s)
 [Roofline] AI=0.17 ≪ Ridge(12.6) → memory-bound
 ```
 

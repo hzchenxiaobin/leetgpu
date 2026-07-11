@@ -79,7 +79,7 @@ if (idx < N / 4) {
 
 ```cuda
 // scalar_multiply.cu —— Scalar Multiply（coalesced element-wise）
-// 编译命令: nvcc -O3 -arch=sm_80 scalar_multiply.cu -o scalar_multiply
+// 编译命令: nvcc -O3 -arch=sm_120 scalar_multiply.cu -o scalar_multiply
 
 #include <cuda_runtime.h>
 
@@ -176,11 +176,11 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 scalar_multiply_full.cu -o scalar_multiply
+nvcc -O3 -arch=sm_120 scalar_multiply_full.cu -o scalar_multiply
 ./scalar_multiply 10000000
 ```
 
-典型输出（A100）：
+典型输出（RTX 5090）：
 
 ```text
 N = 10000000  (40.0 MB), alpha = 2.000000

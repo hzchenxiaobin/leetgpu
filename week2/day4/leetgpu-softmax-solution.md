@@ -119,7 +119,7 @@ __global__ void softmax_naive(const float* x, float* y, int M, int D) {
 
 ```cuda
 // softmax_three_pass.cu —— Softmax：三遍扫描（max → sum(exp) → normalize），safe softmax
-// 编译命令: nvcc -O3 -arch=sm_80 softmax_three_pass.cu -o softmax -lineinfo
+// 编译命令: nvcc -O3 -arch=sm_120 softmax_three_pass.cu -o softmax -lineinfo
 // 运行:     ./softmax 128 8192
 
 #include <cstdio>
@@ -280,11 +280,11 @@ int main(int argc, char** argv) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_80 softmax_three_pass.cu -o softmax -lineinfo
+nvcc -O3 -arch=sm_120 softmax_three_pass.cu -o softmax -lineinfo
 ./softmax 128 8192
 ```
 
-典型输出（A100）：
+典型输出（RTX 5090）：
 
 ```text
 M=128, D=8192  (4.0 MB)
@@ -316,7 +316,7 @@ ncu --kernel-name regex:softmax_kernel \
 
 ### 5.3 算术强度与瓶颈定位
 
-每元素有效 ~3 FLOP（max / exp+sum / exp+divide 各 1），理论下界字节 = 读 `x` 1 遍（4B）+ 写 `y`（4B）= 8B，故 `AI = 3/8 ≈ 0.375 FLOP/Byte`。A100 Ridge Point ≈ 12.6 FLOP/Byte，`AI=0.375 << 12.6` → 纯 memory-bound。而朴素三遍版实际读 `x` **3 次**（12B）+ 写 1 次（4B）= 16B，有效 `AI ≈ 3/16 ≈ 0.19` 更低——**重复读是主要浪费**，带宽利用率离峰值（1550 GB/s）差距大。
+每元素有效 ~3 FLOP（max / exp+sum / exp+divide 各 1），理论下界字节 = 读 `x` 1 遍（4B）+ 写 `y`（4B）= 8B，故 `AI = 3/8 ≈ 0.375 FLOP/Byte`。RTX 5090 Ridge Point ≈ 12.6 FLOP/Byte，`AI=0.375 << 12.6` → 纯 memory-bound。而朴素三遍版实际读 `x` **3 次**（12B）+ 写 1 次（4B）= 16B，有效 `AI ≈ 3/16 ≈ 0.19` 更低——**重复读是主要浪费**，带宽利用率离峰值（1550 GB/s）差距大。
 
 ### 5.4 优化方向
 
