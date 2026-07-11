@@ -270,7 +270,7 @@ def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
         key = (s["week"] or "未分组", s["day"] or "")
         groups.setdefault(key, []).append(s)
 
-    overview_markdown = "> CUDA 编程挑战题解，配套每日教程的在线练习。\n\n"
+    overview_markdown = ""
 
     # Group by week for a LeetCode-style list overview
     weekly_groups: Dict[str, Dict[str, List[Dict]]] = {}
