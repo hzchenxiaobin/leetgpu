@@ -3,7 +3,7 @@
 ## 1. 题目概述
 
 - **标题 / 题号**：General Matrix Multiplication (GEMM)（#22，medium）
-- **链接**：https://leetgpu.com/challenges/gemm
+- **链接**：https://leetgpu.com/challenges/general-matrix-multiplication-gemm
 - **难度**：中等
 - **标签**：CUDA、GEMM、Register Blocking、Shared Memory Tiling、Thread Tile、compute-bound
 
