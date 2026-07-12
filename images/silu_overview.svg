@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="460" viewBox="0 0 880 460" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="3" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#3a3a3a"/>
+    </marker>
+  </defs>
+  <rect width="880" height="460" fill="#fdfcf7"/>
+  <text x="440" y="32" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">SiLU：memory-bound elementwise kernel</text>
+  <path d="M 270 40 Q 440 48 610 40" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- formula -->
+  <g filter="url(#sk)">
+    <rect x="60" y="60" width="760" height="60" rx="8" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+  </g>
+  <text x="440" y="86" text-anchor="middle" font-size="14" fill="#2b6e9e" font-weight="bold" font-family="monospace">SiLU(x) = x · sigmoid(x) = x / (1 + e^(-x))</text>
+  <text x="440" y="106" text-anchor="middle" font-size="11" fill="#888">LLaMA SwiGLU 的核心激活函数</text>
+
+  <!-- left: data flow -->
+  <text x="220" y="150" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">数据流：读 x → 算 → 写 y</text>
+
+  <g font-size="11">
+    <g filter="url(#sk)"><rect x="60" y="166" width="120" height="50" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/></g>
+    <text x="120" y="188" text-anchor="middle" fill="#7a5415" font-weight="bold">读 x[i]</text>
+    <text x="120" y="206" text-anchor="middle" fill="#888" font-size="9">global memory</text>
+
+    <path d="M 184 191 L 224 191" stroke="#888" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+    <g filter="url(#sk)"><rect x="230" y="166" width="140" height="50" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/></g>
+    <text x="300" y="188" text-anchor="middle" fill="#2e6e2e" font-weight="bold">__expf + 乘法</text>
+    <text x="300" y="206" text-anchor="middle" fill="#888" font-size="9">register（极少计算）</text>
+
+    <path d="M 374 191 L 414 191" stroke="#888" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+    <g filter="url(#sk)"><rect x="420" y="166" width="120" height="50" rx="6" fill="#fce4ec" stroke="#b85450" stroke-width="1.3"/></g>
+    <text x="480" y="188" text-anchor="middle" fill="#b03a3a" font-weight="bold">写 y[i]</text>
+    <text x="480" y="206" text-anchor="middle" fill="#888" font-size="9">global memory</text>
+  </g>
+
+  <!-- bandwidth note -->
+  <g filter="url(#sk)">
+    <rect x="60" y="232" width="480" height="70" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-width="1.2" stroke-dasharray="5 3"/>
+  </g>
+  <text x="80" y="254" font-size="11" font-weight="bold" fill="#2b2b2b">为什么是 memory-bound？</text>
+  <text x="80" y="274" font-size="10" fill="#444">计算：1 次 exp + 1 次乘 ≈ 几个 cycle</text>
+  <text x="80" y="290" font-size="10" fill="#444">访存：读 4B + 写 4B = 8B/元素 → 算术强度 ≈ 0.5 FLOP/Byte</text>
+  <text x="80" y="306" font-size="10" fill="#b03a3a" font-weight="bold">→ 远低于 ridge point，纯带宽瓶颈</text>
+
+  <!-- right: grid-stride mapping -->
+  <text x="680" y="150" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">grid-stride 映射</text>
+
+  <g font-size="10">
+    <!-- threads row -->
+    <g filter="url(#sk)"><rect x="570" y="166" width="40" height="30" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/></g>
+    <text x="590" y="185" text-anchor="middle" fill="#2b6e9e">t0</text>
+    <g filter="url(#sk)"><rect x="612" y="166" width="40" height="30" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/></g>
+    <text x="632" y="185" text-anchor="middle" fill="#2b6e9e">t1</text>
+    <g filter="url(#sk)"><rect x="654" y="166" width="40" height="30" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/></g>
+    <text x="674" y="185" text-anchor="middle" fill="#2b6e9e">t2</text>
+    <g filter="url(#sk)"><rect x="696" y="166" width="40" height="30" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/></g>
+    <text x="716" y="185" text-anchor="middle" fill="#2b6e9e">...</text>
+    <g filter="url(#sk)"><rect x="738" y="166" width="40" height="30" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/></g>
+    <text x="758" y="185" text-anchor="middle" fill="#2b6e9e">tN</text>
+
+    <!-- arrows down -->
+    <path d="M 590 198 L 590 224" stroke="#888" stroke-width="1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <path d="M 632 198 L 632 224" stroke="#888" stroke-width="1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <path d="M 674 198 L 674 224" stroke="#888" stroke-width="1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+    <!-- elements row -->
+    <g filter="url(#sk)"><rect x="570" y="228" width="40" height="30" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/></g>
+    <text x="590" y="247" text-anchor="middle" fill="#2e6e2e">x0</text>
+    <g filter="url(#sk)"><rect x="612" y="228" width="40" height="30" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/></g>
+    <text x="632" y="247" text-anchor="middle" fill="#2e6e2e">x1</text>
+    <g filter="url(#sk)"><rect x="654" y="228" width="40" height="30" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/></g>
+    <text x="674" y="247" text-anchor="middle" fill="#2e6e2e">x2</text>
+    <g filter="url(#sk)"><rect x="696" y="228" width="40" height="30" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/></g>
+    <text x="716" y="247" text-anchor="middle" fill="#2e6e2e">...</text>
+    <g filter="url(#sk)"><rect x="738" y="228" width="40" height="30" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/></g>
+    <text x="758" y="247" text-anchor="middle" fill="#2e6e2e">xN</text>
+  </g>
+
+  <g filter="url(#sk)">
+    <rect x="570" y="270" width="208" height="32" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.2"/>
+  </g>
+  <text x="674" y="290" text-anchor="middle" font-size="9" fill="#7a5415">连续 thread → 连续地址 = coalesced</text>
+
+  <!-- bottom: optimizations -->
+  <g filter="url(#sk)">
+    <rect x="60" y="320" width="760" height="120" rx="8" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="440" y="344" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">优化手段（按收益排序）</text>
+  <g font-size="10" fill="#444">
+    <text x="80" y="368"><tspan font-weight="bold" fill="#2e6e2e">① __expf 快速数学</tspan>：用内置 intrinsics 替代 exp()，~10x 快，精度够（atol 1e-5）</text>
+    <text x="80" y="388"><tspan font-weight="bold" fill="#2e6e2e">② grid-stride loop</tspan>：N 任意大都能覆盖，减少 launch 开销</text>
+    <text x="80" y="408"><tspan font-weight="bold" fill="#2e6e2e">③ float4 向量化</tspan>：每 thread 拷 16B，减少指令数、提升带宽</text>
+    <text x="80" y="428"><tspan font-weight="bold" fill="#2e6e2e">④ kernel fusion</tspan>：SiLU 与上游算子融合，省一次 HBM 往返（最大收益）</text>
+  </g>
+</svg>

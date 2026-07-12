@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="17" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#3a3a3a"/>
+    </marker>
+  </defs>
+  <rect width="900" height="560" fill="#fdfcf7"/>
+  <text x="450" y="32" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">RoPE：旋转位置编码数据流</text>
+  <path d="M 280 40 Q 450 48 620 40" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- formula -->
+  <g filter="url(#sk)">
+    <rect x="60" y="58" width="780" height="60" rx="8" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+  </g>
+  <text x="450" y="84" text-anchor="middle" font-size="13" fill="#2b6e9e" font-weight="bold" font-family="monospace">RoPE(x) = x ⊙ cos + rotate_half(x) ⊙ sin</text>
+  <text x="450" y="104" text-anchor="middle" font-size="11" fill="#888">rotate_half([x₁..x_{d/2}, x_{d/2+1}..x_d]) = [−x_{d/2+1}..−x_d, x₁..x_{d/2}]</text>
+
+  <!-- ===== Data flow: 3 parallel paths ===== -->
+  <text x="450" y="140" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">数据流：Q 分两路，cos/sin 预计算，逐元素运算后合并</text>
+
+  <g font-size="10">
+    <!-- Q input -->
+    <g filter="url(#sk)"><rect x="40" y="160" width="100" height="40" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/></g>
+    <text x="90" y="178" text-anchor="middle" fill="#7a5415" font-weight="bold">Q [M,D]</text>
+    <text x="90" y="192" text-anchor="middle" fill="#888" font-size="9">query 向量</text>
+
+    <!-- cos input -->
+    <g filter="url(#sk)"><rect x="40" y="220" width="100" height="36" rx="6" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.3"/></g>
+    <text x="90" y="237" text-anchor="middle" fill="#5a3a7a" font-weight="bold">cos [M,D]</text>
+    <text x="90" y="250" text-anchor="middle" fill="#888" font-size="9">预计算</text>
+
+    <!-- sin input -->
+    <g filter="url(#sk)"><rect x="40" y="270" width="100" height="36" rx="6" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.3"/></g>
+    <text x="90" y="287" text-anchor="middle" fill="#5a3a7a" font-weight="bold">sin [M,D]</text>
+    <text x="90" y="300" text-anchor="middle" fill="#888" font-size="9">预计算</text>
+
+    <!-- Path 1: Q * cos -->
+    <path d="M 142 175 L 200 175" stroke="#888" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <path d="M 142 235 Q 175 200 200 185" stroke="#888" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)" stroke-dasharray="3 2"/>
+    <g filter="url(#sk)"><rect x="210" y="155" width="110" height="44" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/></g>
+    <text x="265" y="173" text-anchor="middle" fill="#2e6e2e" font-weight="bold">Q ⊙ cos</text>
+    <text x="265" y="190" text-anchor="middle" fill="#888" font-size="9">逐元素乘</text>
+
+    <!-- Path 2: rotate_half(Q) * sin -->
+    <path d="M 142 185 Q 175 260 200 330" stroke="#888" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <g filter="url(#sk)"><rect x="210" y="310" width="110" height="44" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/></g>
+    <text x="265" y="328" text-anchor="middle" fill="#7a5415" font-weight="bold">rotate_half(Q)</text>
+    <text x="265" y="345" text-anchor="middle" fill="#888" font-size="9">交换+取反</text>
+
+    <path d="M 142 285 Q 175 320 200 345" stroke="#888" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)" stroke-dasharray="3 2"/>
+    <path d="M 322 340 L 360 340" stroke="#888" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <g filter="url(#sk)"><rect x="370" y="318" width="110" height="44" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/></g>
+    <text x="425" y="336" text-anchor="middle" fill="#2e6e2e" font-weight="bold">rot ⊙ sin</text>
+    <text x="425" y="353" text-anchor="middle" fill="#888" font-size="9">逐元素乘</text>
+
+    <!-- Merge: add -->
+    <path d="M 320 177 Q 400 200 460 250" stroke="#888" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <path d="M 480 340 Q 500 300 510 270" stroke="#888" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+    <g filter="url(#sk)"><rect x="470" y="248" width="100" height="44" rx="6" fill="#fce4ec" stroke="#b85450" stroke-width="1.4"/></g>
+    <text x="520" y="266" text-anchor="middle" fill="#b03a3a" font-weight="bold">相加 (+)</text>
+    <text x="520" y="283" text-anchor="middle" fill="#888" font-size="9">elementwise</text>
+
+    <!-- output -->
+    <path d="M 572 270 L 620 270" stroke="#888" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <g filter="url(#sk)"><rect x="630" y="250" width="100" height="40" rx="6" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.4"/></g>
+    <text x="680" y="268" text-anchor="middle" fill="#2b6e9e" font-weight="bold">output</text>
+    <text x="680" y="282" text-anchor="middle" fill="#888" font-size="9">[M,D]</text>
+  </g>
+
+  <!-- ===== rotate_half detail ===== -->
+  <g filter="url(#sk)">
+    <rect x="60" y="380" width="380" height="160" rx="8" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
+  </g>
+  <text x="250" y="404" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">rotate_half 详解（D=8 为例）</text>
+
+  <g font-size="10">
+    <!-- original -->
+    <text x="80" y="428" fill="#444">输入 x:</text>
+    <g filter="url(#sk)">
+      <rect x="130" y="416" width="28" height="22" fill="#e8f0fa" stroke="#4a8edb"/><text x="144" y="431" text-anchor="middle" fill="#2b6e9e">x₁</text>
+      <rect x="158" y="416" width="28" height="22" fill="#e8f0fa" stroke="#4a8edb"/><text x="172" y="431" text-anchor="middle" fill="#2b6e9e">x₂</text>
+      <rect x="186" y="416" width="28" height="22" fill="#e8f0fa" stroke="#4a8edb"/><text x="200" y="431" text-anchor="middle" fill="#2b6e9e">x₃</text>
+      <rect x="214" y="416" width="28" height="22" fill="#e8f0fa" stroke="#4a8edb"/><text x="228" y="431" text-anchor="middle" fill="#2b6e9e">x₄</text>
+      <rect x="242" y="416" width="28" height="22" fill="#fef6e6" stroke="#c98a2b"/><text x="256" y="431" text-anchor="middle" fill="#7a5415">x₅</text>
+      <rect x="270" y="416" width="28" height="22" fill="#fef6e6" stroke="#c98a2b"/><text x="284" y="431" text-anchor="middle" fill="#7a5415">x₆</text>
+      <rect x="298" y="416" width="28" height="22" fill="#fef6e6" stroke="#c98a2b"/><text x="312" y="431" text-anchor="middle" fill="#7a5415">x₇</text>
+      <rect x="326" y="416" width="28" height="22" fill="#fef6e6" stroke="#c98a2b"/><text x="340" y="431" text-anchor="middle" fill="#7a5415">x₈</text>
+    </g>
+    <text x="370" y="431" font-size="9" fill="#888">前半 蓝 / 后半 橙</text>
+
+    <!-- rotated -->
+    <text x="80" y="468" fill="#444">rotate:</text>
+    <g filter="url(#sk)">
+      <rect x="130" y="456" width="28" height="22" fill="#fce4ec" stroke="#b85450"/><text x="144" y="471" text-anchor="middle" fill="#b03a3a">−x₅</text>
+      <rect x="158" y="456" width="28" height="22" fill="#fce4ec" stroke="#b85450"/><text x="172" y="471" text-anchor="middle" fill="#b03a3a">−x₆</text>
+      <rect x="186" y="456" width="28" height="22" fill="#fce4ec" stroke="#b85450"/><text x="200" y="471" text-anchor="middle" fill="#b03a3a">−x₇</text>
+      <rect x="214" y="456" width="28" height="22" fill="#fce4ec" stroke="#b85450"/><text x="228" y="471" text-anchor="middle" fill="#b03a3a">−x₈</text>
+      <rect x="242" y="456" width="28" height="22" fill="#eaf6ee" stroke="#4a8e4a"/><text x="256" y="471" text-anchor="middle" fill="#2e6e2e">x₁</text>
+      <rect x="270" y="456" width="28" height="22" fill="#eaf6ee" stroke="#4a8e4a"/><text x="284" y="471" text-anchor="middle" fill="#2e6e2e">x₂</text>
+      <rect x="298" y="456" width="28" height="22" fill="#eaf6ee" stroke="#4a8e4a"/><text x="312" y="471" text-anchor="middle" fill="#2e6e2e">x₃</text>
+      <rect x="326" y="456" width="28" height="22" fill="#eaf6ee" stroke="#4a8e4a"/><text x="340" y="471" text-anchor="middle" fill="#2e6e2e">x₄</text>
+    </g>
+
+    <text x="80" y="500" fill="#444">操作：</text>
+    <text x="130" y="500" fill="#7a5415">① 后半取反移到前面 ② 前半原样移到后面</text>
+    <text x="80" y="522" fill="#888" font-size="9">本质：对相邻配对 (x₁,x₅)(x₂,x₆)... 做 2D 旋转</text>
+  </g>
+
+  <!-- ===== Key points ===== -->
+  <g filter="url(#sk)">
+    <rect x="460" y="380" width="420" height="160" rx="8" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="670" y="404" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">关键特征</text>
+  <g font-size="10" fill="#444">
+    <text x="480" y="428"><tspan font-weight="bold" fill="#2e6e2e">① elementwise</tspan>：每元素独立，无归约/无依赖</text>
+    <text x="480" y="446"><tspan fill="#888">  → grid-stride 覆盖，coalesced 访存</tspan></text>
+    <text x="480" y="470"><tspan font-weight="bold" fill="#2e6e2e">② memory-bound</tspan>：读 Q+cos+sin=3D，写 output=D</text>
+    <text x="480" y="488"><tspan fill="#888">  → 4D bytes/行，计算仅乘加 → 带宽瓶颈</tspan></text>
+    <text x="480" y="512"><tspan font-weight="bold" fill="#2e6e2e">③ LLaMA 核心组件</tspan>：位置编码，Q/K 都要过 RoPE</text>
+    <text x="480" y="530"><tspan fill="#888">  → 画架构图时 RoPE 在 Attention 之前</tspan></text>
+  </g>
+</svg>
