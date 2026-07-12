@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 440" font-family="'Comic Sans MS','Marker Felt','Kaiti SC',楷体,'Segoe UI',cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="6" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8"/>
+    </filter>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#3a3a3a"/>
+    </marker>
+  </defs>
+
+  <rect width="780" height="440" fill="#fdfcf7"/>
+
+  <text x="390" y="32" text-anchor="middle" font-size="18" fill="#2b2b2b" font-weight="bold">1D Convolution：Shared Memory + Halo</text>
+  <path d="M 250 42 Q 390 50 530 42" stroke="#2b2b2b" stroke-width="1.4" fill="none" filter="url(#sk)"/>
+  <text x="390" y="56" text-anchor="middle" font-size="11" fill="#888">每个 block 加载 tile + 左右 halo 到 shared memory，计算只读 shared</text>
+
+  <!-- 全局内存 x -->
+  <text x="40" y="92" font-size="12" fill="#888" font-weight="bold">Global x[N]</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="100" width="40" height="28" fill="#fdecec" stroke="#b03a3a" stroke-width="1.2"/>
+    <rect x="80" y="100" width="40" height="28" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.2"/>
+    <rect x="120" y="100" width="40" height="28" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="160" y="100" width="40" height="28" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="200" y="100" width="40" height="28" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="240" y="100" width="40" height="28" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="280" y="100" width="40" height="28" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="320" y="100" width="40" height="28" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.2"/>
+    <rect x="360" y="100" width="40" height="28" fill="#fdecec" stroke="#b03a3a" stroke-width="1.2"/>
+  </g>
+  <text x="60" y="118" text-anchor="middle" font-size="10" fill="#b03a3a">halo</text>
+  <text x="100" y="118" text-anchor="middle" font-size="10" fill="#c98a2b">L</text>
+  <text x="220" y="118" text-anchor="middle" font-size="10" fill="#4a8edb" font-weight="bold">tile (TILE 个)</text>
+  <text x="340" y="118" text-anchor="middle" font-size="10" fill="#c98a2b">R</text>
+  <text x="380" y="118" text-anchor="middle" font-size="10" fill="#b03a3a">halo</text>
+
+  <!-- 箭头 down -->
+  <path d="M 220 132 L 220 156" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="240" y="148" font-size="10" fill="#666">协作加载（含 halo）</text>
+
+  <!-- shared memory -->
+  <text x="40" y="178" font-size="12" fill="#888" font-weight="bold">Shared s_x[]</text>
+  <g filter="url(#sk)">
+    <rect x="80" y="186" width="40" height="28" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
+    <rect x="120" y="186" width="40" height="28" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
+    <rect x="160" y="186" width="40" height="28" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.5"/>
+    <rect x="200" y="186" width="40" height="28" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.5"/>
+    <rect x="240" y="186" width="40" height="28" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.5"/>
+    <rect x="280" y="186" width="40" height="28" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.5"/>
+    <rect x="320" y="186" width="40" height="28" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
+    <rect x="360" y="186" width="40" height="28" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
+  </g>
+  <text x="100" y="204" text-anchor="middle" font-size="9" fill="#c98a2b">halo</text>
+  <text x="240" y="204" text-anchor="middle" font-size="9" fill="#4a8edb" font-weight="bold">tile</text>
+  <text x="340" y="204" text-anchor="middle" font-size="9" fill="#c98a2b">halo</text>
+
+  <!-- 计算阶段 -->
+  <path d="M 220 218 L 220 242" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="240" y="234" font-size="10" fill="#666">计算（只读 shared）</text>
+
+  <g filter="url(#sk)">
+    <rect x="120" y="250" width="280" height="60" rx="8" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.5"/>
+  </g>
+  <text x="260" y="274" text-anchor="middle" font-size="12" fill="#4a8e4a" font-weight="bold">每线程算一个 y[i]</text>
+  <text x="260" y="294" text-anchor="middle" font-family="monospace" font-size="11" fill="#2b2b2b">acc = Σ s_x[tid+j] · c_kernel[j]</text>
+
+  <!-- 输出 -->
+  <path d="M 260 312 L 260 336" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="40" y="356" font-size="12" fill="#888" font-weight="bold">Global y[N]</text>
+  <g filter="url(#sk)">
+    <rect x="160" y="344" width="40" height="28" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="200" y="344" width="40" height="28" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="240" y="344" width="40" height="28" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="280" y="344" width="40" height="28" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="240" y="362" text-anchor="middle" font-size="10" fill="#4a8e4a" font-weight="bold">写回</text>
+
+  <!-- 右侧收益 -->
+  <g filter="url(#sk)">
+    <rect x="460" y="100" width="290" height="200" rx="10" fill="#fffdf3" stroke="#9e9e9e" stroke-width="1.4" stroke-dasharray="5,3"/>
+  </g>
+  <text x="605" y="126" text-anchor="middle" font-size="13" fill="#2b2b2b" font-weight="bold">关键收益</text>
+  <text x="480" y="152" font-size="11" fill="#4a8e4a" font-weight="bold">✓ 消除重复全局读</text>
+  <text x="480" y="170" font-size="10" fill="#666">相邻输出共享 K-1 个输入，shared 只读一次</text>
+  <text x="480" y="196" font-size="11" fill="#4a8e4a" font-weight="bold">✓ halo 一次加载</text>
+  <text x="480" y="214" font-size="10" fill="#666">左右各 half 个边界元素一并搬入</text>
+  <text x="480" y="240" font-size="11" fill="#4a8e4a" font-weight="bold">✓ constant 内存存 kernel</text>
+  <text x="480" y="258" font-size="10" fill="#666">小且广播访问，有缓存收益</text>
+  <text x="480" y="284" font-size="11" fill="#c98a2b" font-weight="bold">⚠ memory-bound</text>
+  <text x="480" y="300" font-size="10" fill="#666">AI ≈ 0.6 FLOP/Byte &lt;&lt; Ridge 12.6</text>
+
+  <text x="390" y="408" text-anchor="middle" font-size="11" fill="#888">1D halo → 2D（四方向 halo）/ 3D（六方向 halo）同构扩展</text>
+  <text x="390" y="426" text-anchor="middle" font-size="11" fill="#c98a2b" font-weight="bold">8 周收官题：检验最扎实的 shared memory 基本功</text>
+</svg>
