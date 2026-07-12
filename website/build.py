@@ -22,6 +22,10 @@ def escape_for_template_string(text: str) -> str:
     text = text.replace("\\", "\\\\")
     text = text.replace("`", "\\`")
     text = text.replace("${", "\\${")
+    # Escape closing </script> so that any inline <script> tags inside the
+    # markdown (e.g. the random-problem picker) do not prematurely close the
+    # outer <script> element that holds the markdown template literal.
+    text = text.replace("</script>", "\\x3c/script>")
     return text
 
 
