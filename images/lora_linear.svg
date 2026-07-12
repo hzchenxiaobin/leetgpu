@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="360" viewBox="0 0 720 360">
+  <rect width="720" height="360" fill="#1a1a2e" rx="12"/>
+  <text x="360" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#e0e0e0">LoRA Linear：低秩适配</text>
+  <text x="360" y="60" text-anchor="middle" font-size="13" fill="#aaa">y = (W₀ + ΔW) · x = W₀·x + B·A·x / r</text>
+
+  <!-- input x -->
+  <rect x="60" y="150" width="50" height="50" fill="#4fc3f7" stroke="#0277bd" rx="4"/>
+  <text x="85" y="180" text-anchor="middle" font-size="16" font-weight="bold" fill="#1a237e">x</text>
+
+  <!-- W0 path -->
+  <line x1="110" y1="160" x2="180" y2="120" stroke="#ff7043" stroke-width="3" marker-end="url(#arrow-w0)"/>
+  <rect x="185" y="95" width="80" height="50" fill="#ff7043" stroke="#d84315" rx="4"/>
+  <text x="225" y="125" text-anchor="middle" font-size="14" font-weight="bold" fill="#fff">W₀</text>
+  <text x="225" y="145" text-anchor="middle" font-size="11" fill="#fff">冻结</text>
+
+  <!-- A path -->
+  <line x1="110" y1="190" x2="180" y2="240" stroke="#81c784" stroke-width="3" marker-end="url(#arrow-a)"/>
+  <rect x="185" y="230" width="50" height="40" fill="#81c784" stroke="#2e7d32" rx="4"/>
+  <text x="210" y="255" text-anchor="middle" font-size="14" font-weight="bold" fill="#1b5e20">A</text>
+  <text x="210" y="285" text-anchor="middle" font-size="11" fill="#aaa">d × r</text>
+
+  <line x1="235" y1="250" x2="290" y2="250" stroke="#81c784" stroke-width="3" marker-end="url(#arrow-b)"/>
+  <rect x="295" y="230" width="50" height="40" fill="#81c784" stroke="#2e7d32" rx="4"/>
+  <text x="320" y="255" text-anchor="middle" font-size="14" font-weight="bold" fill="#1b5e20">B</text>
+  <text x="320" y="285" text-anchor="middle" font-size="11" fill="#aaa">r × d</text>
+
+  <!-- merge -->
+  <line x1="265" y1="120" x2="420" y2="165" stroke="#ff7043" stroke-width="3"/>
+  <line x1="345" y1="250" x2="420" y2="185" stroke="#81c784" stroke-width="3"/>
+
+  <circle cx="430" cy="175" r="30" fill="#ffd54f" stroke="#f9a825" stroke-width="2"/>
+  <text x="430" y="181" text-anchor="middle" font-size="18" font-weight="bold" fill="#5d4037">+</text>
+
+  <!-- output -->
+  <line x1="460" y1="175" x2="530" y2="175" stroke="#ba68c8" stroke-width="3" marker-end="url(#arrow-out)"/>
+  <rect x="535" y="150" width="50" height="50" fill="#ba68c8" stroke="#8e24aa" rx="4"/>
+  <text x="560" y="180" text-anchor="middle" font-size="16" font-weight="bold" fill="#fff">y</text>
+
+  <!-- params count -->
+  <text x="360" y="330" text-anchor="middle" font-size="13" fill="#aaa">可训练参数量从 d×d 降到 2×d×r（r 通常 4-64）</text>
+
+  <defs>
+    <marker id="arrow-w0" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#ff7043"/>
+    </marker>
+    <marker id="arrow-a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#81c784"/>
+    </marker>
+    <marker id="arrow-b" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#81c784"/>
+    </marker>
+    <marker id="arrow-out" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#ba68c8"/>
+    </marker>
+  </defs>
+</svg>
