@@ -274,6 +274,62 @@ def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
 
     overview_markdown = ""
 
+    # Random problem picker data (deduplicated by slug)
+    import json
+    unique_solutions = []
+    seen_slugs = set()
+    for s in solutions:
+        if s["slug"] not in seen_slugs:
+            seen_slugs.add(s["slug"])
+            unique_solutions.append(s)
+    problems_json = json.dumps(
+        [{"title": s["display_title"], "url": f"./{s['slug']}.html"} for s in unique_solutions],
+        ensure_ascii=False,
+    )
+
+    overview_markdown += f"""<div class="random-pick">
+  <button class="random-btn" onclick="pickRandomLeetGPU()">🎲 随机选一道题练习</button>
+  <span id="random-pick-label" class="random-pick-label"></span>
+</div>
+<style>
+.random-pick {{
+  margin: 1rem 0 1.5rem;
+  padding: 1rem;
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}}
+.random-btn {{
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}}
+.random-btn:hover {{ background: #1d4ed8; }}
+.random-pick-label {{
+  color: #9ca3af;
+  font-size: 0.95rem;
+}}
+</style>
+<script>
+const LEETGPU_PROBLEMS = {problems_json};
+function pickRandomLeetGPU() {{
+  const p = LEETGPU_PROBLEMS[Math.floor(Math.random() * LEETGPU_PROBLEMS.length)];
+  document.getElementById('random-pick-label').textContent = '即将跳转：' + p.title;
+  window.location.href = p.url;
+}}
+</script>
+
+"""
+
     # Group by week for a LeetCode-style list overview
     weekly_groups: Dict[str, Dict[str, List[Dict]]] = {}
     for s in solutions:
