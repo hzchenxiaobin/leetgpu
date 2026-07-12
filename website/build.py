@@ -286,14 +286,20 @@ def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
         if s["slug"] not in seen_slugs:
             seen_slugs.add(s["slug"])
             unique_solutions.append(s)
+    def _challenge_slug(solution_slug: str) -> str:
+        prefix = "leetgpu-"
+        suffix = "-solution"
+        if solution_slug.startswith(prefix) and solution_slug.endswith(suffix):
+            return solution_slug[len(prefix):-len(suffix)]
+        return solution_slug
+
     problems_json = json.dumps(
-        [{"title": s["display_title"], "url": f"./{s['slug']}.html"} for s in unique_solutions],
+        [{"title": s["display_title"], "slug": _challenge_slug(s["slug"])} for s in unique_solutions],
         ensure_ascii=False,
     )
 
     overview_markdown += f"""<div class="random-pick">
-  <button class="random-btn" onclick="pickRandomLeetGPU()">🎲 随机选一道题练习</button>
-  <span id="random-pick-label" class="random-pick-label"></span>
+  <button id="random-pick-btn" class="random-btn" data-problems='{problems_json}'>🎲 随机选一道题练习</button>
 </div>
 <style>
 .random-pick {{
@@ -318,19 +324,7 @@ def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
   transition: background 0.2s;
 }}
 .random-btn:hover {{ background: #1d4ed8; }}
-.random-pick-label {{
-  color: #9ca3af;
-  font-size: 0.95rem;
-}}
 </style>
-<script>
-const LEETGPU_PROBLEMS = {problems_json};
-function pickRandomLeetGPU() {{
-  const p = LEETGPU_PROBLEMS[Math.floor(Math.random() * LEETGPU_PROBLEMS.length)];
-  document.getElementById('random-pick-label').textContent = '即将跳转：' + p.title;
-  window.location.href = p.url;
-}}
-</script>
 
 """
 
