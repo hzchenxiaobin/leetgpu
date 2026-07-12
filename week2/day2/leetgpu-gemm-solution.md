@@ -153,14 +153,21 @@ __global__ void gemm_cuda_core(const half* __restrict__ A, const half* __restric
         }
         __syncthreads();
 
-// ---- ③ 每个 thread 算 TM×TN 个输出 ----
+// ---- ③ Register Blocking：每个 thread 算 TM×TN 个输出 ----
         #pragma unroll
         for (int k = 0; k < BK; ++k) {
+            float a[TM], b[TN];
+            #pragma unroll
+            for (int i = 0; i < TM; ++i)
+                a[i] = As[ty * TM + i][k];
+            #pragma unroll
+            for (int j = 0; j < TN; ++j)
+                b[j] = Bs[k][tx * TN + j];
             #pragma unroll
             for (int i = 0; i < TM; ++i) {
                 #pragma unroll
                 for (int j = 0; j < TN; ++j) {
-                    acc[i][j] += As[ty * TM + i][k] * Bs[k][tx * TN + j];
+                    acc[i][j] += a[i] * b[j];
                 }
             }
         }
