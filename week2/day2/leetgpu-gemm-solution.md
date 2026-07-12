@@ -166,11 +166,7 @@ __global__ void gemm_rb(const float* A, const float* B, float* C,
     const int load_per_thread_A = BM * BK / NUM_THREADS;    // 4
     const int load_per_thread_B = BK * BN / NUM_THREADS;    // 4
 
-    float acc[TM][TN];
-    #pragma unroll
-    for (int m = 0; m < TM; ++m)
-        #pragma unroll
-        for (int n = 0; n < TN; ++n) acc[m][n] = 0.0f;
+    float acc[TM][TN] = {};  // 比双重循环清零更简洁，编译效果相同
 
     // 沿 K 维滑动 BK 大小的 tile
     for (int bk = 0; bk < K; bk += BK) {
