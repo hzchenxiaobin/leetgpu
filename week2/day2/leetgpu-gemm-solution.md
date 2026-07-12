@@ -215,17 +215,23 @@ __global__ void gemm_wmma(const half* __restrict__ A, const half* __restrict__ B
     const int warp_col = warp_n * WARP_TILE_N; // 列起点
 
     // fp32 累加器：FRAGS_M×FRAGS_N 个 16×16 fragment
-    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> acc[FRAGS_M][FRAGS_N];
-#pragma unroll
-    for (int i = 0; i < FRAGS_M; ++i)
-#pragma unroll
-        for (int j = 0; j < FRAGS_N; ++j)
+    using AccFrag = wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float>;
+    AccFrag acc[FRAGS_M][FRAGS_N];
+
+    #pragma unroll
+    for (int i = 0; i < FRAGS_M; ++i) {
+        #pragma unroll
+        for (int j = 0; j < FRAGS_N; ++j) {
             wmma::fill_fragment(acc[i][j], 0.0f);
+        }
+    }
 
     // 沿 K 维滑动 BK=16 的 tile
+    using AFrag = wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major>;
+    using BFrag = wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major>;
     for (int bk = 0; bk < K; bk += BK) {
         // ---- ① 协作加载 As[BM][BK] ----
-#pragma unroll
+        #pragma unroll
         for (int i = 0; i < LOAD_A; ++i) {
             int lin = tid + i * NUM_THREADS;   // 0..2047
             int r = lin / BK, c = lin % BK;
@@ -233,7 +239,7 @@ __global__ void gemm_wmma(const half* __restrict__ A, const half* __restrict__ B
             As[r][c] = (ar < M && ac < K) ? A[ar * K + ac] : __float2half(0.0f);
         }
         // ---- ② 协作加载 Bs[BK][BN] ----
-#pragma unroll
+        #pragma unroll
         for (int i = 0; i < LOAD_B; ++i) {
             int lin = tid + i * NUM_THREADS;
             int r = lin / BN, c = lin % BN;
@@ -243,12 +249,12 @@ __global__ void gemm_wmma(const half* __restrict__ A, const half* __restrict__ B
         __syncthreads();
 
         // ---- ③ 每 warp 做 FRAGS_M×FRAGS_N 次 mma（Tensor Core）----
-#pragma unroll
+        #pragma unroll
         for (int i = 0; i < FRAGS_M; ++i) {
-#pragma unroll
+            #pragma unroll
             for (int j = 0; j < FRAGS_N; ++j) {
-                wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> a_frag;
-                wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> b_frag;
+                AFrag a_frag;
+                BFrag b_frag;
                 wmma::load_matrix_sync(a_frag, &As[warp_row + i * WMMA_M][0], BK);
                 wmma::load_matrix_sync(b_frag, &Bs[0][warp_col + j * WMMA_N], BN);
                 wmma::mma_sync(acc[i][j], a_frag, b_frag, acc[i][j]);
@@ -258,18 +264,21 @@ __global__ void gemm_wmma(const half* __restrict__ A, const half* __restrict__ B
     }
 
     // ---- ④ epilogue：累加器存入 shared staging（fp32）----
-#pragma unroll
-    for (int i = 0; i < FRAGS_M; ++i)
-#pragma unroll
-        for (int j = 0; j < FRAGS_N; ++j)
-            wmma::store_matrix_sync(&Cs[(warp_row + i * WMMA_M) * BN + (warp_col + j * WMMA_N)],
-                                    acc[i][j], BN, wmma::mem_row_major);
+    #pragma unroll
+    for (int i = 0; i < FRAGS_M; ++i) {
+        #pragma unroll
+        for (int j = 0; j < FRAGS_N; ++j) {
+            wmma::store_matrix_sync(
+                &Cs[(warp_row + i * WMMA_M) * BN + (warp_col + j * WMMA_N)],
+                acc[i][j], BN, wmma::mem_row_major);
+        }
+    }
     __syncthreads();
 
     // ---- ⑤ 写回 C：alpha*acc + beta*C_initial -> half ----
     // 256 threads 覆盖 128×128 = 16384 元素，每 thread 64 个
     const int total = BM * BN;
-#pragma unroll
+    #pragma unroll
     for (int i = 0; i < total / NUM_THREADS; ++i) {
         int idx = tid + i * NUM_THREADS;
         int r = idx / BN, c = idx % BN;
