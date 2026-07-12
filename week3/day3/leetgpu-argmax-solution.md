@@ -63,7 +63,8 @@ __global__ void argmax_kernel(const float* input, int* output, int N) {
     __shared__ ValIdx warp_results[32];
     int warp_id = tid / 32;
     int lane = tid % 32;
-    if (lane == 0) warp_results[warp_id] = local;
+    if (lane == 0)
+        warp_results[warp_id] = local;
     __syncthreads();
 
     if (warp_id == 0) {
@@ -71,7 +72,7 @@ __global__ void argmax_kernel(const float* input, int* output, int N) {
         local = (lane < num_warps) ? warp_results[lane] : ValIdx{-1e30f, -1};
         local = warp_reduce_argmax(local);
         if (lane == 0) {
-            atomicMax(output, local.idx);  // 简化：用 atomic（实际需要 atomicCAS 处理平局）
+            atomicMax(output, local.idx); // 简化：用 atomic（实际需要 atomicCAS 处理平局）
         }
     }
 }

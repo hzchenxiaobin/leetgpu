@@ -36,7 +36,8 @@ __inline__ __device__ float warpReduceSum(float val) {
 
 __global__ void softmax_kernel(const float* input, float* output, int M, int N) {
     int row = blockIdx.x;
-    if (row >= M) return;
+    if (row >= M)
+        return;
 
     const float* in_row = input + row * N;
     float* out_row = output + row * N;
@@ -47,7 +48,8 @@ __global__ void softmax_kernel(const float* input, float* output, int M, int N) 
         max_val = fmaxf(max_val, in_row[i]);
     // block reduce max via shared memory
     __shared__ float s_max;
-    if (threadIdx.x == 0) s_max = -1e30f;
+    if (threadIdx.x == 0)
+        s_max = -1e30f;
     __syncthreads();
     atomicMax((int*)&s_max, __float_as_int(max_val));
     __syncthreads();
@@ -61,7 +63,8 @@ __global__ void softmax_kernel(const float* input, float* output, int M, int N) 
         sum += e;
     }
     __shared__ float s_sum;
-    if (threadIdx.x == 0) s_sum = 0.0f;
+    if (threadIdx.x == 0)
+        s_sum = 0.0f;
     __syncthreads();
     atomicAdd(&s_sum, sum);
     __syncthreads();

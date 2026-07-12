@@ -34,7 +34,8 @@ for (int i = 0; i < N; i++)
 ```cuda
 __global__ void naive_scalar_multiply(const float* input, float* output, float alpha, int N) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < N) output[i] = input[i] * alpha;
+    if (i < N)
+        output[i] = input[i] * alpha;
 }
 ```
 
@@ -68,7 +69,10 @@ float4* out4 = (float4*)output;
 int idx = blockIdx.x * blockDim.x + threadIdx.x;
 if (idx < N / 4) {
     float4 v = in4[idx];
-    v.x *= alpha; v.y *= alpha; v.z *= alpha; v.w *= alpha;
+    v.x *= alpha;
+    v.y *= alpha;
+    v.z *= alpha;
+    v.w *= alpha;
     out4[idx] = v;
 }
 ```
@@ -102,23 +106,24 @@ extern "C" void solve(const float* input, float* output, float alpha, int N) {
 
 ```cuda
 // scalar_multiply_full.cu —— 含验证和带宽测量
-#include <cstdio>
-#include <cstdlib>
-#include <cmath>
-#include <cuda_runtime.h>
+    #include <cstdio>
+    #include <cstdlib>
+    #include <cmath>
+    #include <cuda_runtime.h>
 
-#define CHECK_CUDA(call) do {                                              \
-    cudaError_t e = (call);                                                \
-    if (e != cudaSuccess) {                                                \
-        fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__,      \
-                cudaGetErrorString(e));                                     \
-        exit(EXIT_FAILURE);                                                \
-    }                                                                      \
-} while (0)
+    #define CHECK_CUDA(call)                                                                                               \
+    do {                                                                                                               \
+        cudaError_t e = (call);                                                                                        \
+        if (e != cudaSuccess) {                                                                                        \
+            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
+            exit(EXIT_FAILURE);                                                                                        \
+        }                                                                                                              \
+    } while (0)
 
 __global__ void scalar_multiply_kernel(const float* input, float* output, float alpha, int N) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < N) output[i] = input[i] * alpha;
+    if (i < N)
+        output[i] = input[i] * alpha;
 }
 
 int main(int argc, char** argv) {
@@ -127,10 +132,11 @@ int main(int argc, char** argv) {
     size_t bytes = (size_t)N * sizeof(float);
     printf("N = %d  (%.1f MB), alpha = %f\n", N, bytes / 1e6, alpha);
 
-    float *hIn = (float*)malloc(bytes);
-    float *hOut = (float*)malloc(bytes);
+    float* hIn = (float*)malloc(bytes);
+    float* hOut = (float*)malloc(bytes);
     srand(42);
-    for (int i = 0; i < N; i++) hIn[i] = (float)(rand() % 1000) / 10.0f;
+    for (int i = 0; i < N; i++)
+        hIn[i] = (float)(rand() % 1000) / 10.0f;
 
     float *dIn, *dOut;
     CHECK_CUDA(cudaMalloc(&dIn, bytes));
@@ -159,14 +165,16 @@ int main(int argc, char** argv) {
     for (int i = 0; i < N; i++) {
         if (fabsf(hOut[i] - hIn[i] * alpha) > 1e-5f) {
             printf("FAIL at i=%d\n", i);
-            fail = 1; break;
+            fail = 1;
+            break;
         }
     }
     printf("%s\n", fail ? "FAIL" : "PASS");
 
     CHECK_CUDA(cudaFree(dIn));
     CHECK_CUDA(cudaFree(dOut));
-    free(hIn); free(hOut);
+    free(hIn);
+    free(hOut);
     return 0;
 }
 ```

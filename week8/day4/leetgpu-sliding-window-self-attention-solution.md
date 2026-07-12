@@ -37,8 +37,7 @@ O[i] = Σ_j P[i][j] · V[j]
 ### CPU 串行
 
 ```cpp
-void cpu_sliding_window_attention(const float* Q, const float* K, const float* V,
-                                  float* O, int N, int d, int W) {
+void cpu_sliding_window_attention(const float* Q, const float* K, const float* V, float* O, int N, int d, int W) {
     float scale = 1.0f / sqrtf((float)d);
     for (int i = 0; i < N; i++) {
         int win_start = max(0, i - W + 1);
@@ -47,7 +46,8 @@ void cpu_sliding_window_attention(const float* Q, const float* K, const float* V
         float max_val = -1e30f;
         for (int j = win_start; j <= i; j++) {
             float s = 0.0f;
-            for (int k = 0; k < d; k++) s += Q[i*d+k] * K[j*d+k];
+            for (int k = 0; k < d; k++)
+                s += Q[i * d + k] * K[j * d + k];
             s *= scale;
             max_val = fmaxf(max_val, s);
         }
@@ -55,18 +55,22 @@ void cpu_sliding_window_attention(const float* Q, const float* K, const float* V
         float sum = 0.0f;
         for (int j = win_start; j <= i; j++) {
             float s = 0.0f;
-            for (int k = 0; k < d; k++) s += Q[i*d+k] * K[j*d+k];
+            for (int k = 0; k < d; k++)
+                s += Q[i * d + k] * K[j * d + k];
             s *= scale;
             sum += expf(s - max_val);
         }
 
-        for (int k = 0; k < d; k++) O[i*d+k] = 0.0f;
+        for (int k = 0; k < d; k++)
+            O[i * d + k] = 0.0f;
         for (int j = win_start; j <= i; j++) {
             float s = 0.0f;
-            for (int k = 0; k < d; k++) s += Q[i*d+k] * K[j*d+k];
+            for (int k = 0; k < d; k++)
+                s += Q[i * d + k] * K[j * d + k];
             s *= scale;
             float p = expf(s - max_val) / sum;
-            for (int k = 0; k < d; k++) O[i*d+k] += p * V[j*d+k];
+            for (int k = 0; k < d; k++)
+                O[i * d + k] += p * V[j * d + k];
         }
     }
 }
@@ -75,10 +79,11 @@ void cpu_sliding_window_attention(const float* Q, const float* K, const float* V
 ### 朴素 GPU：每个 thread 算一个 query 的完整窗口
 
 ```cuda
-__global__ void sliding_window_attn_naive(const float* Q, const float* K, const float* V,
-                                          float* O, int N, int d, int W) {
+__global__ void sliding_window_attn_naive(const float* Q, const float* K, const float* V, float* O, int N, int d,
+                                          int W) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= N) return;
+    if (i >= N)
+        return;
 
     float scale = 1.0f / sqrtf((float)d);
     int win_start = max(0, i - W + 1);
@@ -86,23 +91,28 @@ __global__ void sliding_window_attn_naive(const float* Q, const float* K, const 
     float max_val = -1e30f;
     for (int j = win_start; j <= i; j++) {
         float s = 0.0f;
-        for (int k = 0; k < d; k++) s += Q[i*d+k] * K[j*d+k];
+        for (int k = 0; k < d; k++)
+            s += Q[i * d + k] * K[j * d + k];
         max_val = fmaxf(max_val, s * scale);
     }
 
     float sum = 0.0f;
     for (int j = win_start; j <= i; j++) {
         float s = 0.0f;
-        for (int k = 0; k < d; k++) s += Q[i*d+k] * K[j*d+k];
+        for (int k = 0; k < d; k++)
+            s += Q[i * d + k] * K[j * d + k];
         sum += expf(s * scale - max_val);
     }
 
-    for (int k = 0; k < d; k++) O[i*d+k] = 0.0f;
+    for (int k = 0; k < d; k++)
+        O[i * d + k] = 0.0f;
     for (int j = win_start; j <= i; j++) {
         float s = 0.0f;
-        for (int k = 0; k < d; k++) s += Q[i*d+k] * K[j*d+k];
+        for (int k = 0; k < d; k++)
+            s += Q[i * d + k] * K[j * d + k];
         float p = expf(s * scale - max_val) / sum;
-        for (int k = 0; k < d; k++) O[i*d+k] += p * V[j*d+k];
+        for (int k = 0; k < d; k++)
+            O[i * d + k] += p * V[j * d + k];
     }
 }
 ```
@@ -159,25 +169,28 @@ __global__ void sliding_window_attn_naive(const float* Q, const float* K, const 
 
 #define BLOCK 256
 
-__global__ void sliding_window_attention_kernel(const float* Q, const float* K, const float* V,
-                                                float* O, int N, int d, int W) {
+__global__ void sliding_window_attention_kernel(const float* Q, const float* K, const float* V, float* O, int N, int d,
+                                                int W) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= N) return;
+    if (i >= N)
+        return;
 
     float scale = 1.0f / sqrtf((float)d);
     int win_start = max(0, i - W + 1);
 
     // 把当前 Q[i] 读到 register
-    extern __shared__ float s_q[];  // 可选：block 内共享当前 tile 的 Q
+    extern __shared__ float s_q[]; // 可选：block 内共享当前 tile 的 Q
     // 简化版：直接用 register
-    float q[64];  // 假设 d <= 64
-    for (int k = 0; k < d; k++) q[k] = Q[i * d + k];
+    float q[64]; // 假设 d <= 64
+    for (int k = 0; k < d; k++)
+        q[k] = Q[i * d + k];
 
     // 第一遍：求窗口内 max score
     float m = -1e30f;
     for (int j = win_start; j <= i; j++) {
         float s = 0.0f;
-        for (int k = 0; k < d; k++) s += q[k] * K[j * d + k];
+        for (int k = 0; k < d; k++)
+            s += q[k] * K[j * d + k];
         m = fmaxf(m, s * scale);
     }
 
@@ -185,17 +198,21 @@ __global__ void sliding_window_attention_kernel(const float* Q, const float* K, 
     float l = 0.0f;
     for (int j = win_start; j <= i; j++) {
         float s = 0.0f;
-        for (int k = 0; k < d; k++) s += q[k] * K[j * d + k];
+        for (int k = 0; k < d; k++)
+            s += q[k] * K[j * d + k];
         l += expf(s * scale - m);
     }
 
     // 第三遍：加权 V 得到输出
-    for (int k = 0; k < d; k++) O[i * d + k] = 0.0f;
+    for (int k = 0; k < d; k++)
+        O[i * d + k] = 0.0f;
     for (int j = win_start; j <= i; j++) {
         float s = 0.0f;
-        for (int k = 0; k < d; k++) s += q[k] * K[j * d + k];
+        for (int k = 0; k < d; k++)
+            s += q[k] * K[j * d + k];
         float p = expf(s * scale - m) / l;
-        for (int k = 0; k < d; k++) O[i * d + k] += p * V[j * d + k];
+        for (int k = 0; k < d; k++)
+            O[i * d + k] += p * V[j * d + k];
     }
 }
 
@@ -204,13 +221,18 @@ int main() {
     size_t bytes = (size_t)N * d * sizeof(float);
     std::vector<float> h_Q(N * d), h_K(N * d), h_V(N * d), h_O(N * d), h_O_CPU(N * d);
     srand(42);
-    for (auto& x : h_Q) x = (rand() % 200 - 100) / 50.0f;
-    for (auto& x : h_K) x = (rand() % 200 - 100) / 50.0f;
-    for (auto& x : h_V) x = (rand() % 200 - 100) / 50.0f;
+    for (auto& x : h_Q)
+        x = (rand() % 200 - 100) / 50.0f;
+    for (auto& x : h_K)
+        x = (rand() % 200 - 100) / 50.0f;
+    for (auto& x : h_V)
+        x = (rand() % 200 - 100) / 50.0f;
 
     float *d_Q, *d_K, *d_V, *d_O;
-    cudaMalloc(&d_Q, bytes); cudaMalloc(&d_K, bytes);
-    cudaMalloc(&d_V, bytes); cudaMalloc(&d_O, bytes);
+    cudaMalloc(&d_Q, bytes);
+    cudaMalloc(&d_K, bytes);
+    cudaMalloc(&d_V, bytes);
+    cudaMalloc(&d_O, bytes);
     cudaMemcpy(d_Q, h_Q.data(), bytes, cudaMemcpyHostToDevice);
     cudaMemcpy(d_K, h_K.data(), bytes, cudaMemcpyHostToDevice);
     cudaMemcpy(d_V, h_V.data(), bytes, cudaMemcpyHostToDevice);
@@ -226,30 +248,41 @@ int main() {
         float m = -1e30f;
         for (int j = win_start; j <= i; j++) {
             float s = 0.0f;
-            for (int k = 0; k < d; k++) s += h_Q[i*d+k] * h_K[j*d+k];
+            for (int k = 0; k < d; k++)
+                s += h_Q[i * d + k] * h_K[j * d + k];
             m = fmaxf(m, s * scale);
         }
         float l = 0.0f;
         for (int j = win_start; j <= i; j++) {
             float s = 0.0f;
-            for (int k = 0; k < d; k++) s += h_Q[i*d+k] * h_K[j*d+k];
+            for (int k = 0; k < d; k++)
+                s += h_Q[i * d + k] * h_K[j * d + k];
             l += expf(s * scale - m);
         }
-        for (int k = 0; k < d; k++) h_O_CPU[i*d+k] = 0.0f;
+        for (int k = 0; k < d; k++)
+            h_O_CPU[i * d + k] = 0.0f;
         for (int j = win_start; j <= i; j++) {
             float s = 0.0f;
-            for (int k = 0; k < d; k++) s += h_Q[i*d+k] * h_K[j*d+k];
+            for (int k = 0; k < d; k++)
+                s += h_Q[i * d + k] * h_K[j * d + k];
             float p = expf(s * scale - m) / l;
-            for (int k = 0; k < d; k++) h_O_CPU[i*d+k] += p * h_V[j*d+k];
+            for (int k = 0; k < d; k++)
+                h_O_CPU[i * d + k] += p * h_V[j * d + k];
         }
     }
 
     bool pass = true;
     for (int i = 0; i < N * d; i++)
-        if (fabsf(h_O[i] - h_O_CPU[i]) > 1e-3f) { pass = false; break; }
+        if (fabsf(h_O[i] - h_O_CPU[i]) > 1e-3f) {
+            pass = false;
+            break;
+        }
     printf("Sliding Window Attention N=%d d=%d W=%d: %s\n", N, d, W, pass ? "PASS" : "FAIL");
 
-    cudaFree(d_Q); cudaFree(d_K); cudaFree(d_V); cudaFree(d_O);
+    cudaFree(d_Q);
+    cudaFree(d_K);
+    cudaFree(d_V);
+    cudaFree(d_O);
     return 0;
 }
 ```

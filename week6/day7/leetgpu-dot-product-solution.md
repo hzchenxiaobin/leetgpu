@@ -27,7 +27,8 @@ result = 1×4 + 2×3 + 3×2 + 4×1 = 4+6+6+4 = 20
 ```cpp
 // 顺序累乘累加，O(N)
 float result = 0;
-for (int i = 0; i < N; i++) result += a[i] * b[i];
+for (int i = 0; i < N; i++)
+    result += a[i] * b[i];
 ```
 
 ### 朴素 GPU（单 thread 串行）
@@ -36,7 +37,8 @@ for (int i = 0; i < N; i++) result += a[i] * b[i];
 // 一个 thread 算完全部——无并行，比 CPU 还慢（有 launch 开销）
 __global__ void naive_dot(const float* a, const float* b, float* result, int N) {
     float sum = 0;
-    for (int i = 0; i < N; i++) sum += a[i] * b[i];
+    for (int i = 0; i < N; i++)
+        sum += a[i] * b[i];
     *result = sum;
 }
 ```
@@ -93,8 +95,7 @@ __device__ __forceinline__ float warp_reduce(float val) {
 }
 
 // block 内归约：每 thread 算一段乘积和 → warp 归约 → block 归约 → atomicAdd
-__global__ void dot_product_kernel(const float* a, const float* b,
-                                   float* result, int N) {
+__global__ void dot_product_kernel(const float* a, const float* b, float* result, int N) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int lane = threadIdx.x & (WARP - 1);
     int warp_id = threadIdx.x / WARP;
@@ -109,14 +110,16 @@ __global__ void dot_product_kernel(const float* a, const float* b,
 
     // warp 内归约
     sum = warp_reduce(sum);
-    if (lane == 0) warp_sums[warp_id] = sum;
+    if (lane == 0)
+        warp_sums[warp_id] = sum;
     __syncthreads();
 
     // 第一个 warp 归约 warp_sums
     if (warp_id == 0) {
         sum = (lane < blockDim.x / WARP) ? warp_sums[lane] : 0.0f;
         sum = warp_reduce(sum);
-        if (lane == 0) atomicAdd(result, sum);   // 跨 block 归约
+        if (lane == 0)
+            atomicAdd(result, sum); // 跨 block 归约
     }
 }
 
@@ -131,7 +134,9 @@ int main() {
     }
 
     float *d_a, *d_b, *d_result;
-    cudaMalloc(&d_a, bytes); cudaMalloc(&d_b, bytes); cudaMalloc(&d_result, sizeof(float));
+    cudaMalloc(&d_a, bytes);
+    cudaMalloc(&d_b, bytes);
+    cudaMalloc(&d_result, sizeof(float));
     cudaMemcpy(d_a, h_a.data(), bytes, cudaMemcpyHostToDevice);
     cudaMemcpy(d_b, h_b.data(), bytes, cudaMemcpyHostToDevice);
     float zero = 0.0f;
@@ -146,12 +151,15 @@ int main() {
 
     // CPU 验证
     float cpu_result = 0;
-    for (int i = 0; i < N; i++) cpu_result += h_a[i] * h_b[i];
+    for (int i = 0; i < N; i++)
+        cpu_result += h_a[i] * h_b[i];
 
     printf("GPU: %.4f, CPU: %.4f, %s\n", gpu_result, cpu_result,
            fabs(gpu_result - cpu_result) < 1e-2 ? "PASS" : "FAIL");
 
-    cudaFree(d_a); cudaFree(d_b); cudaFree(d_result);
+    cudaFree(d_a);
+    cudaFree(d_b);
+    cudaFree(d_result);
     return 0;
 }
 ```

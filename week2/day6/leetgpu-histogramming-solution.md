@@ -34,7 +34,7 @@
 void histogram_cpu(const int* input, int* hist, int N, int B) {
     memset(hist, 0, B * sizeof(int));
     for (int i = 0; i < N; ++i) {
-        hist[input[i]]++;          // 顺序访问，无竞争
+        hist[input[i]]++; // 顺序访问，无竞争
     }
 }
 ```
@@ -49,7 +49,7 @@ void histogram_cpu(const int* input, int* hist, int N, int B) {
 __global__ void histogram_naive(const int* input, int* hist, int N, int B) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < N) {
-        atomicAdd(&hist[input[i]], 1);   // ← 所有线程抢 256 个 global 地址！
+        atomicAdd(&hist[input[i]], 1); // ← 所有线程抢 256 个 global 地址！
     }
 }
 ```
@@ -101,22 +101,22 @@ __global__ void histogram_naive(const int* input, int* hist, int N, int B) {
 // 编译命令: nvcc -O3 -arch=sm_120 histogram_privatized.cu -o histogram
 // 运行:     ./histogram 10000000 256
 
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <cuda_runtime.h>
+    #include <cstdio>
+    #include <cstdlib>
+    #include <cstring>
+    #include <cuda_runtime.h>
 
-#define CHECK_CUDA(call) do {                                              \
-    cudaError_t e = (call);                                                \
-    if (e != cudaSuccess) {                                                \
-        fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__,      \
-                cudaGetErrorString(e));                                     \
-        exit(EXIT_FAILURE);                                                \
-    }                                                                      \
-} while (0)
+    #define CHECK_CUDA(call)                                                                                               \
+    do {                                                                                                               \
+        cudaError_t e = (call);                                                                                        \
+        if (e != cudaSuccess) {                                                                                        \
+            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
+            exit(EXIT_FAILURE);                                                                                        \
+        }                                                                                                              \
+    } while (0)
 
 #define BLOCK_SIZE 256
-#define NUM_BINS   256
+#define NUM_BINS 256
 
 // 朴素版：所有线程 atomicAdd 到 global histogram（剧烈竞争，用于对比基准）
 __global__ void histogram_naive(const int* input, int* hist, int N, int B) {
@@ -142,12 +142,12 @@ __global__ void histogram_privatized(const int* input, int* hist, int N, int B) 
     __syncthreads();
 
     // ② grid-stride 读输入，atomicAdd 到 shared（block 内竞争远小于 global）
-    int gid   = blockIdx.x * blockDim.x + tid;
+    int gid = blockIdx.x * blockDim.x + tid;
     int stride = gridDim.x * blockDim.x;
     for (int i = gid; i < N; i += stride) {
         int bin = input[i];
         if (bin >= 0 && bin < B) {
-            atomicAdd(&shared_hist[bin], 1);   // shared atomic，低延迟
+            atomicAdd(&shared_hist[bin], 1); // shared atomic，低延迟
         }
     }
     __syncthreads();
@@ -168,10 +168,10 @@ int main(int argc, char** argv) {
     printf("N = %d, B = %d  (%.1f MB input)\n", N, B, bytes / 1e6);
 
     // ---- host 端 ----
-    int *hIn = (int*)malloc(bytes);
+    int* hIn = (int*)malloc(bytes);
     srand(42);
     for (int i = 0; i < N; ++i) {
-        hIn[i] = rand() % B;   // 值域 [0, B)
+        hIn[i] = rand() % B; // 值域 [0, B)
     }
 
     // ---- device 端 ----
@@ -182,7 +182,7 @@ int main(int argc, char** argv) {
 
     int num_sm;
     CHECK_CUDA(cudaDeviceGetAttribute(&num_sm, cudaDevAttrMultiProcessorCount, 0));
-    int blocks = num_sm * 4;    // 经验值，保证 wave 充足
+    int blocks = num_sm * 4; // 经验值，保证 wave 充足
     printf("blocks = %d, threads/block = %d\n", blocks, BLOCK_SIZE);
 
     cudaEvent_t t0, t1;
@@ -199,18 +199,20 @@ int main(int argc, char** argv) {
     cudaEventElapsedTime(&ms_priv, t0, t1);
 
     // ---- CPU 验证 ----
-    int *hHist = (int*)malloc(B * sizeof(int));
+    int* hHist = (int*)malloc(B * sizeof(int));
     CHECK_CUDA(cudaMemcpy(hHist, dHist, B * sizeof(int), cudaMemcpyDeviceToHost));
-    int *ref = (int*)calloc(B, sizeof(int));
-    for (int i = 0; i < N; ++i) ref[hIn[i]]++;
+    int* ref = (int*)calloc(B, sizeof(int));
+    for (int i = 0; i < N; ++i)
+        ref[hIn[i]]++;
     int max_err = 0;
     for (int b = 0; b < B; ++b) {
         int d = hHist[b] - ref[b];
-        if (d < 0) d = -d;
-        if (d > max_err) max_err = d;
+        if (d < 0)
+            d = -d;
+        if (d > max_err)
+            max_err = d;
     }
-    printf("[privatized] time: %.3f ms  max_err: %d  %s\n",
-           ms_priv, max_err, max_err == 0 ? "PASS" : "FAIL");
+    printf("[privatized] time: %.3f ms  max_err: %d  %s\n", ms_priv, max_err, max_err == 0 ? "PASS" : "FAIL");
 
     // ---- 朴素版对比 ----
     CHECK_CUDA(cudaMemset(dHist, 0, B * sizeof(int)));
@@ -224,12 +226,13 @@ int main(int argc, char** argv) {
     max_err = 0;
     for (int b = 0; b < B; ++b) {
         int d = hHist[b] - ref[b];
-        if (d < 0) d = -d;
-        if (d > max_err) max_err = d;
+        if (d < 0)
+            d = -d;
+        if (d > max_err)
+            max_err = d;
     }
-    printf("[naive]       time: %.3f ms  max_err: %d  %s  speedup: %.2fx\n",
-           ms_naive, max_err, max_err == 0 ? "PASS" : "FAIL",
-           ms_naive / ms_priv);
+    printf("[naive]       time: %.3f ms  max_err: %d  %s  speedup: %.2fx\n", ms_naive, max_err,
+           max_err == 0 ? "PASS" : "FAIL", ms_naive / ms_priv);
 
     // ---- 带宽估算（只算读 input 的量）----
     float bw_gbs = (bytes / 1e9) / (ms_priv / 1e3);
@@ -237,7 +240,9 @@ int main(int argc, char** argv) {
 
     CHECK_CUDA(cudaFree(dIn));
     CHECK_CUDA(cudaFree(dHist));
-    free(hIn); free(hHist); free(ref);
+    free(hIn);
+    free(hHist);
+    free(ref);
     return 0;
 }
 ```

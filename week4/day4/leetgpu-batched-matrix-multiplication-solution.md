@@ -31,7 +31,8 @@ for (int b = 0; b < batch; b++)
     for (int i = 0; i < M; i++)
         for (int j = 0; j < N; j++) {
             int sum = 0;
-            for (int k = 0; k < K; k++) sum += A[b][i][k] * B[b][k][j];
+            for (int k = 0; k < K; k++)
+                sum += A[b][i][k] * B[b][k][j];
             C[b][i][j] = sum;
         }
 ```
@@ -40,12 +41,12 @@ for (int b = 0; b < batch; b++)
 
 ```cuda
 // 每个 thread 算 C[b][i][j] 一个元素
-__global__ void naive_batched_matmul(const float* A, const float* B, float* C,
-                                     int batch, int M, int N, int K) {
+__global__ void naive_batched_matmul(const float* A, const float* B, float* C, int batch, int M, int N, int K) {
     int b = blockIdx.z;
-    int j = blockIdx.x * blockDim.x + threadIdx.x;   // N 维
-    int i = blockIdx.y * blockDim.y + threadIdx.y;   // M 维
-    if (b >= batch || i >= M || j >= N) return;
+    int j = blockIdx.x * blockDim.x + threadIdx.x; // N 维
+    int i = blockIdx.y * blockDim.y + threadIdx.y; // M 维
+    if (b >= batch || i >= M || j >= N)
+        return;
     float sum = 0;
     for (int k = 0; k < K; k++)
         sum += A[b * M * K + i * K + k] * B[b * K * N + k * N + j];
@@ -96,12 +97,12 @@ __global__ void naive_batched_matmul(const float* A, const float* B, float* C,
 
 // batched matmul：grid((N+TILE-1)/TILE, (M+TILE-1)/TILE, batch)
 // blockIdx.z = batch index, blockIdx.x/y = 输出 C[b] 的 tile 位置
-__global__ void batched_matmul_kernel(const float* A, const float* B, float* C,
-                                      int batch, int M, int N, int K) {
+__global__ void batched_matmul_kernel(const float* A, const float* B, float* C, int batch, int M, int N, int K) {
     int b = blockIdx.z;
-    int row = blockIdx.y * TILE + threadIdx.y;   // M 维
-    int col = blockIdx.x * TILE + threadIdx.x;   // N 维
-    if (b >= batch || row >= M || col >= N) return;
+    int row = blockIdx.y * TILE + threadIdx.y; // M 维
+    int col = blockIdx.x * TILE + threadIdx.x; // N 维
+    if (b >= batch || row >= M || col >= N)
+        return;
 
     // batch stride 寻址
     const float* A_b = A + b * M * K;
@@ -121,7 +122,7 @@ __global__ void batched_matmul_kernel(const float* A, const float* B, float* C,
         sB[threadIdx.y][threadIdx.x] = (b_row < K && col < N) ? B_b[b_row * N + col] : 0.0f;
         __syncthreads();
 
-        // tile 内累加
+// tile 内累加
         #pragma unroll
         for (int k = 0; k < TILE; k++)
             sum += sA[threadIdx.y][k] * sB[k][threadIdx.x];
@@ -138,11 +139,15 @@ int main() {
 
     std::vector<float> h_A(batch * M * K), h_B(batch * K * N), h_C(batch * M * N);
     srand(42);
-    for (auto& x : h_A) x = (rand() % 100) / 100.0f;
-    for (auto& x : h_B) x = (rand() % 100) / 100.0f;
+    for (auto& x : h_A)
+        x = (rand() % 100) / 100.0f;
+    for (auto& x : h_B)
+        x = (rand() % 100) / 100.0f;
 
     float *d_A, *d_B, *d_C;
-    cudaMalloc(&d_A, a_bytes); cudaMalloc(&d_B, b_bytes); cudaMalloc(&d_C, c_bytes);
+    cudaMalloc(&d_A, a_bytes);
+    cudaMalloc(&d_B, b_bytes);
+    cudaMalloc(&d_C, c_bytes);
     cudaMemcpy(d_A, h_A.data(), a_bytes, cudaMemcpyHostToDevice);
     cudaMemcpy(d_B, h_B.data(), b_bytes, cudaMemcpyHostToDevice);
 
@@ -159,12 +164,15 @@ int main() {
             for (int j = 0; j < N && pass; j++) {
                 float s = 0;
                 for (int k = 0; k < K; k++)
-                    s += h_A[b*M*K + i*K + k] * h_B[b*K*N + k*N + j];
-                if (fabs(s - h_C[b*M*N + i*N + j]) > 1e-3) pass = false;
+                    s += h_A[b * M * K + i * K + k] * h_B[b * K * N + k * N + j];
+                if (fabs(s - h_C[b * M * N + i * N + j]) > 1e-3)
+                    pass = false;
             }
     printf("batch=%d M=N=K=%d, %s\n", batch, M, pass ? "PASS" : "FAIL");
 
-    cudaFree(d_A); cudaFree(d_B); cudaFree(d_C);
+    cudaFree(d_A);
+    cudaFree(d_B);
+    cudaFree(d_C);
     return 0;
 }
 ```

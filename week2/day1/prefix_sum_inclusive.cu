@@ -9,8 +9,8 @@
 #include <cuda_runtime.h>
 
 #define BLOCK_SIZE 256
-#define WARP_SIZE  32
-#define NUM_WARPS  (BLOCK_SIZE / WARP_SIZE)   // 8
+#define WARP_SIZE 32
+#define NUM_WARPS (BLOCK_SIZE / WARP_SIZE) // 8
 
 // ============================================================
 // warp 内 inclusive scan：__shfl_up_sync，5 步蝶形
@@ -22,7 +22,7 @@ __inline__ __device__ float warp_inclusive_scan(float val) {
             val += n;
         }
     }
-    return val;   // lane i 持有本 warp 内 [0..i] 的前缀和
+    return val; // lane i 持有本 warp 内 [0..i] 的前缀和
 }
 
 // ============================================================
@@ -31,7 +31,7 @@ __inline__ __device__ float warp_inclusive_scan(float val) {
 // ============================================================
 __inline__ __device__ float block_inclusive_scan(float val, float* block_sum) {
     __shared__ float warp_sums[NUM_WARPS];
-    int lane   = threadIdx.x & (WARP_SIZE - 1);
+    int lane = threadIdx.x & (WARP_SIZE - 1);
     int warpId = threadIdx.x >> 5;
 
     // ① 每 warp 各自 inclusive scan
@@ -47,7 +47,8 @@ __inline__ __device__ float block_inclusive_scan(float val, float* block_sum) {
     if (warpId == 0) {
         float v = (lane < NUM_WARPS) ? warp_sums[lane] : 0.0f;
         v = warp_inclusive_scan(v);
-        if (lane < NUM_WARPS) warp_sums[lane] = v;
+        if (lane < NUM_WARPS)
+            warp_sums[lane] = v;
     }
     __syncthreads();
 
@@ -70,7 +71,7 @@ __inline__ __device__ float block_inclusive_scan(float val, float* block_sum) {
 // ============================================================
 __inline__ __device__ float block_exclusive_scan(float val, float* block_sum) {
     __shared__ float warp_sums[NUM_WARPS];
-    int lane   = threadIdx.x & (WARP_SIZE - 1);
+    int lane = threadIdx.x & (WARP_SIZE - 1);
     int warpId = threadIdx.x >> 5;
 
     float inclusive = warp_inclusive_scan(val);
@@ -83,7 +84,8 @@ __inline__ __device__ float block_exclusive_scan(float val, float* block_sum) {
     if (warpId == 0) {
         float v = (lane < NUM_WARPS) ? warp_sums[lane] : 0.0f;
         v = warp_inclusive_scan(v);
-        if (lane < NUM_WARPS) warp_sums[lane] = v;
+        if (lane < NUM_WARPS)
+            warp_sums[lane] = v;
     }
     __syncthreads();
 
@@ -99,26 +101,27 @@ __inline__ __device__ float block_exclusive_scan(float val, float* block_sum) {
 // ============================================================
 // 阶段一：每 block 对自己那段做 inclusive scan，结果存 output，总和写 block_sums
 // ============================================================
-__global__ void scan_block_kernel(const float* input, float* output,
-                                  float* block_sums, int N) {
+__global__ void scan_block_kernel(const float* input, float* output, float* block_sums, int N) {
     int tid = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     bool valid = (tid < N);
     float val = valid ? input[tid] : 0.0f;
     float inclusive = block_inclusive_scan(val, &block_sums[blockIdx.x]);
-    if (valid) output[tid] = inclusive;
+    if (valid)
+        output[tid] = inclusive;
 }
 
 // ============================================================
 // 阶段二：对 block_sums[] 做 exclusive prefix sum → block_offsets[]
 // 使用 grid-stride 迭代，支持 numBlocks > BLOCK_SIZE 的场景
 // ============================================================
-__global__ void scan_offsets_kernel(const float* block_sums,
-                                    float* block_offsets, int M) {
+__global__ void scan_offsets_kernel(const float* block_sums, float* block_offsets, int M) {
     __shared__ float s_chunk_total;
     __shared__ float s_running;
     int tid = threadIdx.x;
 
-    if (tid == 0) { s_running = 0.0f; }
+    if (tid == 0) {
+        s_running = 0.0f;
+    }
     __syncthreads();
 
     for (int chunk = 0; chunk < M; chunk += BLOCK_SIZE) {
@@ -132,7 +135,8 @@ __global__ void scan_offsets_kernel(const float* block_sums,
         }
 
         __syncthreads();
-        if (tid == 0) s_running += s_chunk_total;
+        if (tid == 0)
+            s_running += s_chunk_total;
         __syncthreads();
     }
 }
@@ -141,10 +145,10 @@ __global__ void scan_offsets_kernel(const float* block_sums,
 // 阶段三：每元素 = 阶段一的 inclusive + 本 block 全局偏移
 // 注意：不需要再读 input[tid]
 // ============================================================
-__global__ void add_offset_kernel(float* output,
-                                  const float* block_offsets, int N) {
+__global__ void add_offset_kernel(float* output, const float* block_offsets, int N) {
     int tid = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    if (tid >= N) return;
+    if (tid >= N)
+        return;
     output[tid] += block_offsets[blockIdx.x];
 }
 
@@ -152,13 +156,14 @@ __global__ void add_offset_kernel(float* output,
 // LeetGPU 平台入口
 // ============================================================
 extern "C" void solve(const float* input, float* output, int N) {
-    if (N <= 0) return;
+    if (N <= 0)
+        return;
 
     int numBlocks = (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
     float* block_sums;
     float* block_offsets;
-    cudaMalloc(&block_sums,    numBlocks * sizeof(float));
+    cudaMalloc(&block_sums, numBlocks * sizeof(float));
     cudaMalloc(&block_offsets, numBlocks * sizeof(float));
 
     scan_block_kernel<<<numBlocks, BLOCK_SIZE>>>(input, output, block_sums, N);

@@ -41,8 +41,8 @@ output[0] = [1,2,3,4]*cos + [-3,-4,1,2]*sin
 for (int m = 0; m < M; m++)
     for (int d = 0; d < D; d++) {
         int half = D / 2;
-        float rotated = (d < half) ? -Q[m*D + d + half] : Q[m*D + d - half];
-        output[m*D + d] = Q[m*D + d] * cos[m*D + d] + rotated * sin[m*D + d];
+        float rotated = (d < half) ? -Q[m * D + d + half] : Q[m * D + d - half];
+        output[m * D + d] = Q[m * D + d] * cos[m * D + d] + rotated * sin[m * D + d];
     }
 ```
 
@@ -51,14 +51,13 @@ for (int m = 0; m < M; m++)
 ### 朴素 GPU（一 thread 一元素）
 
 ```cuda
-__global__ void rope_naive(const float* Q, const float* cos, const float* sin,
-                           float* output, int M, int D) {
+__global__ void rope_naive(const float* Q, const float* cos, const float* sin, float* output, int M, int D) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int total = M * D;
     if (idx < total) {
         int m = idx / D, d = idx % D;
         int half = D / 2;
-        float rotated = (d < half) ? -Q[m*D + d + half] : Q[m*D + d - half];
+        float rotated = (d < half) ? -Q[m * D + d + half] : Q[m * D + d - half];
         output[idx] = Q[idx] * cos[idx] + rotated * sin[idx];
     }
 }
@@ -121,13 +120,10 @@ RoPE 通过这种旋转将位置信息编码到 Q/K 中，使得内积 `Q_m · K
 #define BLOCK_Y 8
 
 // grid-stride + 2D 映射：避免除法，coalesced 访存
-__global__ void rope_kernel(const float* Q, const float* cos, const float* sin,
-                            float* output, int M, int D) {
+__global__ void rope_kernel(const float* Q, const float* cos, const float* sin, float* output, int M, int D) {
     int half = D / 2;
-    for (int row = blockIdx.y * blockDim.y + threadIdx.y; row < M;
-         row += gridDim.y * blockDim.y) {
-        for (int col = blockIdx.x * blockDim.x + threadIdx.x; col < D;
-             col += gridDim.x * blockDim.x) {
+    for (int row = blockIdx.y * blockDim.y + threadIdx.y; row < M; row += gridDim.y * blockDim.y) {
+        for (int col = blockIdx.x * blockDim.x + threadIdx.x; col < D; col += gridDim.x * blockDim.x) {
             int idx = row * D + col;
             float q = Q[idx];
             // rotate_half: 前半取后半取反，后半取前半
@@ -149,8 +145,10 @@ int main() {
     }
 
     float *d_Q, *d_cos, *d_sin, *d_out;
-    cudaMalloc(&d_Q, bytes); cudaMalloc(&d_cos, bytes);
-    cudaMalloc(&d_sin, bytes); cudaMalloc(&d_out, bytes);
+    cudaMalloc(&d_Q, bytes);
+    cudaMalloc(&d_cos, bytes);
+    cudaMalloc(&d_sin, bytes);
+    cudaMalloc(&d_out, bytes);
     cudaMemcpy(d_Q, h_Q.data(), bytes, cudaMemcpyHostToDevice);
     cudaMemcpy(d_cos, h_cos.data(), bytes, cudaMemcpyHostToDevice);
     cudaMemcpy(d_sin, h_sin.data(), bytes, cudaMemcpyHostToDevice);
@@ -169,25 +167,33 @@ int main() {
             int idx = m * D + d;
             float rot = (d < half) ? -h_Q[idx + half] : h_Q[idx - half];
             float expect = h_Q[idx] * h_cos[idx] + rot * h_sin[idx];
-            if (fabsf(h_out[idx] - expect) > 1e-4) { pass = false; }
+            if (fabsf(h_out[idx] - expect) > 1e-4) {
+                pass = false;
+            }
         }
     printf("RoPE M=%d D=%d: %s\n", M, D, pass ? "PASS" : "FAIL");
 
     // 带宽测量
     cudaEvent_t start, stop;
-    cudaEventCreate(&start); cudaEventCreate(&stop);
-    for (int i = 0; i < 5; i++) rope_kernel<<<grid, block>>>(d_Q, d_cos, d_sin, d_out, M, D);
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    for (int i = 0; i < 5; i++)
+        rope_kernel<<<grid, block>>>(d_Q, d_cos, d_sin, d_out, M, D);
     cudaEventRecord(start);
-    for (int i = 0; i < 100; i++) rope_kernel<<<grid, block>>>(d_Q, d_cos, d_sin, d_out, M, D);
+    for (int i = 0; i < 100; i++)
+        rope_kernel<<<grid, block>>>(d_Q, d_cos, d_sin, d_out, M, D);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     float ms;
     cudaEventElapsedTime(&ms, start, stop);
     float t = ms / 100;
-    float bw = 4.0f * bytes / (t / 1000) / 1e9;  // 读 Q+cos+sin=3D + 写 out=D = 4D
+    float bw = 4.0f * bytes / (t / 1000) / 1e9; // 读 Q+cos+sin=3D + 写 out=D = 4D
     printf("Bandwidth: %.1f GB/s (%.1f%% of 1555 GB/s peak)\n", bw, bw / 1555 * 100);
 
-    cudaFree(d_Q); cudaFree(d_cos); cudaFree(d_sin); cudaFree(d_out);
+    cudaFree(d_Q);
+    cudaFree(d_cos);
+    cudaFree(d_sin);
+    cudaFree(d_out);
     return 0;
 }
 ```

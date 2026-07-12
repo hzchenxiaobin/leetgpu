@@ -41,10 +41,10 @@ for (int seg = 0; seg < num_segments; seg++) {
 
 ```cuda
 // 每个段一个 block，block 内做 scan——段数多时 block 数爆炸，launch 开销大
-__global__ void naive_segmented_scan(const int* input, int* output,
-                                     const int* seg_start, const int* seg_size, int S) {
+__global__ void naive_segmented_scan(const int* input, int* output, const int* seg_start, const int* seg_size, int S) {
     int seg = blockIdx.x;
-    if (seg >= S) return;
+    if (seg >= S)
+        return;
     // block 内对该段做串行/并行 scan...
 }
 ```
@@ -100,49 +100,53 @@ __device__ __forceinline__ int warp_excl_scan(int val) {
     #pragma unroll
     for (int offset = 1; offset < WARP; offset *= 2) {
         int v = __shfl_up_sync(0xffffffff, sum, offset);
-        if ((threadIdx.x & (WARP - 1)) >= offset) sum += v;
+        if ((threadIdx.x & (WARP - 1)) >= offset)
+            sum += v;
     }
-    return sum - orig;   // exclusive = inclusive - 自己
+    return sum - orig; // exclusive = inclusive - 自己
 }
 
 // segmented exclusive scan：段首元素的前缀强制为 0
 // is_seg_start[i]==1 表示 i 是段首（新段开始）
-__global__ void segmented_excl_scan_kernel(const int* input, int* output,
-                                           const int* is_seg_start, int N) {
+__global__ void segmented_excl_scan_kernel(const int* input, int* output, const int* is_seg_start, int N) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int lane = threadIdx.x & (WARP - 1);
     int warp_id = threadIdx.x / WARP;
 
     __shared__ int warp_sums[WARP];
-    __shared__ int warp_carry[WARP + 1];   // 本 block 内前序 warp 的段和 carry
+    __shared__ int warp_carry[WARP + 1]; // 本 block 内前序 warp 的段和 carry
 
     int val = (tid < N) ? input[tid] : 0;
     int seg_flag = (tid < N) ? is_seg_start[tid] : 0;
 
     // 段内 exclusive scan：若自己是段首，前缀=0；否则累加前序同段元素
     // 关键：把"段首之前"的元素视为 0（不 carry 跨段）
-    int scan_val = seg_flag ? 0 : val;   // 段首元素不参与累加前缀（它的前缀是 0）
+    int scan_val = seg_flag ? 0 : val; // 段首元素不参与累加前缀（它的前缀是 0）
     int warp_excl = warp_excl_scan(scan_val);
 
     // 段内总和（用于跨 warp carry，但只在同段内 carry）
     int warp_total = warp_excl + scan_val;
-    if (lane == WARP - 1) warp_sums[warp_id] = warp_total;
+    if (lane == WARP - 1)
+        warp_sums[warp_id] = warp_total;
     __syncthreads();
 
     // 第一个 warp 累加 warp_sums（block 内跨 warp carry）
     if (warp_id == 0) {
         int w = (lane < blockDim.x / WARP) ? warp_sums[lane] : 0;
         int w_excl = warp_excl_scan(w);
-        if (lane < blockDim.x / WARP) warp_sums[lane] = w_excl;
+        if (lane < blockDim.x / WARP)
+            warp_sums[lane] = w_excl;
     }
     __syncthreads();
 
     int block_excl = warp_excl + warp_sums[warp_id];
 
     // 段首元素强制前缀为 0（不 carry 前序段的和）
-    if (seg_flag) block_excl = 0;
+    if (seg_flag)
+        block_excl = 0;
 
-    if (tid < N) output[tid] = block_excl;
+    if (tid < N)
+        output[tid] = block_excl;
     // 注：跨 block 的段 carry 需要第二遍 kernel（类似三阶段 scan），
     //     此处教学版假设每段不超过一个 block，正式版需补 block 间段和传递。
 }
@@ -150,7 +154,7 @@ __global__ void segmented_excl_scan_kernel(const int* input, int* output,
 int main() {
     // 两段：A=[3,1,2], B=[4,2,1]
     std::vector<int> h_input = {3, 1, 2, 4, 2, 1};
-    std::vector<int> h_seg   = {1, 0, 0, 1, 0, 0};   // 段首标记
+    std::vector<int> h_seg = {1, 0, 0, 1, 0, 0}; // 段首标记
     int N = h_input.size();
 
     int *d_input, *d_output, *d_seg;
@@ -171,20 +175,23 @@ int main() {
     std::vector<int> cpu_out(N);
     int sum = 0;
     for (int i = 0; i < N; i++) {
-        if (h_seg[i]) sum = 0;   // 段首归零
+        if (h_seg[i])
+            sum = 0; // 段首归零
         cpu_out[i] = sum;
         sum += h_input[i];
     }
 
     bool pass = true;
     for (int i = 0; i < N; i++) {
-        printf("out[%d]=%d (cpu=%d) %s\n", i, h_out[i], cpu_out[i],
-               h_out[i] == cpu_out[i] ? "✓" : "✗");
-        if (h_out[i] != cpu_out[i]) pass = false;
+        printf("out[%d]=%d (cpu=%d) %s\n", i, h_out[i], cpu_out[i], h_out[i] == cpu_out[i] ? "✓" : "✗");
+        if (h_out[i] != cpu_out[i])
+            pass = false;
     }
     printf("%s\n", pass ? "PASS" : "FAIL");
 
-    cudaFree(d_input); cudaFree(d_output); cudaFree(d_seg);
+    cudaFree(d_input);
+    cudaFree(d_output);
+    cudaFree(d_seg);
     return 0;
 }
 ```

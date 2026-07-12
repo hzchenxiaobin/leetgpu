@@ -28,7 +28,7 @@ dst = [[1,2],[3,4]]
 // 两层循环逐元素拷贝，O(M×N)
 for (int i = 0; i < M; i++)
     for (int j = 0; j < N; j++)
-        dst[i*N + j] = src[i*N + j];
+        dst[i * N + j] = src[i * N + j];
 ```
 
 ### 朴素 GPU（一 thread 一元素）
@@ -38,7 +38,8 @@ for (int i = 0; i < M; i++)
 __global__ void naive_copy(const float* src, float* dst, int M, int N) {
     int i = blockIdx.y * blockDim.y + threadIdx.y;
     int j = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < M && j < N) dst[i*N + j] = src[i*N + j];
+    if (i < M && j < N)
+        dst[i * N + j] = src[i * N + j];
 }
 ```
 
@@ -96,7 +97,7 @@ __global__ void matrix_copy_kernel(const float* src, float* dst, int M, int N) {
 __global__ void matrix_copy_vec4(const float4* src, float4* dst, int total_vec4) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < total_vec4) {
-        dst[idx] = src[idx];   // 一次拷 16 byte
+        dst[idx] = src[idx]; // 一次拷 16 byte
     }
 }
 
@@ -105,7 +106,8 @@ int main() {
     size_t bytes = (size_t)M * N * sizeof(float);
     std::vector<float> h_src(M * N);
     srand(42);
-    for (auto& x : h_src) x = (rand() % 1000) / 100.0f;
+    for (auto& x : h_src)
+        x = (rand() % 1000) / 100.0f;
 
     float *d_src, *d_dst;
     cudaMalloc(&d_src, bytes);
@@ -123,23 +125,28 @@ int main() {
     cudaMemcpy(h_dst.data(), d_dst, bytes, cudaMemcpyDeviceToHost);
     bool pass = true;
     for (int i = 0; i < M * N; i++)
-        if (h_src[i] != h_dst[i]) { pass = false; break; }
+        if (h_src[i] != h_dst[i]) {
+            pass = false;
+            break;
+        }
     printf("Matrix %dx%d copy: %s\n", M, N, pass ? "PASS" : "FAIL");
 
     // 带宽测量（基础版）
     cudaEvent_t start, stop;
-    cudaEventCreate(&start); cudaEventCreate(&stop);
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
     cudaEventRecord(start);
-    for (int i = 0; i < 10; i++)   // 跑 10 次取平均
+    for (int i = 0; i < 10; i++) // 跑 10 次取平均
         matrix_copy_kernel<<<grid, block>>>(d_src, d_dst, M, N);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     float ms;
     cudaEventElapsedTime(&ms, start, stop);
-    float gb = 2.0f * 10 * bytes / 1e9;   // 读+写 = 2倍
+    float gb = 2.0f * 10 * bytes / 1e9; // 读+写 = 2倍
     printf("Bandwidth: %.1f GB/s (theory ~1555 GB/s on RTX 5090)\n", gb / (ms / 1000));
 
-    cudaFree(d_src); cudaFree(d_dst);
+    cudaFree(d_src);
+    cudaFree(d_dst);
     return 0;
 }
 ```

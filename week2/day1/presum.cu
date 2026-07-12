@@ -3,8 +3,7 @@ constexpr int TILE = 256;
 constexpr int THREAD_PER_BLOCK = TILE;
 constexpr int MAX_BLOCK_NUM = 1024;
 __device__ float g_block_sum[MAX_BLOCK_NUM];
-__device__ float warp_pre_sum(float r_val, int lane_id)
-{
+__device__ float warp_pre_sum(float r_val, int lane_id) {
     unsigned int mask = 0xffff'ffff;
     for (int offset = 1; offset <= 16; offset *= 2) {
         float r_up_val = __shfl_up_sync(mask, r_val, offset);
@@ -30,12 +29,12 @@ __global__ void intra_block_reduce(const float* input, float* output, int N) {
     float r_val = smem[tid];
     r_val = warp_pre_sum(r_val, lane_id);
     __syncthreads();
-    smem[tid] =  r_val;
+    smem[tid] = r_val;
     __syncthreads();
     for (int wid_offset = 1; wid_offset <= warp_num / 2; wid_offset *= 2) {
         if (warp_id >= wid_offset) {
-            float r_up_val = smem[(warp_id-wid_offset)*k_warp_size + k_warp_size -1];
-             r_val += r_up_val;
+            float r_up_val = smem[(warp_id - wid_offset) * k_warp_size + k_warp_size - 1];
+            r_val += r_up_val;
         }
         __syncthreads();
         if (warp_id >= wid_offset) {
@@ -47,7 +46,7 @@ __global__ void intra_block_reduce(const float* input, float* output, int N) {
         output[blk_start + tid] = smem[tid];
     }
     if (tid == 0) {
-        g_block_sum[blockIdx.x] = smem[TILE-1];
+        g_block_sum[blockIdx.x] = smem[TILE - 1];
     }
 }
 
@@ -63,7 +62,7 @@ __global__ void inter_block_reduce(const float* input, float* output, int N) {
     }
     smem[tid] = val;
     __syncthreads();
-    for (int i = TILE/2; i >= 1; i /= 2) {
+    for (int i = TILE / 2; i >= 1; i /= 2) {
         if (tid < i) {
             smem[tid] += smem[tid + i];
         }

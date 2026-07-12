@@ -43,13 +43,15 @@ __global__ void reduce_kernel(const float* input, float* output, int N) {
 
     float val = (gid < N) ? input[gid] : 0.0f;
     val = warp_reduce(val);
-    if (lane == 0) warp_sums[warp_id] = val;
+    if (lane == 0)
+        warp_sums[warp_id] = val;
     __syncthreads();
 
     if (warp_id == 0) {
         val = (lane < BLOCK_SIZE / WARP_SIZE) ? warp_sums[lane] : 0.0f;
         val = warp_reduce(val);
-        if (lane == 0) output[blockIdx.x] = val;
+        if (lane == 0)
+            output[blockIdx.x] = val;
     }
 }
 
@@ -58,12 +60,14 @@ __global__ void final_reduce(const float* input, float* output, int N) {
     int tid = threadIdx.x;
     float val = (tid < N) ? input[tid] : 0.0f;
     val = warp_reduce(val);
-    if (tid % WARP_SIZE == 0) warp_sums[tid / WARP_SIZE] = val;
+    if (tid % WARP_SIZE == 0)
+        warp_sums[tid / WARP_SIZE] = val;
     __syncthreads();
     if (tid < WARP_SIZE) {
         val = (tid < BLOCK_SIZE / WARP_SIZE) ? warp_sums[tid] : 0.0f;
         val = warp_reduce(val);
-        if (tid == 0) output[0] = val;
+        if (tid == 0)
+            output[0] = val;
     }
 }
 

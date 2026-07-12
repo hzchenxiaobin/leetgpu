@@ -28,7 +28,8 @@ input = [1, 2, 4, 2, 3], window_size = 2
 int max_sum = INT_MIN;
 for (int i = 0; i <= N - window_size; i++) {
     int sum = 0;
-    for (int j = i; j < i + window_size; j++) sum += input[j];
+    for (int j = i; j < i + window_size; j++)
+        sum += input[j];
     max_sum = max(max_sum, sum);
 }
 ```
@@ -71,10 +72,12 @@ for (int i = 0; i <= N - window_size; i++) {
 __global__ void max_subarray_sum_kernel(const int* input, int* output, int N, int W) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int num_windows = N - W + 1;
-    if (idx >= num_windows) return;
+    if (idx >= num_windows)
+        return;
 
     int sum = 0;
-    for (int j = idx; j < idx + W; j++) sum += input[j];
+    for (int j = idx; j < idx + W; j++)
+        sum += input[j];
 
     atomicMax(output, sum);
 }
@@ -84,7 +87,8 @@ int main() {
     size_t bytes = N * sizeof(int);
     std::vector<int> h_input(N);
     srand(42);
-    for (auto& x : h_input) x = rand() % 21 - 10;
+    for (auto& x : h_input)
+        x = rand() % 21 - 10;
 
     int *d_input, *d_output;
     cudaMalloc(&d_input, bytes);
@@ -105,13 +109,15 @@ int main() {
     int cpu_max = INT_MIN;
     for (int i = 0; i < num_windows; i++) {
         int s = 0;
-        for (int j = i; j < i + W; j++) s += h_input[j];
+        for (int j = i; j < i + W; j++)
+            s += h_input[j];
         cpu_max = std::max(cpu_max, s);
     }
 
     printf("GPU: %d, CPU: %d, %s\n", result, cpu_max, result == cpu_max ? "PASS" : "FAIL");
 
-    cudaFree(d_input); cudaFree(d_output);
+    cudaFree(d_input);
+    cudaFree(d_output);
     return 0;
 }
 ```

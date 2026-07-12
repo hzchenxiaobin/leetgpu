@@ -51,7 +51,8 @@ __global__ void prefix_sum_kernel(const int* input, long long* prefix, int N) {
         __syncthreads();
     }
 
-    if (tid < N) prefix[tid] = s_prefix[tid];
+    if (tid < N)
+        prefix[tid] = s_prefix[tid];
 }
 
 // Stage 2: window sum + max reduction
@@ -74,14 +75,16 @@ __global__ void window_max_kernel(const long long* prefix, int* output, int N, i
     __shared__ int warp_max[32];
     int warp_id = tid / 32;
     int lane = tid % 32;
-    if (lane == 0) warp_max[warp_id] = local_max;
+    if (lane == 0)
+        warp_max[warp_id] = local_max;
     __syncthreads();
 
     if (warp_id == 0) {
         int num_warps = (blockDim.x + 31) / 32;
         local_max = (lane < num_warps) ? warp_max[lane] : -2147483647;
         local_max = warp_reduce_max(local_max);
-        if (lane == 0) atomicMax(output, local_max);
+        if (lane == 0)
+            atomicMax(output, local_max);
     }
 }
 

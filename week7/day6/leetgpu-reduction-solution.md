@@ -26,7 +26,8 @@
 
 ```cpp
 float sum = 0;
-for (int i = 0; i < N; i++) sum += input[i];
+for (int i = 0; i < N; i++)
+    sum += input[i];
 ```
 
 ### 朴素 GPU（共享内存归约）
@@ -39,10 +40,12 @@ __global__ void naive_reduce(const float* input, float* output, int N) {
     sdata[tid] = (i < N) ? input[i] : 0.0f;
     __syncthreads();
     for (int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (tid < s) sdata[tid] += sdata[tid + s];
+        if (tid < s)
+            sdata[tid] += sdata[tid + s];
         __syncthreads();
     }
-    if (tid == 0) output[blockIdx.x] = sdata[0];
+    if (tid == 0)
+        output[blockIdx.x] = sdata[0];
 }
 // 需要两遍：第一遍 block 归约，第二遍对 block 结果再归约
 ```
@@ -109,14 +112,16 @@ __global__ void reduce_kernel(const float* input, float* output, int N) {
     val = warp_reduce(val);
 
     // warp 的 lane 0 写入 shared memory
-    if (lane == 0) warp_sums[warp_id] = val;
+    if (lane == 0)
+        warp_sums[warp_id] = val;
     __syncthreads();
 
     // 第一个 warp 对 warp_sums 做归约
     if (warp_id == 0) {
         val = (lane < BLOCK_SIZE / WARP_SIZE) ? warp_sums[lane] : 0.0f;
         val = warp_reduce(val);
-        if (lane == 0) output[blockIdx.x] = val;
+        if (lane == 0)
+            output[blockIdx.x] = val;
     }
 }
 
@@ -126,12 +131,14 @@ __global__ void final_reduce(const float* input, float* output, int N) {
     int tid = threadIdx.x;
     float val = (tid < N) ? input[tid] : 0.0f;
     val = warp_reduce(val);
-    if (tid % WARP_SIZE == 0) warp_sums[tid / WARP_SIZE] = val;
+    if (tid % WARP_SIZE == 0)
+        warp_sums[tid / WARP_SIZE] = val;
     __syncthreads();
     if (tid < WARP_SIZE) {
         val = (tid < BLOCK_SIZE / WARP_SIZE) ? warp_sums[tid] : 0.0f;
         val = warp_reduce(val);
-        if (tid == 0) output[0] = val;
+        if (tid == 0)
+            output[0] = val;
     }
 }
 

@@ -49,7 +49,7 @@ LeetGPU 的 starter 模板就是最朴素的「一元素一线程」写法：
 ```cuda
 __global__ void vector_add_naive(const float* A, const float* B, float* C, int N) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < N) {                 // 越界保护
+    if (i < N) { // 越界保护
         C[i] = A[i] + B[i];
     }
 }
@@ -114,23 +114,23 @@ grid-stride 的索引 `i = tid, tid+stride, ...` 中，`tid` 在 warp 内连续�
 // 编译命令: nvcc -O3 -arch=sm_120 vector_add_grid_stride.cu -o vector_add
 // 运行:     ./vector_add 25000000
 
-#include <cstdio>
-#include <cstdlib>
-#include <cmath>
-#include <cuda_runtime.h>
+    #include <cstdio>
+    #include <cstdlib>
+    #include <cmath>
+    #include <cuda_runtime.h>
 
-#define CHECK_CUDA(call) do {                                              \
-    cudaError_t e = (call);                                                \
-    if (e != cudaSuccess) {                                                \
-        fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__,      \
-                cudaGetErrorString(e));                                     \
-        exit(EXIT_FAILURE);                                                \
-    }                                                                      \
-} while (0)
+    #define CHECK_CUDA(call)                                                                                               \
+    do {                                                                                                               \
+        cudaError_t e = (call);                                                                                        \
+        if (e != cudaSuccess) {                                                                                        \
+            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
+            exit(EXIT_FAILURE);                                                                                        \
+        }                                                                                                              \
+    } while (0)
 
 __global__ void vector_add(const float* A, const float* B, float* C, int N) {
-    int tid    = blockIdx.x * blockDim.x + threadIdx.x;
-    int stride = gridDim.x  * blockDim.x;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = gridDim.x * blockDim.x;
     for (int i = tid; i < N; i += stride) {
         C[i] = A[i] + B[i];
     }
@@ -142,9 +142,9 @@ int main(int argc, char** argv) {
     printf("N = %d  (%.1f MB per vector)\n", N, bytes / 1e6);
 
     // ---- host 端分配与初始化 ----
-    float *hA = (float*)malloc(bytes);
-    float *hB = (float*)malloc(bytes);
-    float *hC = (float*)malloc(bytes);
+    float* hA = (float*)malloc(bytes);
+    float* hB = (float*)malloc(bytes);
+    float* hC = (float*)malloc(bytes);
     srand(42);
     for (int i = 0; i < N; ++i) {
         hA[i] = (float)(rand() % 10000) / 100.0f;
@@ -163,7 +163,7 @@ int main(int argc, char** argv) {
     int threads = 256;
     int num_sm;
     CHECK_CUDA(cudaDeviceGetAttribute(&num_sm, cudaDevAttrMultiProcessorCount, 0));
-    int blocks = num_sm * 4;          // 经验值：足够填满 SM，又不过度启动
+    int blocks = num_sm * 4; // 经验值：足够填满 SM，又不过度启动
     printf("launch: blocks=%d  threads=%d  (SM=%d)\n", blocks, threads, num_sm);
 
     // ---- 计时 ----
@@ -199,7 +199,9 @@ int main(int argc, char** argv) {
     CHECK_CUDA(cudaFree(dA));
     CHECK_CUDA(cudaFree(dB));
     CHECK_CUDA(cudaFree(dC));
-    free(hA); free(hB); free(hC);
+    free(hA);
+    free(hB);
+    free(hC);
     return 0;
 }
 ```

@@ -27,7 +27,7 @@ C = [[6,8],[10,12]]
 ```cpp
 for (int i = 0; i < M; i++)
     for (int j = 0; j < N; j++)
-        C[i*N + j] = A[i*N + j] + B[i*N + j];
+        C[i * N + j] = A[i * N + j] + B[i * N + j];
 ```
 
 ### 朴素 GPU
@@ -37,7 +37,7 @@ __global__ void naive_add(const float* A, const float* B, float* C, int M, int N
     int i = blockIdx.y * blockDim.y + threadIdx.y;
     int j = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < M && j < N)
-        C[i*N + j] = A[i*N + j] + B[i*N + j];
+        C[i * N + j] = A[i * N + j] + B[i * N + j];
 }
 ```
 
@@ -92,19 +92,19 @@ extern "C" void solve(const float* A, const float* B, float* C, int M, int N) {
 
 ```cuda
 // matrix_addition_full.cu —— 含验证和带宽测量
-#include <cstdio>
-#include <cstdlib>
-#include <cmath>
-#include <cuda_runtime.h>
+    #include <cstdio>
+    #include <cstdlib>
+    #include <cmath>
+    #include <cuda_runtime.h>
 
-#define CHECK_CUDA(call) do {                                              \
-    cudaError_t e = (call);                                                \
-    if (e != cudaSuccess) {                                                \
-        fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__,      \
-                cudaGetErrorString(e));                                     \
-        exit(EXIT_FAILURE);                                                \
-    }                                                                      \
-} while (0)
+    #define CHECK_CUDA(call)                                                                                               \
+    do {                                                                                                               \
+        cudaError_t e = (call);                                                                                        \
+        if (e != cudaSuccess) {                                                                                        \
+            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
+            exit(EXIT_FAILURE);                                                                                        \
+        }                                                                                                              \
+    } while (0)
 
 __global__ void matrix_add_kernel(const float* A, const float* B, float* C, int M, int N) {
     int i = blockIdx.y * blockDim.y + threadIdx.y;
@@ -121,9 +121,9 @@ int main(int argc, char** argv) {
     size_t bytes = (size_t)M * N * sizeof(float);
     printf("M=%d N=%d (%.1f MB per matrix)\n", M, N, bytes / 1e6);
 
-    float *hA = (float*)malloc(bytes);
-    float *hB = (float*)malloc(bytes);
-    float *hC = (float*)malloc(bytes);
+    float* hA = (float*)malloc(bytes);
+    float* hB = (float*)malloc(bytes);
+    float* hC = (float*)malloc(bytes);
     srand(42);
     for (int i = 0; i < M * N; i++) {
         hA[i] = (float)(rand() % 1000) / 10.0f;
@@ -158,7 +158,8 @@ int main(int argc, char** argv) {
     int fail = 0;
     for (int i = 0; i < M * N && !fail; i++) {
         if (fabsf(hC[i] - (hA[i] + hB[i])) > 1e-5f) {
-            printf("FAIL at i=%d\n", i); fail = 1;
+            printf("FAIL at i=%d\n", i);
+            fail = 1;
         }
     }
     printf("%s\n", fail ? "FAIL" : "PASS");
@@ -166,7 +167,9 @@ int main(int argc, char** argv) {
     CHECK_CUDA(cudaFree(dA));
     CHECK_CUDA(cudaFree(dB));
     CHECK_CUDA(cudaFree(dC));
-    free(hA); free(hB); free(hC);
+    free(hA);
+    free(hB);
+    free(hC);
     return 0;
 }
 ```

@@ -52,7 +52,7 @@ __global__ void relu_naive(const float* input, float* output, int N) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < N) {
         float x = input[i];
-        if (x < 0.0f) {        // ← 分支！
+        if (x < 0.0f) { // ← 分支！
             output[i] = 0.0f;
         } else {
             output[i] = x;
@@ -118,23 +118,23 @@ GPU 采用 **SIMT**（Single Instruction, Multiple Thread）执行模型：同�
 // 编译命令: nvcc -O3 -arch=sm_120 relu_fmaxf.cu -o relu
 // 运行:     ./relu 25000000
 
-#include <cstdio>
-#include <cstdlib>
-#include <cmath>
-#include <cuda_runtime.h>
+    #include <cstdio>
+    #include <cstdlib>
+    #include <cmath>
+    #include <cuda_runtime.h>
 
-#define CHECK_CUDA(call) do {                                              \
-    cudaError_t e = (call);                                                \
-    if (e != cudaSuccess) {                                                \
-        fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__,      \
-                cudaGetErrorString(e));                                     \
-        exit(EXIT_FAILURE);                                                \
-    }                                                                      \
-} while (0)
+    #define CHECK_CUDA(call)                                                                                               \
+    do {                                                                                                               \
+        cudaError_t e = (call);                                                                                        \
+        if (e != cudaSuccess) {                                                                                        \
+            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
+            exit(EXIT_FAILURE);                                                                                        \
+        }                                                                                                              \
+    } while (0)
 
 __global__ void relu_kernel(const float* input, float* output, int N) {
-    int tid    = blockIdx.x * blockDim.x + threadIdx.x;
-    int stride = gridDim.x  * blockDim.x;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = gridDim.x * blockDim.x;
     for (int i = tid; i < N; i += stride) {
         // 无分支：fmaxf 映射到单条硬件指令，无 warp divergence
         output[i] = fmaxf(0.0f, input[i]);
@@ -147,16 +147,16 @@ int main(int argc, char** argv) {
     printf("N = %d  (%.1f MB per vector)\n", N, bytes / 1e6);
 
     // ---- host 端分配与初始化 ----
-    float *hIn  = (float*)malloc(bytes);
-    float *hOut = (float*)malloc(bytes);
+    float* hIn = (float*)malloc(bytes);
+    float* hOut = (float*)malloc(bytes);
     srand(42);
     for (int i = 0; i < N; ++i) {
-        hIn[i] = ((float)(rand() % 20000) - 10000.0f) / 100.0f;  // [-100, 100)
+        hIn[i] = ((float)(rand() % 20000) - 10000.0f) / 100.0f; // [-100, 100)
     }
 
     // ---- device 端分配与拷贝 ----
     float *dIn, *dOut;
-    CHECK_CUDA(cudaMalloc(&dIn,  bytes));
+    CHECK_CUDA(cudaMalloc(&dIn, bytes));
     CHECK_CUDA(cudaMalloc(&dOut, bytes));
     CHECK_CUDA(cudaMemcpy(dIn, hIn, bytes, cudaMemcpyHostToDevice));
 
@@ -199,7 +199,8 @@ int main(int argc, char** argv) {
     // ---- 释放 ----
     CHECK_CUDA(cudaFree(dIn));
     CHECK_CUDA(cudaFree(dOut));
-    free(hIn); free(hOut);
+    free(hIn);
+    free(hOut);
     return 0;
 }
 ```

@@ -27,8 +27,7 @@ output[oy][ox] = Σ_{ky=0..K-1} Σ_{kx=0..K-1} input[oy+ky][ox+kx] · kernel[ky]
 
 ```cpp
 // cpu_baseline.cpp —— CPU 串行 valid 2D 卷积
-void conv2d_cpu(const float* input, const float* kernel, float* output,
-                int H, int W, int K) {
+void conv2d_cpu(const float* input, const float* kernel, float* output, int H, int W, int K) {
     int P = K / 2, outH = H - 2 * P, outW = W - 2 * P;
     for (int oy = 0; oy < outH; ++oy)
         for (int ox = 0; ox < outW; ++ox) {
@@ -48,12 +47,12 @@ void conv2d_cpu(const float* input, const float* kernel, float* output,
 最直观的并行：每 thread 负责一个输出像素 `(oy, ox)`，直接从 global memory 读 `K×K` 邻域与 kernel 权重。
 
 ```cuda
-__global__ void conv2d_naive(const float* input, const float* kernel,
-                             float* output, int H, int W, int K) {
+__global__ void conv2d_naive(const float* input, const float* kernel, float* output, int H, int W, int K) {
     int P = K / 2, outH = H - 2 * P, outW = W - 2 * P;
     int ox = blockIdx.x * blockDim.x + threadIdx.x;
     int oy = blockIdx.y * blockDim.y + threadIdx.y;
-    if (ox >= outW || oy >= outH) return;
+    if (ox >= outW || oy >= outH)
+        return;
     float acc = 0.0f;
     for (int ky = 0; ky < K; ++ky)
         for (int kx = 0; kx < K; ++kx)
@@ -125,39 +124,37 @@ __global__ void conv2d_naive(const float* input, const float* kernel,
 // 编译命令: nvcc -O3 -arch=sm_120 conv2d_shared_halo.cu -o conv2d
 // 运行:     ./conv2d 4096 4096 3
 
-#include <cstdio>
-#include <cstdlib>
-#include <cmath>
-#include <cuda_runtime.h>
+    #include <cstdio>
+    #include <cstdlib>
+    #include <cmath>
+    #include <cuda_runtime.h>
 
-#define CHECK_CUDA(call) do {                                              \
-    cudaError_t e = (call);                                                \
-    if (e != cudaSuccess) {                                                \
-        fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__,      \
-                cudaGetErrorString(e));                                     \
-        exit(EXIT_FAILURE);                                                \
-    }                                                                      \
-} while (0)
+    #define CHECK_CUDA(call)                                                                                               \
+    do {                                                                                                               \
+        cudaError_t e = (call);                                                                                        \
+        if (e != cudaSuccess) {                                                                                        \
+            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
+            exit(EXIT_FAILURE);                                                                                        \
+        }                                                                                                              \
+    } while (0)
 
-#define OT 16                  // 输出 tile 边长
-#define MAX_K 16               // 卷积核最大边长（常量内存预留）
+#define OT 16    // 输出 tile 边长
+#define MAX_K 16 // 卷积核最大边长（常量内存预留）
 
 // 卷积核权重放常量内存：全 thread 读同一地址 → 硬件广播，1 cycle
 __constant__ float c_kernel[MAX_K * MAX_K];
 
 // shared memory halo + 常数权重 的 2D valid 卷积
-__global__ void conv2d_shared_halo(const float* __restrict__ input,
-                                   float* __restrict__ output,
-                                   int H, int W, int K) {
-    const int P  = K / 2;                       // 卷积半径
-    const int IT = OT + K - 1;                  // input tile 边长（含 halo）
+__global__ void conv2d_shared_halo(const float* __restrict__ input, float* __restrict__ output, int H, int W, int K) {
+    const int P = K / 2;       // 卷积半径
+    const int IT = OT + K - 1; // input tile 边长（含 halo）
     // 静态 shared：按最大 K 预留，实际只用 [0..IT-1][0..IT-1]
     __shared__ float smem[OT + MAX_K - 1][OT + MAX_K - 1];
 
-    const int ox0 = blockIdx.x * OT;            // 本 block 输出 tile 左上角 col
-    const int oy0 = blockIdx.y * OT;            // 本 block 输出 tile 左上角 row
-    const int tx  = threadIdx.x;
-    const int ty  = threadIdx.y;
+    const int ox0 = blockIdx.x * OT; // 本 block 输出 tile 左上角 col
+    const int oy0 = blockIdx.y * OT; // 本 block 输出 tile 左上角 row
+    const int tx = threadIdx.x;
+    const int ty = threadIdx.y;
     const int tid = ty * OT + tx;
     const int nTH = OT * OT;
 
@@ -195,8 +192,7 @@ __global__ void conv2d_shared_halo(const float* __restrict__ input,
 }
 
 // ---- CPU 参考（valid 卷积）----
-void conv2d_cpu(const float* input, const float* kernel,
-                float* output, int H, int W, int K) {
+void conv2d_cpu(const float* input, const float* kernel, float* output, int H, int W, int K) {
     int P = K / 2, outH = H - 2 * P, outW = W - 2 * P;
     for (int oy = 0; oy < outH; ++oy)
         for (int ox = 0; ox < outW; ++ox) {
@@ -212,26 +208,31 @@ int main(int argc, char** argv) {
     int H = (argc > 1) ? atoi(argv[1]) : 4096;
     int W = (argc > 2) ? atoi(argv[2]) : 4096;
     int K = (argc > 3) ? atoi(argv[3]) : 3;
-    if (K % 2 == 0 || K > MAX_K) { fprintf(stderr, "K must be odd and <= %d\n", MAX_K); return 1; }
+    if (K % 2 == 0 || K > MAX_K) {
+        fprintf(stderr, "K must be odd and <= %d\n", MAX_K);
+        return 1;
+    }
     int P = K / 2;
     int outH = H - 2 * P, outW = W - 2 * P;
-    size_t in_bytes  = (size_t)H * W * sizeof(float);
+    size_t in_bytes = (size_t)H * W * sizeof(float);
     size_t out_bytes = (size_t)outH * outW * sizeof(float);
     size_t ker_bytes = (size_t)K * K * sizeof(float);
     printf("input: %dx%d  kernel: %dx%d  output: %dx%d\n", H, W, K, K, outH, outW);
 
     // ---- host 分配与初始化 ----
-    float *hIn  = (float*)malloc(in_bytes);
-    float *hKer = (float*)malloc(ker_bytes);
-    float *hOut = (float*)malloc(out_bytes);
-    float *hRef = (float*)malloc(out_bytes);
+    float* hIn = (float*)malloc(in_bytes);
+    float* hKer = (float*)malloc(ker_bytes);
+    float* hOut = (float*)malloc(out_bytes);
+    float* hRef = (float*)malloc(out_bytes);
     srand(42);
-    for (int i = 0; i < H * W; ++i) hIn[i] = (float)(rand() % 1000) / 100.0f;
-    for (int i = 0; i < K * K; ++i) hKer[i] = (float)(rand() % 1000) / 100.0f;
+    for (int i = 0; i < H * W; ++i)
+        hIn[i] = (float)(rand() % 1000) / 100.0f;
+    for (int i = 0; i < K * K; ++i)
+        hKer[i] = (float)(rand() % 1000) / 100.0f;
 
     // ---- device 分配与拷贝 ----
     float *dIn, *dOut;
-    CHECK_CUDA(cudaMalloc(&dIn,  in_bytes));
+    CHECK_CUDA(cudaMalloc(&dIn, in_bytes));
     CHECK_CUDA(cudaMalloc(&dOut, out_bytes));
     CHECK_CUDA(cudaMemcpy(dIn, hIn, in_bytes, cudaMemcpyHostToDevice));
     CHECK_CUDA(cudaMemcpyToSymbol(c_kernel, hKer, ker_bytes));
@@ -239,12 +240,12 @@ int main(int argc, char** argv) {
     // ---- 启动配置 ----
     dim3 threads(OT, OT);
     dim3 blocks((outW + OT - 1) / OT, (outH + OT - 1) / OT);
-    printf("launch: blocks=(%d,%d)  threads=(%d,%d)\n",
-           blocks.x, blocks.y, threads.x, threads.y);
+    printf("launch: blocks=(%d,%d)  threads=(%d,%d)\n", blocks.x, blocks.y, threads.x, threads.y);
 
     // ---- 计时 ----
     cudaEvent_t t0, t1;
-    cudaEventCreate(&t0); cudaEventCreate(&t1);
+    cudaEventCreate(&t0);
+    cudaEventCreate(&t1);
     cudaEventRecord(t0);
     conv2d_shared_halo<<<blocks, threads>>>(dIn, dOut, H, W, K);
     cudaEventRecord(t1);
@@ -273,7 +274,10 @@ int main(int argc, char** argv) {
     // ---- 释放 ----
     CHECK_CUDA(cudaFree(dIn));
     CHECK_CUDA(cudaFree(dOut));
-    free(hIn); free(hKer); free(hOut); free(hRef);
+    free(hIn);
+    free(hKer);
+    free(hOut);
+    free(hRef);
     return 0;
 }
 ```

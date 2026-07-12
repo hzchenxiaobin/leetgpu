@@ -56,7 +56,7 @@ __global__ void matmul_naive(const float* A, const float* B, float* C, int M, in
     if (i < M && j < K) {
         float sum = 0.0f;
         for (int k = 0; k < N; ++k) {
-            sum += A[i * N + k] * B[k * K + j];   // 每次都从 global 读！
+            sum += A[i * N + k] * B[k * K + j]; // 每次都从 global 读！
         }
         C[i * K + j] = sum;
     }
@@ -118,31 +118,30 @@ __global__ void matmul_naive(const float* A, const float* B, float* C, int M, in
 // 编译命令: nvcc -O3 -arch=sm_120 matmul_tiled.cu -o matmul
 // 运行:     ./matmul 8192 6144 4096
 
-#include <cstdio>
-#include <cstdlib>
-#include <cmath>
-#include <cuda_runtime.h>
+    #include <cstdio>
+    #include <cstdlib>
+    #include <cmath>
+    #include <cuda_runtime.h>
 
-#define CHECK_CUDA(call) do {                                              \
-    cudaError_t e = (call);                                                \
-    if (e != cudaSuccess) {                                                \
-        fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__,      \
-                cudaGetErrorString(e));                                     \
-        exit(EXIT_FAILURE);                                                \
-    }                                                                      \
-} while (0)
+    #define CHECK_CUDA(call)                                                                                               \
+    do {                                                                                                               \
+        cudaError_t e = (call);                                                                                        \
+        if (e != cudaSuccess) {                                                                                        \
+            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
+            exit(EXIT_FAILURE);                                                                                        \
+        }                                                                                                              \
+    } while (0)
 
 #define TILE 32
 
 // shared memory tiling：每 thread 算 1 个 C 元素
-__global__ void matmul_tiled(const float* A, const float* B, float* C,
-                              int M, int N, int K) {
+__global__ void matmul_tiled(const float* A, const float* B, float* C, int M, int N, int K) {
     // shared memory：A 和 B 的 tile
     __shared__ float A_tile[TILE][TILE];
     __shared__ float B_tile[TILE][TILE];
 
-    int row = blockIdx.y * TILE + threadIdx.y;   // M 维
-    int col = blockIdx.x * TILE + threadIdx.x;   // K 维
+    int row = blockIdx.y * TILE + threadIdx.y; // M 维
+    int col = blockIdx.x * TILE + threadIdx.x; // K 维
     float sum = 0.0f;
 
     // 沿 N 维滑动 tile
@@ -157,13 +156,13 @@ __global__ void matmul_tiled(const float* A, const float* B, float* C,
 
         __syncthreads();
 
-        // ---- ② 从 shared 读数据做乘加 ----
+// ---- ② 从 shared 读数据做乘加 ----
         #pragma unroll
         for (int k = 0; k < TILE; ++k) {
             sum += A_tile[threadIdx.y][k] * B_tile[k][threadIdx.x];
         }
 
-        __syncthreads();   // 确保 tile 用完再覆盖
+        __syncthreads(); // 确保 tile 用完再覆盖
     }
 
     if (row < M && col < K) {
@@ -182,12 +181,14 @@ int main(int argc, char** argv) {
     printf("FLOPs: %.2f GFLOP\n", 2.0 * M * N * K / 1e9);
 
     // ---- host ----
-    float *hA = (float*)malloc(a_bytes);
-    float *hB = (float*)malloc(b_bytes);
-    float *hC = (float*)malloc(c_bytes);
+    float* hA = (float*)malloc(a_bytes);
+    float* hB = (float*)malloc(b_bytes);
+    float* hC = (float*)malloc(c_bytes);
     srand(42);
-    for (int i = 0; i < M * N; ++i) hA[i] = (float)(rand() % 1000) / 100.0f;
-    for (int i = 0; i < N * K; ++i) hB[i] = (float)(rand() % 1000) / 100.0f;
+    for (int i = 0; i < M * N; ++i)
+        hA[i] = (float)(rand() % 1000) / 100.0f;
+    for (int i = 0; i < N * K; ++i)
+        hB[i] = (float)(rand() % 1000) / 100.0f;
 
     // ---- device ----
     float *dA, *dB, *dC;
@@ -220,13 +221,15 @@ int main(int argc, char** argv) {
     // ---- 验证（抽检角落 + 随机点）----
     CHECK_CUDA(cudaMemcpy(hC, dC, c_bytes, cudaMemcpyDeviceToHost));
     int err = 0;
-    int checks[] = {0, K-1, (M/2)*K + K/2, (M-1)*K + K-1};
+    int checks[] = {0, K - 1, (M / 2) * K + K / 2, (M - 1) * K + K - 1};
     for (int idx : checks) {
         int i = idx / K, j = idx % K;
         float ref = 0.0f;
-        for (int k = 0; k < N; ++k) ref += hA[i * N + k] * hB[k * K + j];
+        for (int k = 0; k < N; ++k)
+            ref += hA[i * N + k] * hB[k * K + j];
         if (fabsf(hC[idx] - ref) > 1e-3f * fmaxf(1.0f, fabsf(ref))) {
-            if (++err <= 5) printf("MISMATCH @(%d,%d): got %f, expect %f\n", i, j, hC[idx], ref);
+            if (++err <= 5)
+                printf("MISMATCH @(%d,%d): got %f, expect %f\n", i, j, hC[idx], ref);
         }
     }
     printf("verify: %s\n", err ? "FAIL" : "PASS");
@@ -234,7 +237,9 @@ int main(int argc, char** argv) {
     CHECK_CUDA(cudaFree(dA));
     CHECK_CUDA(cudaFree(dB));
     CHECK_CUDA(cudaFree(dC));
-    free(hA); free(hB); free(hC);
+    free(hA);
+    free(hB);
+    free(hC);
     return 0;
 }
 ```

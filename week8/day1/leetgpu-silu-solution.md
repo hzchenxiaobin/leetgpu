@@ -101,11 +101,12 @@ __global__ void silu_kernel(const float* input, float* output, int N) {
 }
 
 int main() {
-    int N = 1 << 20;  // 1M 元素
+    int N = 1 << 20; // 1M 元素
     size_t bytes = N * sizeof(float);
     std::vector<float> h_in(N), h_out(N);
     srand(42);
-    for (auto& x : h_in) x = (rand() % 2000 - 1000) / 100.0f;
+    for (auto& x : h_in)
+        x = (rand() % 2000 - 1000) / 100.0f;
 
     float *d_in, *d_out;
     cudaMalloc(&d_in, bytes);
@@ -121,26 +122,32 @@ int main() {
     bool pass = true;
     for (int i = 0; i < N; i++) {
         float expect = h_in[i] / (1.0f + expf(-h_in[i]));
-        if (fabsf(h_out[i] - expect) > 1e-4) { pass = false; break; }
+        if (fabsf(h_out[i] - expect) > 1e-4) {
+            pass = false;
+            break;
+        }
     }
     printf("SiLU N=%d: %s\n", N, pass ? "PASS" : "FAIL");
 
     // 带宽测量（cudaEvent 计时）
     cudaEvent_t start, stop;
-    cudaEventCreate(&start); cudaEventCreate(&stop);
-    for (int i = 0; i < 5; i++) silu_kernel<<<grid, BLOCK>>>(d_in, d_out, N);  // warmup
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    for (int i = 0; i < 5; i++)
+        silu_kernel<<<grid, BLOCK>>>(d_in, d_out, N); // warmup
     cudaEventRecord(start);
-    for (int i = 0; i < 100; i++) silu_kernel<<<grid, BLOCK>>>(d_in, d_out, N);
+    for (int i = 0; i < 100; i++)
+        silu_kernel<<<grid, BLOCK>>>(d_in, d_out, N);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     float ms;
     cudaEventElapsedTime(&ms, start, stop);
-    float t = ms / 100;                          // 单次毫秒
-    float bw = 2.0f * bytes / (t / 1000) / 1e9;  // 读+写 = 2x，GB/s
-    printf("Bandwidth: %.1f GB/s (peak ~1555 GB/s on RTX 5090, %.1f%%)\n",
-           bw, bw / 1555 * 100);
+    float t = ms / 100;                         // 单次毫秒
+    float bw = 2.0f * bytes / (t / 1000) / 1e9; // 读+写 = 2x，GB/s
+    printf("Bandwidth: %.1f GB/s (peak ~1555 GB/s on RTX 5090, %.1f%%)\n", bw, bw / 1555 * 100);
 
-    cudaFree(d_in); cudaFree(d_out);
+    cudaFree(d_in);
+    cudaFree(d_out);
     return 0;
 }
 ```

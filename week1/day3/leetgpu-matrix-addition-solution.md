@@ -46,7 +46,8 @@ void matadd_cpu(const float* A, const float* B, float* C, int M, int N) {
 ```cuda
 __global__ void matadd_naive(const float* A, const float* B, float* C, int N) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < N) C[i] = A[i] + B[i];   // 每 thread 读 2 个 float，写 1 个
+    if (i < N)
+        C[i] = A[i] + B[i]; // 每 thread 读 2 个 float，写 1 个
 }
 ```
 
@@ -80,13 +81,16 @@ __global__ void matadd_naive(const float* A, const float* B, float* C, int N) {
 `float4` 是 CUDA 内置的 128-bit 向量类型，含 4 个 `float`。用 `reinterpret_cast<const float4*>` 把 `float*` 数组当作 `float4*` 数组处理，一次加载/存储 4 个 float：
 
 ```cuda
-int vec_count = N / 4;                    // float4 元素数
+int vec_count = N / 4; // float4 元素数
 for (int i = tid; i < vec_count; i += stride) {
-    float4 a = reinterpret_cast<const float4*>(A)[i];   // 1 条 16B load
-    float4 b = reinterpret_cast<const float4*>(B)[i];   // 1 条 16B load
+    float4 a = reinterpret_cast<const float4*>(A)[i]; // 1 条 16B load
+    float4 b = reinterpret_cast<const float4*>(B)[i]; // 1 条 16B load
     float4 c;
-    c.x = a.x + b.x;  c.y = a.y + b.y;  c.z = a.z + b.z;  c.w = a.w + b.w;
-    reinterpret_cast<float4*>(C)[i] = c;                 // 1 条 16B store
+    c.x = a.x + b.x;
+    c.y = a.y + b.y;
+    c.z = a.z + b.z;
+    c.w = a.w + b.w;
+    reinterpret_cast<float4*>(C)[i] = c; // 1 条 16B store
 }
 ```
 
@@ -123,41 +127,41 @@ memory-bound kernel **不需要 100% occupancy**。原因是：延迟隐藏靠�
 // 编译命令: nvcc -O3 -arch=sm_120 matrix_addition_float4.cu -o matadd
 // 运行:     ./matadd 4096 4096
 
-#include <cstdio>
-#include <cstdlib>
-#include <cmath>
-#include <cuda_runtime.h>
+    #include <cstdio>
+    #include <cstdlib>
+    #include <cmath>
+    #include <cuda_runtime.h>
 
-#define CHECK_CUDA(call) do {                                              \
-    cudaError_t e = (call);                                                \
-    if (e != cudaSuccess) {                                                \
-        fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__,      \
-                cudaGetErrorString(e));                                     \
-        exit(EXIT_FAILURE);                                                \
-    }                                                                      \
-} while (0)
+    #define CHECK_CUDA(call)                                                                                               \
+    do {                                                                                                               \
+        cudaError_t e = (call);                                                                                        \
+        if (e != cudaSuccess) {                                                                                        \
+            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
+            exit(EXIT_FAILURE);                                                                                        \
+        }                                                                                                              \
+    } while (0)
 
 #define BLOCK_SIZE 256
 
 __global__ void matadd_kernel(const float* A, const float* B, float* C, int N) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = gridDim.x * blockDim.x;
-    int vec_count = N / 4;          // float4 元素数（N 是 4 的倍数时）
+    int vec_count = N / 4; // float4 元素数（N 是 4 的倍数时）
 
     // ---- ① float4 向量化主循环 ----
     const float4* A4 = reinterpret_cast<const float4*>(A);
     const float4* B4 = reinterpret_cast<const float4*>(B);
-    float4*       C4 = reinterpret_cast<float4*>(C);
+    float4* C4 = reinterpret_cast<float4*>(C);
 
     for (int i = tid; i < vec_count; i += stride) {
-        float4 a = A4[i];           // 1 条 16B load
-        float4 b = B4[i];           // 1 条 16B load
+        float4 a = A4[i]; // 1 条 16B load
+        float4 b = B4[i]; // 1 条 16B load
         float4 c;
         c.x = a.x + b.x;
         c.y = a.y + b.y;
         c.z = a.z + b.z;
         c.w = a.w + b.w;
-        C4[i] = c;                  // 1 条 16B store
+        C4[i] = c; // 1 条 16B store
     }
 
     // ---- ② 尾部：处理 N%4 个剩余元素（本题 N=4096%4=0，通常不执行）----
@@ -175,9 +179,9 @@ int main(int argc, char** argv) {
     printf("M=%d, N=%d  (%.1f MB per matrix)\n", M, N, bytes / 1e6);
 
     // ---- host ----
-    float *hA = (float*)malloc(bytes);
-    float *hB = (float*)malloc(bytes);
-    float *hC = (float*)malloc(bytes);
+    float* hA = (float*)malloc(bytes);
+    float* hB = (float*)malloc(bytes);
+    float* hC = (float*)malloc(bytes);
     srand(42);
     for (int i = 0; i < num; ++i) {
         hA[i] = ((float)(rand() % 2000) - 1000.0f) / 1000.0f;
@@ -208,7 +212,7 @@ int main(int argc, char** argv) {
     printf("kernel time: %.3f ms\n", ms);
 
     // ---- 带宽 ----
-    float bw_gbs = (3.0f * bytes / 1e9) / (ms / 1e3);   // 读 A+B + 写 C
+    float bw_gbs = (3.0f * bytes / 1e9) / (ms / 1e3); // 读 A+B + 写 C
     printf("effective bandwidth: %.1f GB/s\n", bw_gbs);
 
     // ---- 验证 ----
@@ -216,7 +220,8 @@ int main(int argc, char** argv) {
     int err = 0;
     for (int i = 0; i < num; ++i) {
         if (fabsf(hC[i] - (hA[i] + hB[i])) > 1e-5f) {
-            if (++err <= 5) printf("MISMATCH @%d: got %f, expect %f\n", i, hC[i], hA[i]+hB[i]);
+            if (++err <= 5)
+                printf("MISMATCH @%d: got %f, expect %f\n", i, hC[i], hA[i] + hB[i]);
         }
     }
     printf("verify: %s\n", err ? "FAIL" : "PASS");
@@ -224,7 +229,9 @@ int main(int argc, char** argv) {
     CHECK_CUDA(cudaFree(dA));
     CHECK_CUDA(cudaFree(dB));
     CHECK_CUDA(cudaFree(dC));
-    free(hA); free(hB); free(hC);
+    free(hA);
+    free(hB);
+    free(hC);
     return 0;
 }
 ```

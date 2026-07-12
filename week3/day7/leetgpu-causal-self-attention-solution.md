@@ -25,7 +25,8 @@ for (int j = 0; j < BLOCK_N; j++) {
     int kv_idx = bn * BLOCK_N + j;
     float score = dot(Q[i], K[j]) * scale;
     // Causal mask: query position i, key position kv_idx
-    if (kv_idx > q_idx) score = -1e30f;  // mask 掉未来位置
+    if (kv_idx > q_idx)
+        score = -1e30f; // mask 掉未来位置
     s[j] = score;
 }
 ```

@@ -28,7 +28,8 @@
 
 __global__ void conv1d_kernel(const float* input, const float* kernel, float* output, int N, int K) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= N) return;
+    if (i >= N)
+        return;
 
     float sum = 0.0f;
     for (int j = 0; j < K; j++) {

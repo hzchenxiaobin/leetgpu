@@ -113,19 +113,20 @@ __global__ void swiglu_kernel(const float* input, float* output, int halfN) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = gridDim.x * blockDim.x;
     for (int i = tid; i < halfN; i += stride) {
-        float x1 = input[i];            // 前半
-        float x2 = input[i + halfN];    // 后半
-        float silu = x1 / (1.0f + __expf(-x1));  // SiLU（register 内）
-        output[i] = silu * x2;          // 融合乘法（register 内）
+        float x1 = input[i];                    // 前半
+        float x2 = input[i + halfN];            // 后半
+        float silu = x1 / (1.0f + __expf(-x1)); // SiLU（register 内）
+        output[i] = silu * x2;                  // 融合乘法（register 内）
     }
 }
 
 int main() {
-    int N = 1 << 20;  // 1M
+    int N = 1 << 20; // 1M
     int halfN = N / 2;
     std::vector<float> h_in(N), h_out(halfN);
     srand(42);
-    for (auto& x : h_in) x = (rand() % 200 - 100) / 50.0f;
+    for (auto& x : h_in)
+        x = (rand() % 200 - 100) / 50.0f;
 
     float *d_in, *d_out;
     cudaMalloc(&d_in, N * sizeof(float));
@@ -142,16 +143,22 @@ int main() {
     for (int i = 0; i < halfN; i++) {
         float x1 = h_in[i], x2 = h_in[i + halfN];
         float expect = (x1 / (1.0f + expf(-x1))) * x2;
-        if (fabsf(h_out[i] - expect) > 1e-3) { pass = false; break; }
+        if (fabsf(h_out[i] - expect) > 1e-3) {
+            pass = false;
+            break;
+        }
     }
     printf("SwiGLU N=%d: %s\n", N, pass ? "PASS" : "FAIL");
 
     // 带宽测量
     cudaEvent_t start, stop;
-    cudaEventCreate(&start); cudaEventCreate(&stop);
-    for (int i = 0; i < 5; i++) swiglu_kernel<<<grid, BLOCK>>>(d_in, d_out, halfN);
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    for (int i = 0; i < 5; i++)
+        swiglu_kernel<<<grid, BLOCK>>>(d_in, d_out, halfN);
     cudaEventRecord(start);
-    for (int i = 0; i < 100; i++) swiglu_kernel<<<grid, BLOCK>>>(d_in, d_out, halfN);
+    for (int i = 0; i < 100; i++)
+        swiglu_kernel<<<grid, BLOCK>>>(d_in, d_out, halfN);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     float ms;
@@ -162,7 +169,8 @@ int main() {
     float bw = bytes / (t / 1000) / 1e9;
     printf("Bandwidth: %.1f GB/s (%.1f%% of 1555 GB/s)\n", bw, bw / 1555 * 100);
 
-    cudaFree(d_in); cudaFree(d_out);
+    cudaFree(d_in);
+    cudaFree(d_out);
     return 0;
 }
 ```

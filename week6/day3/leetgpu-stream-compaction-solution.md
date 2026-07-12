@@ -29,7 +29,8 @@ count  = 4
 // 顺序扫描，命中就写入——O(N)，无法并行
 int count = 0;
 for (int i = 0; i < N; i++) {
-    if (input[i] != 0) output[count++] = input[i];
+    if (input[i] != 0)
+        output[count++] = input[i];
 }
 ```
 
@@ -39,9 +40,10 @@ for (int i = 0; i < N; i++) {
 // 每个 thread 检查一个元素，命中就 atomicAdd 抢一个槽位
 __global__ void naive_compact(const int* input, int* output, int* count, int N) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= N) return;
+    if (i >= N)
+        return;
     if (input[i] != 0) {
-        int pos = atomicAdd(count, 1);   // 串行化点！
+        int pos = atomicAdd(count, 1); // 串行化点！
         output[pos] = input[i];
     }
 }
@@ -95,13 +97,14 @@ __global__ void naive_compact(const int* input, int* output, int* count, int N) 
 __device__ __forceinline__ int warp_excl_scan(int val) {
     int orig = val;
     int sum = val;
-    // exclusive：先减自己再加前缀
+// exclusive：先减自己再加前缀
     #pragma unroll
     for (int offset = 1; offset < WARP; offset *= 2) {
         int v = __shfl_up_sync(0xffffffff, sum, offset);
-        if ((threadIdx.x & (WARP - 1)) >= offset) sum += v;
+        if ((threadIdx.x & (WARP - 1)) >= offset)
+            sum += v;
     }
-    return sum - orig;   // exclusive = inclusive - 自己
+    return sum - orig; // exclusive = inclusive - 自己
 }
 
 // block 内 exclusive scan（每个 thread 处理 1 个元素）
@@ -117,20 +120,23 @@ __global__ void block_excl_scan_kernel(const int* pred, int* ps, int* block_sums
 
     // 每个 warp 的总和 = 最后一个 lane 的 inclusive
     int warp_total = warp_excl + val;
-    if (lane == WARP - 1) warp_sums[warp_id] = warp_total;
+    if (lane == WARP - 1)
+        warp_sums[warp_id] = warp_total;
     __syncthreads();
 
     // 第一个 warp 扫描 warp_sums
     if (warp_id == 0) {
         int w = (lane < blockDim.x / WARP) ? warp_sums[lane] : 0;
         int w_excl = warp_excl_scan(w);
-        if (lane < blockDim.x / WARP) warp_sums[lane] = w_excl;
+        if (lane < blockDim.x / WARP)
+            warp_sums[lane] = w_excl;
     }
     __syncthreads();
 
     // 把 warp 前缀加到每个元素上
     int block_excl = warp_excl + warp_sums[warp_id];
-    if (tid < N) ps[tid] = block_excl;
+    if (tid < N)
+        ps[tid] = block_excl;
 
     // block 总和写到 block_sums
     if (threadIdx.x == blockDim.x - 1) {
@@ -147,8 +153,7 @@ __global__ void add_prev_blocks(int* ps, const int* block_sums_excl, int N) {
 }
 
 // scatter：pred[i]==1 时 output[ps[i]] = input[i]
-__global__ void scatter_kernel(const int* input, const int* pred, const int* ps,
-                               int* output, int N) {
+__global__ void scatter_kernel(const int* input, const int* pred, const int* ps, int* output, int N) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < N && pred[i] == 1) {
         output[ps[i]] = input[i];
@@ -158,14 +163,16 @@ __global__ void scatter_kernel(const int* input, const int* pred, const int* ps,
 // predicate：pred[i] = (input[i] != 0) ? 1 : 0
 __global__ void predicate_kernel(const int* input, int* pred, int N) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < N) pred[i] = (input[i] != 0) ? 1 : 0;
+    if (i < N)
+        pred[i] = (input[i] != 0) ? 1 : 0;
 }
 
 int main() {
     int N = 1000000;
     std::vector<int> h_input(N);
     srand(42);
-    for (auto& x : h_input) x = (rand() % 3 == 0) ? 0 : (rand() % 100);  // ~1/3 为 0
+    for (auto& x : h_input)
+        x = (rand() % 3 == 0) ? 0 : (rand() % 100); // ~1/3 为 0
 
     size_t bytes = N * sizeof(int);
     int *d_input, *d_pred, *d_ps, *d_output, *d_block_sums;
@@ -188,9 +195,9 @@ int main() {
     int* d_block_sums_excl;
     cudaMalloc(&d_block_sums_excl, num_blocks * sizeof(int));
     int* d_dummy;
-    cudaMalloc(&d_dummy, sizeof(int));   // 第二级 scan 不需要再记录 block 和
-    block_excl_scan_kernel<<<(num_blocks + BLOCK - 1) / BLOCK, BLOCK>>>(
-        d_block_sums, d_block_sums_excl, d_dummy, num_blocks);
+    cudaMalloc(&d_dummy, sizeof(int)); // 第二级 scan 不需要再记录 block 和
+    block_excl_scan_kernel<<<(num_blocks + BLOCK - 1) / BLOCK, BLOCK>>>(d_block_sums, d_block_sums_excl, d_dummy,
+                                                                        num_blocks);
 
     // 4. 累加前序 block
     add_prev_blocks<<<blocks, BLOCK>>>(d_ps, d_block_sums_excl, N);
@@ -208,19 +215,25 @@ int main() {
 
     // CPU 验证
     std::vector<int> cpu_out;
-    for (auto x : h_input) if (x != 0) cpu_out.push_back(x);
+    for (auto x : h_input)
+        if (x != 0)
+            cpu_out.push_back(x);
     bool pass = ((int)cpu_out.size() == count);
 
     std::vector<int> h_gpu_out(count);
     cudaMemcpy(h_gpu_out.data(), d_output, count * sizeof(int), cudaMemcpyDeviceToHost);
     for (int i = 0; i < count && pass; i++)
-        if (h_gpu_out[i] != cpu_out[i]) pass = false;
+        if (h_gpu_out[i] != cpu_out[i])
+            pass = false;
 
-    printf("GPU count=%d, CPU count=%d, %s\n", count, (int)cpu_out.size(),
-           pass ? "PASS" : "FAIL");
+    printf("GPU count=%d, CPU count=%d, %s\n", count, (int)cpu_out.size(), pass ? "PASS" : "FAIL");
 
-    cudaFree(d_input); cudaFree(d_pred); cudaFree(d_ps);
-    cudaFree(d_output); cudaFree(d_block_sums); cudaFree(d_block_sums_excl);
+    cudaFree(d_input);
+    cudaFree(d_pred);
+    cudaFree(d_ps);
+    cudaFree(d_output);
+    cudaFree(d_block_sums);
+    cudaFree(d_block_sums_excl);
     return 0;
 }
 ```

@@ -84,7 +84,7 @@ smem[tid_x][tid_y] → dst[j*M+i]    // 按 col 读出 smem（转置），按 ro
 #define TILE 32
 
 __global__ void transpose_kernel(const float* src, float* dst, int M, int N) {
-    __shared__ float smem[TILE][TILE + 1];  // +1 padding 避免 bank conflict
+    __shared__ float smem[TILE][TILE + 1]; // +1 padding 避免 bank conflict
 
     int i = blockIdx.y * TILE + threadIdx.y;
     int j = blockIdx.x * TILE + threadIdx.x;
@@ -113,20 +113,20 @@ extern "C" void solve(const float* src, float* dst, int M, int N) {
 
 ```cuda
 // matrix_transpose_full.cu —— 含验证和带宽测量
-#include <cstdio>
-#include <cstdlib>
-#include <cmath>
-#include <cuda_runtime.h>
+    #include <cstdio>
+    #include <cstdlib>
+    #include <cmath>
+    #include <cuda_runtime.h>
 
-#define TILE 32
-#define CHECK_CUDA(call) do {                                              \
-    cudaError_t e = (call);                                                \
-    if (e != cudaSuccess) {                                                \
-        fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__,      \
-                cudaGetErrorString(e));                                     \
-        exit(EXIT_FAILURE);                                                \
-    }                                                                      \
-} while (0)
+    #define TILE 32
+    #define CHECK_CUDA(call)                                                                                               \
+    do {                                                                                                               \
+        cudaError_t e = (call);                                                                                        \
+        if (e != cudaSuccess) {                                                                                        \
+            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
+            exit(EXIT_FAILURE);                                                                                        \
+        }                                                                                                              \
+    } while (0)
 
 __global__ void transpose_kernel(const float* src, float* dst, int M, int N) {
     __shared__ float smem[TILE][TILE + 1];
@@ -147,10 +147,11 @@ int main(int argc, char** argv) {
     size_t bytes = (size_t)M * N * sizeof(float);
     printf("M=%d N=%d (%.1f MB)\n", M, N, bytes / 1e6);
 
-    float *hSrc = (float*)malloc(bytes);
-    float *hDst = (float*)malloc(bytes);
+    float* hSrc = (float*)malloc(bytes);
+    float* hDst = (float*)malloc(bytes);
     srand(42);
-    for (int i = 0; i < M * N; i++) hSrc[i] = (float)(rand() % 1000) / 10.0f;
+    for (int i = 0; i < M * N; i++)
+        hSrc[i] = (float)(rand() % 1000) / 10.0f;
 
     float *dSrc, *dDst;
     CHECK_CUDA(cudaMalloc(&dSrc, bytes));
@@ -179,13 +180,16 @@ int main(int argc, char** argv) {
     for (int i = 0; i < M && !fail; i++)
         for (int j = 0; j < N; j++)
             if (fabsf(hDst[j * M + i] - hSrc[i * N + j]) > 1e-5f) {
-                printf("FAIL at (%d,%d)\n", i, j); fail = 1; break;
+                printf("FAIL at (%d,%d)\n", i, j);
+                fail = 1;
+                break;
             }
     printf("%s\n", fail ? "FAIL" : "PASS");
 
     CHECK_CUDA(cudaFree(dSrc));
     CHECK_CUDA(cudaFree(dDst));
-    free(hSrc); free(hDst);
+    free(hSrc);
+    free(hDst);
     return 0;
 }
 ```

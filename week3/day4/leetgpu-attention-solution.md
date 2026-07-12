@@ -35,7 +35,7 @@
 
 ```cuda
 // flash: 分块 + online softmax, S 不落 HBM
-// IO: O(Nd) 
+// IO: O(Nd)
 ```
 
 ## 3. Kernel 实现
@@ -51,10 +51,8 @@
 #define BLOCK_N 64
 #define MAX_D 128
 
-__global__ void flash_attention_kernel(
-    const float* Q, const float* K, const float* V,
-    float* output, int M, int N, int d)
-{
+__global__ void flash_attention_kernel(const float* Q, const float* K, const float* V, float* output, int M, int N,
+                                       int d) {
     int bm = blockIdx.x;
     int tid = threadIdx.x;
 
@@ -71,7 +69,8 @@ __global__ void flash_attention_kernel(
     for (int i = tid; i < BLOCK_M; i += blockDim.x) {
         row_max[i] = -1e30f;
         row_sum[i] = 0.0f;
-        for (int j = 0; j < d; j++) acc[i][j] = 0.0f;
+        for (int j = 0; j < d; j++)
+            acc[i][j] = 0.0f;
     }
     __syncthreads();
 
@@ -108,7 +107,8 @@ __global__ void flash_attention_kernel(
                     dot += Q_tile[i][k] * K_tile[j][k];
                 }
                 s[j] = dot * scale;
-                if (s[j] > block_max) block_max = s[j];
+                if (s[j] > block_max)
+                    block_max = s[j];
             }
 
             // Online softmax update
@@ -146,8 +146,7 @@ __global__ void flash_attention_kernel(
     }
 }
 
-extern "C" void solve(const float* Q, const float* K, const float* V,
-                      float* output, int M, int N, int d) {
+extern "C" void solve(const float* Q, const float* K, const float* V, float* output, int M, int N, int d) {
     int gridSize = (M + BLOCK_M - 1) / BLOCK_M;
     flash_attention_kernel<<<gridSize, 128>>>(Q, K, V, output, M, N, d);
 }
