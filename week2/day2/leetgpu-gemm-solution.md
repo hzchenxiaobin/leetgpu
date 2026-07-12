@@ -26,13 +26,15 @@ $$C[i][j] = \sum_{k=0}^{K-1} A[i][k] \times B[k][j]$$
 ```cpp
 // cpu_baseline.cpp —— CPU 串行三重循环矩阵乘法
 void gemm_cpu(const float* A, const float* B, float* C, int M, int N, int K) {
-    for (int i = 0; i < M; ++i)
+    for (int i = 0; i < M; ++i) {
         for (int j = 0; j < N; ++j) {
             float sum = 0.0f;
-            for (int k = 0; k < K; ++k)
+            for (int k = 0; k < K; ++k) {
                 sum += A[i * K + k] * B[k * N + j];
+            }
             C[i * N + j] = sum;
         }
+    }
 }
 ```
 
@@ -46,8 +48,9 @@ __global__ void gemm_naive(const float* A, const float* B, float* C, int M, int 
     int j = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < M && j < N) {
         float sum = 0.0f;
-        for (int k = 0; k < K; ++k)
-            sum += A[i * K + k] * B[k * N + j];   // 每次都从 global 读！
+        for (int k = 0; k < K; ++k) {
+            sum += A[i * K + k] * B[k * N + j]; // 每次都从 global 读！
+        }
         C[i * N + j] = sum;
     }
 }
@@ -115,28 +118,29 @@ shared / block = As[128×8] + Bs[8×128] = 2048 float = 8 KB
 // 编译命令: nvcc -O3 -arch=sm_120 -lcublas gemm_register_blocking.cu -o gemm
 // 运行:     ./gemm 1024 1024 1024
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <cmath>
-#include <cuda_runtime.h>
 #include <cublas_v2.h>
+#include <cuda_runtime.h>
 
-#define CHECK_CUDA(call) do {                                              \
-    cudaError_t e = (call);                                                \
-    if (e != cudaSuccess) {                                                \
-        fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__,      \
-                cudaGetErrorString(e));                                     \
-        exit(EXIT_FAILURE);                                                \
-    }                                                                      \
-} while (0)
+#define CHECK_CUDA(call)                                                                                               \
+    do {                                                                                                               \
+        cudaError_t e = (call);                                                                                        \
+        if (e != cudaSuccess) {                                                                                        \
+            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
+            exit(EXIT_FAILURE);                                                                                        \
+        }                                                                                                              \
+    } while (0)
 
-#define CHECK_CUBLAS(call) do {                                            \
-    cublasStatus_t s = (call);                                             \
-    if (s != CUBLAS_STATUS_SUCCESS) {                                      \
-        fprintf(stderr, "cuBLAS error %s:%d: %d\n", __FILE__, __LINE__, s);\
-        exit(EXIT_FAILURE);                                                \
-    }                                                                      \
-} while (0)
+#define CHECK_CUBLAS(call)                                                                                             \
+    do {                                                                                                               \
+        cublasStatus_t s = (call);                                                                                     \
+        if (s != CUBLAS_STATUS_SUCCESS) {                                                                              \
+            fprintf(stderr, "cuBLAS error %s:%d: %d\n", __FILE__, __LINE__, s);                                        \
+            exit(EXIT_FAILURE);                                                                                        \
+        }                                                                                                              \
+    } while (0)
 
 // ---- tiling 参数 ----
 const int BM = 128;
@@ -144,34 +148,34 @@ const int BN = 128;
 const int BK = 8;
 const int TM = 8;
 const int TN = 8;
-const int NUM_THREADS = (BM / TM) * (BN / TN);   // 16 * 16 = 256
+const int NUM_THREADS = (BM / TM) * (BN / TN); // 16 * 16 = 256
 
 // Register Blocking GEMM：每 thread 算 TM×TN 个 C 输出
-__global__ void gemm_rb(const float* A, const float* B, float* C,
-                        int M, int N, int K) {
-    __shared__ float As[BM][BK];   // A 的 BM×BK 子块
-    __shared__ float Bs[BK][BN];   // B 的 BK×BN 子块
+__global__ void gemm_rb(const float* A, const float* B, float* C, int M, int N, int K) {
+    __shared__ float As[BM][BK]; // A 的 BM×BK 子块
+    __shared__ float Bs[BK][BN]; // B 的 BK×BN 子块
 
     const int bx = blockIdx.x, by = blockIdx.y;
-    const int tx = threadIdx.x, ty = threadIdx.y;          // 16×16
+    const int tx = threadIdx.x, ty = threadIdx.y; // 16×16
     // 将 2D threadIdx 展平为 0..255 的线性线程编号，用于协作加载 As/Bs。
-    // ty * (BN / TN) 是前 ty 行的线程数，+ tx 得到当前 thread 在 block 内的唯一序号。
+    // ty * (BN / TN) 是前 ty 行的线程数，+ tx 得到当前 thread 在 block
+    // 内的唯一序号。
     const int linear = ty * (BN / TN) + tx;
 
     // 本 thread 负责的输出子块在 C 中的左上角
-    const int row_base = by * BM + ty * TM;                 // M 维
-    const int col_base = bx * BN + tx * TN;                 // N 维
+    const int row_base = by * BM + ty * TM; // M 维
+    const int col_base = bx * BN + tx * TN; // N 维
 
     // 每 thread 从 As / Bs 各载 BM*BK/NUM_THREADS = 4 个元素
-    const int load_per_thread_A = BM * BK / NUM_THREADS;    // 4
-    const int load_per_thread_B = BK * BN / NUM_THREADS;    // 4
+    const int load_per_thread_A = BM * BK / NUM_THREADS; // 4
+    const int load_per_thread_B = BK * BN / NUM_THREADS; // 4
 
-    float acc[TM][TN] = {};  // 比双重循环清零更简洁，编译效果相同
+    float acc[TM][TN] = {}; // 比双重循环清零更简洁，编译效果相同
 
     // 沿 K 维滑动 BK 大小的 tile
     for (int bk = 0; bk < K; bk += BK) {
-        // ---- ① 协作加载 As[BM][BK] ----
-        #pragma unroll
+// ---- ① 协作加载 As[BM][BK] ----
+#pragma unroll
         for (int i = 0; i < load_per_thread_A; ++i) {
             int lin = linear * load_per_thread_A + i;
             int r = lin / BK;
@@ -180,8 +184,8 @@ __global__ void gemm_rb(const float* A, const float* B, float* C,
             int ac = bk + c;
             As[r][c] = (ar < M && ac < K) ? A[ar * K + ac] : 0.0f;
         }
-        // ---- ② 协作加载 Bs[BK][BN] ----
-        #pragma unroll
+// ---- ② 协作加载 Bs[BK][BN] ----
+#pragma unroll
         for (int i = 0; i < load_per_thread_B; ++i) {
             int lin = linear * load_per_thread_B + i;
             int r = lin / BN;
@@ -192,33 +196,43 @@ __global__ void gemm_rb(const float* A, const float* B, float* C,
         }
         __syncthreads();
 
-        // ---- ③ 外积累加：每 k 步做 TM×TN 次 FMA ----
-        #pragma unroll
+// ---- ③ 外积累加：每 k 步做 TM×TN 次 FMA ----
+#pragma unroll
         for (int k = 0; k < BK; ++k) {
             float rA[TM];
-            #pragma unroll
-            for (int m = 0; m < TM; ++m) rA[m] = As[ty * TM + m][k];
+#pragma unroll
+            for (int m = 0; m < TM; ++m) {
+                rA[m] = As[ty * TM + m][k];
+            }
             float rB[TN];
-            #pragma unroll
-            for (int n = 0; n < TN; ++n) rB[n] = Bs[k][tx * TN + n];
-            #pragma unroll
-            for (int m = 0; m < TM; ++m)
-                #pragma unroll
-                for (int n = 0; n < TN; ++n)
+#pragma unroll
+            for (int n = 0; n < TN; ++n) {
+                rB[n] = Bs[k][tx * TN + n];
+            }
+#pragma unroll
+            for (int m = 0; m < TM; ++m) {
+#pragma unroll
+                for (int n = 0; n < TN; ++n) {
                     acc[m][n] += rA[m] * rB[n];
+                }
+            }
         }
-        __syncthreads();   // tile 用完才能覆盖
+        __syncthreads(); // tile 用完才能覆盖
     }
 
-    // ---- ④ 写回 C ----
-    #pragma unroll
+// ---- ④ 写回 C ----
+#pragma unroll
     for (int m = 0; m < TM; ++m) {
         int r = row_base + m;
-        if (r >= M) continue;
-        #pragma unroll
+        if (r >= M) {
+            continue;
+        }
+#pragma unroll
         for (int n = 0; n < TN; ++n) {
             int c = col_base + n;
-            if (c < N) C[r * N + c] = acc[m][n];
+            if (c < N) {
+                C[r * N + c] = acc[m][n];
+            }
         }
     }
 }
@@ -236,8 +250,12 @@ int main(int argc, char** argv) {
     float *hA = (float*)malloc(aB), *hB = (float*)malloc(bB);
     float *hC = (float*)malloc(cB), *hRef = (float*)malloc(cB);
     srand(42);
-    for (int i = 0; i < M * K; ++i) hA[i] = (float)(rand() % 2000) / 1000.0f - 1.0f;
-    for (int i = 0; i < K * N; ++i) hB[i] = (float)(rand() % 2000) / 1000.0f - 1.0f;
+    for (int i = 0; i < M * K; ++i) {
+        hA[i] = (float)(rand() % 2000) / 1000.0f - 1.0f;
+    }
+    for (int i = 0; i < K * N; ++i) {
+        hB[i] = (float)(rand() % 2000) / 1000.0f - 1.0f;
+    }
 
     float *dA, *dB, *dC;
     CHECK_CUDA(cudaMalloc(&dA, aB));
@@ -246,20 +264,21 @@ int main(int argc, char** argv) {
     CHECK_CUDA(cudaMemcpy(dA, hA, aB, cudaMemcpyHostToDevice));
     CHECK_CUDA(cudaMemcpy(dB, hB, bB, cudaMemcpyHostToDevice));
 
-    dim3 threads(BN / TN, BM / TM);                       // (16,16)=256
+    dim3 threads(BN / TN, BM / TM); // (16,16)=256
     dim3 blocks((N + BN - 1) / BN, (M + BM - 1) / BM);
-    printf("launch: blocks=(%d,%d) threads=(%d,%d)\n",
-           blocks.x, blocks.y, threads.x, threads.y);
+    printf("launch: blocks=(%d,%d) threads=(%d,%d)\n", blocks.x, blocks.y, threads.x, threads.y);
 
     // ---- warmup + 计时 ----
     gemm_rb<<<blocks, threads>>>(dA, dB, dC, M, N, K);
     CHECK_CUDA(cudaDeviceSynchronize());
 
     cudaEvent_t t0, t1;
-    cudaEventCreate(&t0); cudaEventCreate(&t1);
+    cudaEventCreate(&t0);
+    cudaEventCreate(&t1);
     cudaEventRecord(t0);
-    for (int it = 0; it < 10; ++it)
+    for (int it = 0; it < 10; ++it) {
         gemm_rb<<<blocks, threads>>>(dA, dB, dC, M, N, K);
+    }
     cudaEventRecord(t1);
     CHECK_CUDA(cudaDeviceSynchronize());
     float ms_rb = 0.0f;
@@ -272,14 +291,13 @@ int main(int argc, char** argv) {
     CHECK_CUBLAS(cublasCreate(&handle));
     float alpha = 1.0f, beta = 0.0f;
     // warmup：避免 cuBLAS 首次调用 JIT / 内核加载开销
-    CHECK_CUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
-                             N, M, K, &alpha, dB, N, dA, K, &beta, dC, N));
+    CHECK_CUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N));
     CHECK_CUDA(cudaDeviceSynchronize());
     // 同样跑 10 次取平均，与我们的 kernel 对齐
     cudaEventRecord(t0);
-    for (int it = 0; it < 10; ++it)
-        CHECK_CUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
-                                 N, M, K, &alpha, dB, N, dA, K, &beta, dC, N));
+    for (int it = 0; it < 10; ++it) {
+        CHECK_CUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N));
+    }
     cudaEventRecord(t1);
     CHECK_CUDA(cudaDeviceSynchronize());
     float ms_cb = 0.0f;
@@ -310,8 +328,13 @@ int main(int argc, char** argv) {
     printf("verify: %s\n", err ? "FAIL" : "PASS");
 
     cublasDestroy(handle);
-    CHECK_CUDA(cudaFree(dA)); CHECK_CUDA(cudaFree(dB)); CHECK_CUDA(cudaFree(dC));
-    free(hA); free(hB); free(hC); free(hRef);
+    CHECK_CUDA(cudaFree(dA));
+    CHECK_CUDA(cudaFree(dB));
+    CHECK_CUDA(cudaFree(dC));
+    free(hA);
+    free(hB);
+    free(hC);
+    free(hRef);
     return err ? EXIT_FAILURE : 0;
 }
 ```
