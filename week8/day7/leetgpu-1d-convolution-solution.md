@@ -67,7 +67,7 @@ void cpu_conv1d(const float* x, const float* kernel, float* y, int N, int K) {
 
 ### 3.1 并行化策略
 
-![1D Convolution shared memory + halo 加载](images/conv1d_halo.svg)
+![1D Convolution shared memory + halo 加载](../../images/conv1d_halo.svg)
 
 **分块策略**：把输入分成大小 `TILE` 的块，每个 block 协作加载一个 tile 到 shared memory，然后每个线程算一个输出元素。
 

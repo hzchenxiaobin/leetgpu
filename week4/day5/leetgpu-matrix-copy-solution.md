@@ -69,7 +69,7 @@ __global__ void matrix_copy_naive(const float* in, float* out, int N) {
 
 在此基础上叠加 **`float4` 向量化**：每 thread 一次搬运 4 个 `float`（128-bit），把 4 条 32-bit `load`/`store` 合并为 1 条 128-bit 事务。
 
-![float4 向量化：4 条 4B 事务合并为 1 条 16B 事务](images/matrix_addition_float4_vectorization.svg)
+![float4 向量化：4 条 4B 事务合并为 1 条 16B 事务](../../images/matrix_addition_float4_vectorization.svg)
 
 核心伪代码：
 
@@ -96,7 +96,7 @@ for (int i = tid; i < N/4; i += stride)
 
 grid-stride 的索引 `i = tid, tid+stride, ...` 中，`tid` 在 warp 内连续（`threadIdx.x = 0..31`），所以**同一 warp 的 32 个 thread 在同一次循环里访问的是 `in[tid], in[tid+1], ..., in[tid+31]`——地址完全连续**。硬件把这 32 次 `float` 读（128 字节）合并成 **一次 128B load 事务**；写同理。
 
-![合并访存：warp 内 32 个线程访问连续地址，合并为 1 条 128B 事务](images/vector_addition_coalesced.svg)
+![合并访存：warp 内 32 个线程访问连续地址，合并为 1 条 128B 事务](../../images/vector_addition_coalesced.svg)
 
 > ⚠️ 拷贝是**读、写双向都要 coalesced** 的对称算子。反面教材：若用「跨步行索引」`in[i*stride]` 之类，同一 warp 的 32 次访问会散落到 32 段互不相邻的 128B 区间，硬件被迫发起多达 32 次事务，带宽利用率暴跌到 1/32。**写 elementwise/copy kernel 第一守则：保证 warp 内地址连续。**
 

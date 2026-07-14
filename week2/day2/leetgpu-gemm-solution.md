@@ -69,7 +69,7 @@ __global__ void gemm_naive(const half* A, const half* B, half* C, int M, int N, 
 }
 ```
 
-![朴素 GEMM 访存浪费](images/matmul_naive_problem.svg)
+![朴素 GEMM 访存浪费](../../images/matmul_naive_problem.svg)
 
 **致命问题**：相邻 thread 的 `A` 行、`B` 列高度重叠却各自从 global 重复读取，算术强度极低，是典型的 **memory-bound**，通常只有 peak 的 **1-3%**。更关键的是——朴素版**完全没用 Tensor Core**，把 FP16 输入当 FP32 处理，浪费了题目给的硬件红利。
 
@@ -301,7 +301,7 @@ int main(int argc, char** argv) {
 - **Warp 级（Warp Tile）**：每个 warp 负责 block tile 内的 `WARP_TILE_M×WARP_TILE_N` 子块，由 `FRAGS_M×FRAGS_N` 个 WMMA fragment 拼成。
 - **Fragment 级（Tensor Core）**：每个 fragment 是 `16×16×16` 的 `mma` 运算，由 warp 内 32 个 lane 协作执行，累加器 `acc` 常驻寄存器。
 
-![Register Blocking 三级数据复用](images/gemm_three_level_reuse.svg)
+![Register Blocking 三级数据复用](../../images/gemm_three_level_reuse.svg)
 
 **参数选取**（`BK = WMMA_K = 16`，因 `mma` 片段深度固定为 16）：
 

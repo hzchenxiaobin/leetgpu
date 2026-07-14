@@ -60,7 +60,7 @@ __global__ void naive_batched_matmul(const float* A, const float* B, float* C, i
 
 ### 3.1 并行化策略：batch 维 + tiled matmul
 
-![Batched Matmul：batch 维 + 输出 tile 维并行](images/batched_matmul_overview.svg)
+![Batched Matmul：batch 维 + 输出 tile 维并行](../../images/batched_matmul_overview.svg)
 
 三维并行：
 1. **batch 维**（`blockIdx.z`）：每个 batch 元素独立，一个 block 处理一个 batch 的一个 tile

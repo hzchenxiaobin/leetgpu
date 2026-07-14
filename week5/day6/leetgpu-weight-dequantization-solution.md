@@ -55,7 +55,7 @@ void dequant_cpu(const float* X, const float* S, float* Y, int M, int N, int T) 
 
 ### 3.1 并行化策略
 
-![Weight Dequantization：分块 scale × 量化权重](images/weight_dequantization_overview.svg)
+![Weight Dequantization：分块 scale × 量化权重](../../images/weight_dequantization_overview.svg)
 
 | 维度 | 映射 | 说明 |
 |------|------|------|
@@ -214,7 +214,7 @@ max diff: 0.00e+00 (PASS, tol=1e-5)
 
 ### 5.2 用 ncu 验证 memory-bound
 
-![ncu Roofline：Weight Dequant 落在带宽斜线](images/weight_dequantization_roofline.svg)
+![ncu Roofline：Weight Dequant 落在带宽斜线](../../images/weight_dequantization_roofline.svg)
 
 ```bash
 ncu --kernel-name regex:weight_dequant_kernel \

@@ -55,7 +55,7 @@ __global__ void naive_compact(const int* input, int* output, int* count, int N) 
 
 ### 3.1 并行化策略：predicate + exclusive scan + scatter
 
-![Stream Compaction 三段式：predicate → scan → scatter](images/stream_compaction_overview.svg)
+![Stream Compaction 三段式：predicate → scan → scatter](../../images/stream_compaction_overview.svg)
 
 经典三段式（Blelloch 并行 scan）：
 

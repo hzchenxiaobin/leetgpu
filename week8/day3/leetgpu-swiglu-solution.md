@@ -56,7 +56,7 @@ __global__ void swiglu_naive(const float* input, float* output, int halfN) {
 
 ### 3.1 并行化策略：grid-stride + kernel fusion
 
-![SwiGLU 融合 Kernel 数据流](images/swiglu_dataflow.svg)
+![SwiGLU 融合 Kernel 数据流](../../images/swiglu_dataflow.svg)
 
 核心策略：1 thread 处理 1 个输出元素，用 grid-stride loop 覆盖所有 `halfN`。关键在于**融合**——SiLU 和乘法在同一个 kernel 的 register 中完成，中间结果 `silu` 不写回 HBM：
 

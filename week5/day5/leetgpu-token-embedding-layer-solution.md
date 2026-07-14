@@ -74,14 +74,14 @@ void embed_cpu(const int* token_ids, const int* pos_ids, const float* tok_emb, c
 
 ### 3.1 并行化策略
 
-![Token Embedding Layer：gather + 加 + LayerNorm 融合](images/token_embedding_layer_overview.svg)
+![Token Embedding Layer：gather + 加 + LayerNorm 融合](../../images/token_embedding_layer_overview.svg)
 
 | 维度 | 映射 | 说明 |
 |------|------|------|
 | **(b,t) 位置** | `blockIdx.x` | 每个 block 处理一个 (batch, time) 位置，grid = `(B·T,)` |
 | **D 维** | block 内 thread 协作 | 每 thread 持有 s 的若干维，块归约求 μ/σ² |
 
-![并行映射：1 个 block 处理 1 个 (b,t) 位置](images/token_embedding_block_mapping.svg)
+![并行映射：1 个 block 处理 1 个 (b,t) 位置](../../images/token_embedding_block_mapping.svg)
 
 ### 3.2 存储层次使用
 

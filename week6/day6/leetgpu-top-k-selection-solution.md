@@ -52,7 +52,7 @@ for (int x : input) {
 
 ### 3.1 并行化策略：bitonic sort + 取前 k
 
-![Top K Selection：bitonic 排序 + 取前 k](images/top_k_selection_overview.svg)
+![Top K Selection：bitonic 排序 + 取前 k](../../images/top_k_selection_overview.svg)
 
 策略选择取决于 `k` 与 `N` 的关系：
 

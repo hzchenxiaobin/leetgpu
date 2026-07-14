@@ -103,7 +103,7 @@ void spec_decode_verify_cpu(const int* draft_tokens, const float* draft_probs, c
 
 ### 3.1 并行化策略
 
-![Speculative Decoding：Draft 提议 → Target 验证](images/speculative_decoding_overview.svg)
+![Speculative Decoding：Draft 提议 → Target 验证](../../images/speculative_decoding_overview.svg)
 
 | 维度 | 映射 | 说明 |
 |------|------|------|
@@ -111,7 +111,7 @@ void spec_decode_verify_cpu(const int* draft_tokens, const float* draft_probs, c
 | **序列内** | 串行遍历 T 个位置 | T ≤ 16，串行 accept/reject（early exit on first reject） |
 | **resample CDF** | block 协作 | 流式扫 V 维：chunk 加载 → block 归约求 total → chunk 前缀和找 r |
 
-![并行映射：1 个 block 处理 1 个序列](images/speculative_decoding_block_mapping.svg)
+![并行映射：1 个 block 处理 1 个序列](../../images/speculative_decoding_block_mapping.svg)
 
 `grid = (B,)`，`block = (BLOCK_SIZE,)`（如 256）。B 个 block 完全并行；block 内串行处理 T 个位置，reject 时全 block 协作算 CDF。
 

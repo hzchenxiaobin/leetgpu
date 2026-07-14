@@ -63,7 +63,7 @@ __global__ void matmul_naive(const float* A, const float* B, float* C, int M, in
 }
 ```
 
-![朴素 GEMM 访存浪费](images/matmul_naive_problem.svg)
+![朴素 GEMM 访存浪费](../../images/matmul_naive_problem.svg)
 
 **致命问题**：每个 thread 独立读 `A[i][0..N-1]` 和 `B[0..N-1][j]`，但**相邻 thread 的数据高度重叠**——同一行的 thread 共享 `A` 的行，同一列的 thread 共享 `B` 的列。朴素写法完全没有利用这种复用，导致 `A` 的每个元素被重复读 `K` 次、`B` 的每个元素被重复读 `M` 次。
 
@@ -75,7 +75,7 @@ __global__ void matmul_naive(const float* A, const float* B, float* C, int M, in
 
 破局核心：用 **shared memory** 缓存 `A` 和 `B` 的小块（tile），让整个 block 的线程复用。
 
-![Shared Memory Tiling 方案](images/matmul_tiling.svg)
+![Shared Memory Tiling 方案](../../images/matmul_tiling.svg)
 
 **算法**：把 `K` 维分成 `N/TILE` 段，每段 `TILE` 个元素。每次迭代：
 
@@ -100,7 +100,7 @@ __global__ void matmul_naive(const float* A, const float* B, float* C, int M, in
 
 **register tiling** 进一步优化：让每 thread 计算 `TM×TN` 个输出（如 `2×2`、`4×4`），结果存在寄存器数组里，不落 global。
 
-![Register Tiling 方案](images/matmul_register_tiling.svg)
+![Register Tiling 方案](../../images/matmul_register_tiling.svg)
 
 **收益**：
 - `A_tile` 的行被同一 thread 的 `TN` 个输出复用 → 读 1 次做 `TN` 次乘加

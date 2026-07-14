@@ -63,7 +63,7 @@ __global__ void conv2d_naive(const float* input, const float* kernel, float* out
 
 问题在 **邻域重叠**：相邻输出 `(oy,ox)` 与 `(oy,ox+1)` 的 K×K 邻域有 `K×(K-1)` 个元素相同，朴素实现各自从 global 重复读。
 
-![朴素卷积的邻域重复读取](images/conv2d_naive_redundant_reads.svg)
+![朴素卷积的邻域重复读取](../../images/conv2d_naive_redundant_reads.svg)
 
 - 每个 input 元素被周围 `K×K` 个输出 thread 各读一次 → **global 读次数 = H·W·K²**。
 - `K=5` 时每个元素被读 25 次，带宽被冗余读吃光。
@@ -79,7 +79,7 @@ __global__ void conv2d_naive(const float* input, const float* kernel, float* out
 
 输出 tile `OT×OT` 需要的 input 区域是 `(OT+K-1)×(OT+K-1)`——多出的 `K-1` 圈边界就是 **halo（光晕/apron）**，供 tile 边缘输出的卷积窗口读取邻域。
 
-![Halo Tiling：block 加载含光晕的 tile](images/conv2d_halo_tile.svg)
+![Halo Tiling：block 加载含光晕的 tile](../../images/conv2d_halo_tile.svg)
 
 流程（每 block）：
 1. **协作加载**：`OT×OT` 个线程用 strided loop 把 `(OT+K-1)²` 个 input（含 halo）载入 `smem`。

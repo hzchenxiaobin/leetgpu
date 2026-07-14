@@ -76,7 +76,7 @@ void causal_attn_cpu(const float* Q, const float* K, const float* V, float* O, i
 
 ### 3.1 并行化策略
 
-![Causal Mask：query i 只能看到 key 0..i](images/causal_self_attention_mask.svg)
+![Causal Mask：query i 只能看到 key 0..i](../../images/causal_self_attention_mask.svg)
 
 | 维度 | 映射 | 说明 |
 |------|------|------|
@@ -84,7 +84,7 @@ void causal_attn_cpu(const float* Q, const float* K, const float* V, float* O, i
 | **block 内** | 遍历 key `0..i` | online softmax 增量更新，只需 `i+1` 个 key（causal 天然截断） |
 | **输出 d 维** | thread 分摊 | `o_local` 每 thread 持有若干维 |
 
-![并行映射：1 个 block 处理 1 行 query](images/causal_self_attention_block_mapping.svg)
+![并行映射：1 个 block 处理 1 行 query](../../images/causal_self_attention_block_mapping.svg)
 
 ### 3.2 存储层次使用
 

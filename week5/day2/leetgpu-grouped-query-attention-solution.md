@@ -77,7 +77,7 @@ void gqa_cpu(const float* Q, const float* K, const float* V, float* O, int num_q
 
 ### 3.1 并行化策略
 
-![MHA vs GQA vs MQA：KV 头数决定 Cache 大小](images/grouped_query_attention_overview.svg)
+![MHA vs GQA vs MQA：KV 头数决定 Cache 大小](../../images/grouped_query_attention_overview.svg)
 
 | 维度 | 映射 | 说明 |
 |------|------|------|
@@ -85,7 +85,7 @@ void gqa_cpu(const float* Q, const float* K, const float* V, float* O, int num_q
 | **block 内** | 线程协作遍历 `seq_len` 个 key | 块归约算点积；thread 0 维护 online softmax 的 m/l/o；输出 `head_dim` 维由 thread 分摊 |
 | **KV head 映射** | `kv_h = h / group` | 同一 group 的 Q heads 共享一份 K/V，读同一块 global/shared memory |
 
-![GQA 并行映射：block 处理一个 (q_head, seq_row)](images/grouped_query_attention_block_mapping.svg)
+![GQA 并行映射：block 处理一个 (q_head, seq_row)](../../images/grouped_query_attention_block_mapping.svg)
 
 `grid = (num_q_heads × seq_len,)`，`block = (BLOCK,)`（如 256）。每个 block 独立做一次完整 attention：`Q[h,s]` 对 `K[kv_h, :seq]` 做 `1×seq` 点积 → online softmax → `× V[kv_h, :seq]`。
 

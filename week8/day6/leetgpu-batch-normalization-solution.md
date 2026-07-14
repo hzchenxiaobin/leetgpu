@@ -84,7 +84,7 @@ Kernel 3: 逐元素 normalize（grid-stride）
 
 ### 3.1 并行化策略
 
-![BatchNorm 数据流：reduce → normalize](images/batchnorm_dataflow.svg)
+![BatchNorm 数据流：reduce → normalize](../../images/batchnorm_dataflow.svg)
 
 **一个 block 负责一个通道** `c`：block 内所有线程协作 reduce `(N, H, W)` 个元素。
 

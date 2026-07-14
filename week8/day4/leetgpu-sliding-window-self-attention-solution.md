@@ -125,7 +125,7 @@ __global__ void sliding_window_attn_naive(const float* Q, const float* K, const 
 
 ### 3.1 并行化策略：1 thread 处理 1 个 query，窗口内用 register 累加
 
-![Sliding Window Attention 数据流](images/sliding_window_attention.svg)
+![Sliding Window Attention 数据流](../../images/sliding_window_attention.svg)
 
 核心策略：
 

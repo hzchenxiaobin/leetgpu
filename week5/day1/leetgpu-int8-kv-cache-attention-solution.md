@@ -72,7 +72,7 @@ void attention_int8_cpu(const float* Q, const int8_t* K_int8, const int8_t* V_in
 
 最朴素的 GPU 想法是先开一个 kernel 把 `K_int8`、`V_int8` 反量化成 fp32 写回 HBM，再调 cuBLAS/cuDNN 做 attention。**这恰恰是本题要避免的反模式**：
 
-![INT8 反量化：KV Cache 带宽 4× 压缩](images/int8_kv_cache_dequant.svg)
+![INT8 反量化：KV Cache 带宽 4× 压缩](../../images/int8_kv_cache_dequant.svg)
 
 - 反量化写出 fp32 cache 会把 int8 省下的 4× 带宽**全部还回去**（多一次 `H·L·d·4B` 写 + 读）；
 - Decode 本就 memory-bound，多一趟 fp32 cache 的 HBM 往返直接吃掉所有收益。
@@ -90,7 +90,7 @@ void attention_int8_cpu(const float* Q, const int8_t* K_int8, const int8_t* V_in
 
 `grid = (H,)`，`block = (BLOCK,)`（如 256）。H 个 head 完全并行；block 内串行扫描 `L` 个 token，但用 online softmax 把"点积 → softmax → 加权 V"合成一遍扫描。
 
-![INT8 KV-Cache Attention：单 Query 对 KV Cache 的 Decode](images/int8_kv_cache_attention_overview.svg)
+![INT8 KV-Cache Attention：单 Query 对 KV Cache 的 Decode](../../images/int8_kv_cache_attention_overview.svg)
 
 ### 3.2 存储层次使用
 

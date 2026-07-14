@@ -51,7 +51,7 @@ __global__ void silu_naive(const float* input, float* output, int N) {
 
 ### 3.1 并行化策略：grid-stride loop
 
-![SiLU memory-bound elementwise kernel](images/silu_overview.svg)
+![SiLU memory-bound elementwise kernel](../../images/silu_overview.svg)
 
 最简且健壮的策略：1 thread 处理若干元素，用 **grid-stride loop** 保证任意 N 都能一次 launch 覆盖：
 

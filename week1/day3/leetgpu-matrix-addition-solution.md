@@ -64,7 +64,7 @@ __global__ void matadd_naive(const float* A, const float* B, float* C, int N) {
 
 把 `M×N` 矩阵视为一维 `float` 数组（行主序连续），用 **1D grid-stride loop**（[Day 1 Vector Addition](../day1/leetgpu-vector-addition-solution.md) 的同款模式）映射线程到元素。在此基础上叠加 **`float4` 向量化**：每 thread 一次处理 4 个 float（128-bit），把 4 条 `load` 合并为 1 条 `float4` 加载。
 
-![float4 向量化：4 条 4B 事务合并为 1 条 16B 事务](images/matrix_addition_float4_vectorization.svg)
+![float4 向量化：4 条 4B 事务合并为 1 条 16B 事务](../../images/matrix_addition_float4_vectorization.svg)
 
 ### 3.2 存储层次使用
 
@@ -104,7 +104,7 @@ for (int i = tid; i < vec_count; i += stride) {
 
 算术强度 `AI = 1 FLOP / 12B`（1 次加法 ↔ 读 8B + 写 4B）。RTX 5090 的平衡点（Ridge Point）约 `60 FLOP/B`（fp32）。`AI ≪ Ridge Point` → **memory-bound**，性能上限由 HBM 带宽决定，而非算力。
 
-![Roofline：AI=0.083 FLOP/B，远在平衡点左侧，纯 memory-bound](images/matrix_addition_roofline.svg)
+![Roofline：AI=0.083 FLOP/B，远在平衡点左侧，纯 memory-bound](../../images/matrix_addition_roofline.svg)
 
 #### Occupancy 调优（Day 2 概念）
 

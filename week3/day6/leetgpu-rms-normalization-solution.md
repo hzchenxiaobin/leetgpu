@@ -81,7 +81,7 @@ __global__ void rmsnorm_wrong(const float* x, const float* gamma, float* y, int 
 
 **核心映射**：`blockIdx.x → 行号 r`，block 内 `BLOCK_SIZE` 个 thread 协作处理该行的 `D` 个元素。
 
-![一个 block 负责一行：grid-stride 内协作 + 一次块归约](images/softmax_block_per_row.svg)
+![一个 block 负责一行：grid-stride 内协作 + 一次块归约](../../images/softmax_block_per_row.svg)
 
 每个 block 执行两阶段：
 1. **Pass 1（求 sum of squares）**：thread 各自用 grid-stride 扫描行内元素累加 `x²` → 块归约得到 `row_sq`
@@ -101,7 +101,7 @@ __global__ void rmsnorm_wrong(const float* x, const float* gamma, float* y, int 
 
 RMSNorm 只需一次 sum 归约。直接复用 [Day 4 Reduction](../week1/day4/leetgpu-reduction-solution.md) 的 `warp_reduce_sum` + `block_reduce_sum` 模板：
 
-![两级块归约：warp shuffle 折叠 → shared 汇总 → warp 0 终约](images/dot_product_two_level_reduce.svg)
+![两级块归约：warp shuffle 折叠 → shared 汇总 → warp 0 终约](../../images/dot_product_two_level_reduce.svg)
 
 - **warp 内**：`__shfl_down_sync` 折半累加到 lane 0
 - **warp 间**：每 warp lane 0 写 shared → 第一个 warp 再归约
@@ -293,7 +293,7 @@ ncu --kernel-name regex:rmsnorm_kernel \
 
 **判定**：`DRAM% >> SM%` 且 Long Scoreboard 高 → **memory-bound** ✓
 
-![Roofline 视角：RMSNorm 落在斜线段（memory-bound 区）](images/matrix_addition_roofline.svg)
+![Roofline 视角：RMSNorm 落在斜线段（memory-bound 区）](../../images/matrix_addition_roofline.svg)
 
 ### 5.3 算术强度与理论带宽
 

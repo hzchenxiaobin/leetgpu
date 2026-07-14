@@ -55,7 +55,7 @@ __global__ void naive_segmented_scan(const int* input, int* output, const int* s
 
 ### 3.1 并行化策略：统一的 segmented scan
 
-![Segmented Prefix Sum：段内扫描 + 段间独立](images/segmented_prefix_sum_overview.svg)
+![Segmented Prefix Sum：段内扫描 + 段间独立](../../images/segmented_prefix_sum_overview.svg)
 
 核心思路：**把所有段铺平成一个数组，用一个统一的 scan kernel，但在段边界强制前缀归零**。
 

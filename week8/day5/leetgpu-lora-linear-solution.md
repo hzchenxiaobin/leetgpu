@@ -103,7 +103,7 @@ __global__ void lora_naive(const float* W, const float* A, const float* B, const
 
 ### 3.1 并行化策略：1 block 算完整向量，共享 h
 
-![LoRA Linear 数据流](images/lora_linear.svg)
+![LoRA Linear 数据流](../../images/lora_linear.svg)
 
 核心策略：
 

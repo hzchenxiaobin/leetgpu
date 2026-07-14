@@ -61,7 +61,7 @@ void mha_cpu(const float* Q, const float* K, const float* V, float* O, int B, in
 
 朴素 GPU 把 CPU 三步搬到 device：对每个 `(batch, head)` 先算 `S=QK^T` 写 HBM，再读 `S` 算 softmax 写 `P` 到 HBM，再读 `P`、`V` 算 `O`。
 
-![朴素 MHA：B×H 组各物化两个 N×N 中间矩阵到 HBM](images/flash_attention_naive_vs_fused.svg)
+![朴素 MHA：B×H 组各物化两个 N×N 中间矩阵到 HBM](../../images/flash_attention_naive_vs_fused.svg)
 
 **致命问题**：
 1. **显存 O(B·H·N²)**：`S`、`P` 各 `B·H·N²×4B`。`B=128, H=16, N=4096` 时各 **128 GB**——任何 GPU 都 OOM。
@@ -86,7 +86,7 @@ void mha_cpu(const float* Q, const float* K, const float* V, float* O, int B, in
 
 每个 block 内部用 **FlashAttention tiling**：外层循环遍历 `K/V` 的 `Bc` 行 tile，把 tile 载入 shared memory 后供 `Br` 个 query 行**复用**；用 **online softmax** 在一遍扫描里增量更新 `m/l/o`，`S/P` 永不落 HBM。
 
-![FlashAttention tiling：Br 行 query 复用同一 K/V tile](images/flash_attention_tiling.svg)
+![FlashAttention tiling：Br 行 query 复用同一 K/V tile](../../images/flash_attention_tiling.svg)
 
 ### 3.2 存储层次使用
 
@@ -108,7 +108,7 @@ void mha_cpu(const float* Q, const float* K, const float* V, float* O, int B, in
 
 令 `α = exp(m−m_new)`、`p = exp(s−m_new)`，则 `l_new = l·α+p`，`o_new = o·(l·α/l_new) + (p/l_new)·v`。所有 `exp` 减 running max，永不溢出。
 
-![online softmax 三公式增量更新 m/l/o](images/flash_attention_online_update.svg)
+![online softmax 三公式增量更新 m/l/o](../../images/flash_attention_online_update.svg)
 
 **③ 每 warp 处理 1 行 query，32 lane 拆分 d 维**：block 内 `NUM_WARPS` 个 warp 各负责 1 行 query（`Br = NUM_WARPS`）。每个 warp 的 32 个 thread（lane）沿 `d` 维切分——每 lane 持有 `D_PER_THREAD = ⌈d/32⌉` 个 `d` 元素。点积 `Q·K` 时各 lane 算 partial sum 再 `warp_reduce_sum`；输出累加器 `o_reg[D_PER_THREAD]` 也分布在各 lane。这比"1 block 1 行 query"的朴素做法多了 `Br` 倍 K/V 复用。
 

@@ -69,7 +69,7 @@ __global__ void rope_naive(const float* Q, const float* cos, const float* sin, f
 
 ### 3.1 并行化策略：grid-stride + 2D 映射
 
-![RoPE 旋转位置编码数据流](images/rope_dataflow.svg)
+![RoPE 旋转位置编码数据流](../../images/rope_dataflow.svg)
 
 策略：1 thread 处理 1 元素，用 2D 映射（row= blockIdx.y, col= blockIdx.x）避免除法：
 

@@ -86,7 +86,7 @@ __global__ void softmax_naive(const float* x, float* y, int M, int D) {
 
 **核心映射**：`blockIdx.x → 行号 r`，block 内 `BLOCK_SIZE` 个 thread 协作处理该行的 `D` 个元素。grid 规模即 `M` 个 block。
 
-![一个 block 负责一行：三遍扫描 + 两次块归约](images/softmax_block_per_row.svg)
+![一个 block 负责一行：三遍扫描 + 两次块归约](../../images/softmax_block_per_row.svg)
 
 每个 block 执行**三遍扫描**，前两遍各做一次块归约：
 
@@ -110,7 +110,7 @@ __global__ void softmax_naive(const float* x, float* y, int M, int D) {
 
 **两次块归约都复用 [Day 4 Reduction](../week1/day4/leetgpu-reduction-solution.md) 的模板**，只是把 `+` 换成 `fmaxf`：
 
-![三遍扫描数据流：max → sum(exp) → normalize](images/softmax_three_pass.svg)
+![三遍扫描数据流：max → sum(exp) → normalize](../../images/softmax_three_pass.svg)
 
 - **`warp_reduce_max`**：`__shfl_down_sync` + `fmaxf` 折半比较，lane 0 持有 warp 最大值
 - **`block_reduce_max`**：warp 间写 shared → 第一个 warp 再 `warp_reduce_max` → 写 `shared[0]` 广播
@@ -334,7 +334,7 @@ ncu --kernel-name regex:softmax_kernel \
 
 1. **online softmax 两遍扫描（性价比最高）**：**FlashAttention** 的核心思想，把 max 和 sum 合并到同一次扫描里用增量更新 $m_{\text{new}}=\max(m_{\text{old}},m_{\text{block}}),\ s_{\text{new}}=s_{\text{old}}\cdot e^{m_{\text{old}}-m_{\text{new}}}+s_{\text{block}}$，把 3 遍读降到 2 遍。
 
-![online softmax：max 与 sum 单遍融合](images/softmax_online_fused.svg)
+![online softmax：max 与 sum 单遍融合](../../images/softmax_online_fused.svg)
 
 2. **shared memory 缓存整行**：`D ≤ 4096`（16KB 可入 shared）时把整行一次性读到 shared，后续 max/sum/normalize 全在 shared 上做，**global 读降到 1 遍**。限制是 `D` 受 shared 容量约束。
 3. **float4 向量化访存**：`x` 按行连续对齐，用 `float4` 一次读 16B，减少内存事务数与地址计算开销。

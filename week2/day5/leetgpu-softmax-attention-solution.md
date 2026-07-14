@@ -70,7 +70,7 @@ void attention_cpu(const float* Q, const float* K, const float* V, float* O, int
 
 朴素 GPU 把三步搬到 device：先算 `S=QK^T` 写 HBM，再读 `S` 算 softmax 写 `P` 到 HBM，再读 `P`、`V` 算 `O`。
 
-![朴素 Attention：S、P 两个 N×N 中间矩阵全部物化到 HBM](images/flash_attention_naive_vs_fused.svg)
+![朴素 Attention：S、P 两个 N×N 中间矩阵全部物化到 HBM](../../images/flash_attention_naive_vs_fused.svg)
 
 **致命问题**：
 1. **显存 O(N²)**：`S`、`P` 各 `N×N×4B`。`N=8192` 时各 256MB，长序列直接 OOM。
@@ -90,7 +90,7 @@ void attention_cpu(const float* Q, const float* K, const float* V, float* O, int
 
 两个版本都是 **一个 block 处理一行 query**。区别在于 fused 版用 **online softmax** 把三步合成一遍对 `K/V` 的扫描，`S`、`P` 永远只活在寄存器里，从不落 HBM。
 
-![Fused Attention：online softmax 一遍扫描，S/P 不物化](images/flash_attention_online_update.svg)
+![Fused Attention：online softmax 一遍扫描，S/P 不物化](../../images/flash_attention_online_update.svg)
 
 ### 3.2 存储层次使用
 
@@ -433,7 +433,7 @@ ncu --kernel-name regex:attention_naive_kernel|attention_fused_kernel \
 
 1. **FlashAttention tiling（Br×Bc 分块）**：本实现一个 block 只处理一行 query，`K/V` 会被 `N` 个 query 各读一遍（`O(N²d)` HBM）。真正的 FlashAttention 让一个 block 处理 `Br` 行 query，把 `K/V` 的一个 `Bc` 列 tile 载入 shared memory 后供 `Br` 个 query 复用，把 `K/V` 的 HBM 流量从 `O(N²d)` 降到 `O(N²d²/M)`（`M` 为 SRAM 容量），趋于 **O(Nd)**。
 
-![FlashAttention tiling：Br 行 query 复用同一 K/V tile](images/flash_attention_tiling.svg)
+![FlashAttention tiling：Br 行 query 复用同一 K/V tile](../../images/flash_attention_tiling.svg)
 
 2. **减少 non-matmul FLOPs**：online softmax 的 `exp`、rescale 不是矩阵乘，算术强度低。FlashAttention-2 通过重排循环让每个 thread 做更多 GEMM、少做 rescale。
 3. **shared memory 缓存 K/V tile**：内层循环从 shared 读 `K[k]`、`V[k]` 而非 global，降低延迟。

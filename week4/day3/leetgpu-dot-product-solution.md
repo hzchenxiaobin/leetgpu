@@ -49,7 +49,7 @@ __global__ void naive_dot(const float* a, const float* b, float* result, int N) 
 
 ### 3.1 并行化策略：两级归约
 
-![Dot Product 两级归约：block 内 + 跨 block](images/dot_product_overview.svg)
+![Dot Product 两级归约：block 内 + 跨 block](../../images/dot_product_overview.svg)
 
 经典两级归约：
 1. **block 内归约**：每个 block 处理一段数据，block 内用 warp shuffle 树形归约得到 `block_sum`

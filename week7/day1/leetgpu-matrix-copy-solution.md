@@ -49,7 +49,7 @@ __global__ void naive_copy(const float* src, float* dst, int M, int N) {
 
 ### 3.1 并行化策略：coalesced 1:1 拷贝
 
-![Matrix Copy coalesced 访存](images/matrix_copy_overview.svg)
+![Matrix Copy coalesced 访存](../../images/matrix_copy_overview.svg)
 
 最简策略：1 thread 拷 1 元素，**保证 warp 内 thread 访问连续地址**（row-major + x 维连续）。
 
