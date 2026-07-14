@@ -28,7 +28,7 @@ O[i] = Σ_j P[i][j] · V[j]
 
 **约束**：`N` 较大（如 16K/32K），`W << N`（如 128/256），`d` 较小（如 64）。
 
-> 💡 Sliding Window Attention 是长文本优化的核心手段之一。与 [Week8 Day4 高频面试进阶篇](../../aiinfra/week8/day4/README.md) 的"长文本推理优化"主题直接对应——它用局部窗口把 attention 复杂度从 `O(N²)` 降到 `O(N·W)`，显著降低显存和计算。
+> 💡 Sliding Window Attention 是长文本优化的核心手段之一。与 [Week8 Day4 高频面试进阶篇](../../aiinfra/daily/week8/day4/README.md) 的"长文本推理优化"主题直接对应——它用局部窗口把 attention 复杂度从 `O(N²)` 降到 `O(N·W)`，显著降低显存和计算。
 
 ---
 

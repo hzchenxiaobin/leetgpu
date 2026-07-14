@@ -18,7 +18,7 @@ C = [[6,8],[10,12]]
 
 **约束**：`1 ≤ M, N ≤ 4096`；性能测试取大矩阵。
 
-> 💡 这道题是 **element-wise 计算的最简形式**——两个矩阵逐元素相加。与 [Week7 Day7 代码重构与文档](../../aiinfra/week7/day7/README.md) 的关联：它是 Week 7 的"收官题"——从 Day 1 的 Matrix Copy（纯搬运）到 Day 7 的 Matrix Addition（搬运+计算），体现了 Mini 系统从"能搬数据"到"能算结果"的完整能力。它也是 Day 4 自定义 kernel 集成中最基础的验证算子。
+> 💡 这道题是 **element-wise 计算的最简形式**——两个矩阵逐元素相加。与 [Week7 Day7 代码重构与文档](../../aiinfra/daily/week7/day7/README.md) 的关联：它是 Week 7 的"收官题"——从 Day 1 的 Matrix Copy（纯搬运）到 Day 7 的 Matrix Addition（搬运+计算），体现了 Mini 系统从"能搬数据"到"能算结果"的完整能力。它也是 Day 4 自定义 kernel 集成中最基础的验证算子。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

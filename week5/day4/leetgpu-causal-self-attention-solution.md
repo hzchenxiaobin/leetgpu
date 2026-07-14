@@ -29,7 +29,7 @@ output = softmax · V = [[1,2,3,4],[5,6,7,8]]
 
 **约束**：`M, d` 由测试给定；性能测试取 `M=5000, d=128`；容差 `atol=rtol=1e-5`；`Q/K/V/output` 均为 `float32`。
 
-> 💡 这道题是 [Week5 Day4](../../aiinfra/week5/day4/README.md) 讲的 **PagedAttention 服务的 attention 变体**——LLM 推理 prefill 阶段跑的就是 causal self-attention（生成第 i 个 token 只能看到前 i 个 token）。今天我们手写了 PagedAttention kernel（decode 场景：1 query 对 N key），本题是它的 prefill 对偶——M 个 query 互相做 causal masked attention。两者的核心都是"online softmax 融合 + 间接寻址"，PagedAttention 的 block table 机制同样适用于 causal attention 的 KV 存储。
+> 💡 这道题是 [Week5 Day4](../../aiinfra/daily/week5/day4/README.md) 讲的 **PagedAttention 服务的 attention 变体**——LLM 推理 prefill 阶段跑的就是 causal self-attention（生成第 i 个 token 只能看到前 i 个 token）。今天我们手写了 PagedAttention kernel（decode 场景：1 query 对 N key），本题是它的 prefill 对偶——M 个 query 互相做 causal masked attention。两者的核心都是"online softmax 融合 + 间接寻址"，PagedAttention 的 block table 机制同样适用于 causal attention 的 KV 存储。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
@@ -346,4 +346,4 @@ ncu --kernel-name regex:causal_self_attention_kernel \
 | **HBM IO（K/V 部分）** | `O(M²d)`（每 query 重读） | `O(M²d/2)`（causal 截断） |
 | **瓶颈类型** | memory-bound（S/P 物化） | memory-bound（K/V 重读），tiling 后趋 compute-bound |
 
-> 💡 **一句话总结**：Causal Self-Attention 是 LLM prefill 跑的 attention 变体——query i 只 attend key 0..i（因果性）。用 online softmax 融合（不物化 M×M 的 S/P）+ causal 截断（内层循环只到 i），既省显存又省 50% 计算。它是 [Day4 PagedAttention](../../aiinfra/week5/day4/README.md) decode kernel 的 prefill 对偶——两者核心都是"间接寻址 + online softmax 融合"，PagedAttention 的 block table 同样适用于 causal attention 的 KV 存储。
+> 💡 **一句话总结**：Causal Self-Attention 是 LLM prefill 跑的 attention 变体——query i 只 attend key 0..i（因果性）。用 online softmax 融合（不物化 M×M 的 S/P）+ causal 截断（内层循环只到 i），既省显存又省 50% 计算。它是 [Day4 PagedAttention](../../aiinfra/daily/week5/day4/README.md) decode kernel 的 prefill 对偶——两者核心都是"间接寻址 + online softmax 融合"，PagedAttention 的 block table 同样适用于 causal attention 的 KV 存储。

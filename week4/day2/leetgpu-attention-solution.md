@@ -11,7 +11,7 @@
 
 **约束**：`1 ≤ M, N ≤ 4096`，`1 ≤ d ≤ 128`。
 
-> 💡 与 [Week3 Day4 标准 Attention Forward](../../aiinfra/week3/day4/README.md) 的关联：本题是 naive Attention 的进阶版——要求实现 FlashAttention（分块 + online softmax），让 S/P 矩阵永远不落 HBM，将 IO 从 O(N²) 降到 O(Nd)。
+> 💡 与 [Week3 Day4 标准 Attention Forward](../../aiinfra/daily/week3/day4/README.md) 的关联：本题是 naive Attention 的进阶版——要求实现 FlashAttention（分块 + online softmax），让 S/P 矩阵永远不落 HBM，将 IO 从 O(N²) 降到 O(Nd)。
 
 ## 2. GPU 设计
 

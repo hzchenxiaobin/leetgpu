@@ -18,7 +18,7 @@ result = 1×4 + 2×3 + 3×2 + 4×1 = 4+6+6+4 = 20
 
 **约束**：`1 ≤ N ≤ 10^7`；性能测试取大 `N`。
 
-> 💡 这道题的**两级归约**（block 内 + 跨 block）是 [Week6 总结](../../aiinfra/week6/day7/README.md) 中所有"累加/统计"操作的底层模板——benchmark 的 `percentile()` 统计、Scheduler 的 token budget 累加、Continuous Batcher 的 batch 聚合，本质都是 dot product 式的归约。
+> 💡 这道题的**两级归约**（block 内 + 跨 block）是 [Week6 总结](../../aiinfra/daily/week6/day7/README.md) 中所有"累加/统计"操作的底层模板——benchmark 的 `percentile()` 统计、Scheduler 的 token budget 累加、Continuous Batcher 的 batch 聚合，本质都是 dot product 式的归约。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

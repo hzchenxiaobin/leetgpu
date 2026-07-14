@@ -18,7 +18,7 @@ input = [5, 2, 8, 1, 9, 3, 7, 4], k = 3
 
 **约束**：`1 ≤ k ≤ N ≤ 10^6`；性能测试取大 `N`。
 
-> 💡 这道题的 **top-k 选择**与 [Week6 Day6](../../aiinfra/week6/day6/README.md) benchmark 的 P99 latency 计算同构——P99 就是"找出延迟排第 99 百分位的值"，本质是 top-k selection（k=N×0.01，选第 k 小）。benchmark 的 `percentile()` 是串行排序版，这道题用 GPU 并行加速。
+> 💡 这道题的 **top-k 选择**与 [Week6 Day6](../../aiinfra/daily/week6/day6/README.md) benchmark 的 P99 latency 计算同构——P99 就是"找出延迟排第 99 百分位的值"，本质是 top-k selection（k=N×0.01，选第 k 小）。benchmark 的 `percentile()` 是串行排序版，这道题用 GPU 并行加速。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

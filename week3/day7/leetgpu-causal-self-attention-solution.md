@@ -13,7 +13,7 @@
 
 **约束**：`1 ≤ N ≤ 4096`，`1 ≤ d ≤ 128`。
 
-> 💡 与 [Week3 Day7 Transformer 算子分类与总结](../../aiinfra/week3/day7/README.md) 的关联：Causal Self-Attention 是 Week3 算子主线的综合验收——融合了 Attention（Day4）+ Softmax（Day2）+ profiling 分析（Day6）。causal mask 在 attention score 上三角置 -inf，再做 softmax，考察对 attention 完整流程的理解。
+> 💡 与 [Week3 Day7 Transformer 算子分类与总结](../../aiinfra/daily/week3/day7/README.md) 的关联：Causal Self-Attention 是 Week3 算子主线的综合验收——融合了 Attention（Day4）+ Softmax（Day2）+ profiling 分析（Day6）。causal mask 在 attention score 上三角置 -inf，再做 softmax，考察对 attention 完整流程的理解。
 
 ## 2. GPU 设计
 

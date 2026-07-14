@@ -19,7 +19,7 @@ $$O_h = \text{softmax}\!\left(\frac{Q_h \cdot K_{\text{kv\_head}(h)}^{\top}}{\sq
 
 **约束**：`1 ≤ num_kv_heads ≤ num_q_heads ≤ 64`，`num_q_heads % num_kv_heads == 0`，`1 ≤ seq_len ≤ 4096`，`8 ≤ head_dim ≤ 256`（8 的倍数）；性能测试取 LLaMA-3 8B 配置 `num_q_heads=32, num_kv_heads=8, seq_len=1024, head_dim=128`；容差 `atol=rtol=1e-4`。
 
-> 💡 这道题是 [Week5 Day2](../../aiinfra/week5/day2/README.md) 讲的 **KV Cache 内存优化**的核心手段。标准 MHA 每个 Q 头有独立 K/V 头，cache 大小 ∝ `num_q_heads`；GQA 让多个 Q 头共享 K/V 头，把 cache 的 `num_heads` 维从 `num_q_heads` 降到 `num_kv_heads`。LLaMA-3 8B（32Q/8KV）直接把 KV cache 缩小到 1/4。Day 2 手写了 KV Cache 的存储结构，GQA 回答的是"能不能少存一些头"——从模型结构层面削减 cache，比 int8 量化（精度层面）更根本。
+> 💡 这道题是 [Week5 Day2](../../aiinfra/daily/week5/day2/README.md) 讲的 **KV Cache 内存优化**的核心手段。标准 MHA 每个 Q 头有独立 K/V 头，cache 大小 ∝ `num_q_heads`；GQA 让多个 Q 头共享 K/V 头，把 cache 的 `num_heads` 维从 `num_q_heads` 降到 `num_kv_heads`。LLaMA-3 8B（32Q/8KV）直接把 KV cache 缩小到 1/4。Day 2 手写了 KV Cache 的存储结构，GQA 回答的是"能不能少存一些头"——从模型结构层面削减 cache，比 int8 量化（精度层面）更根本。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

@@ -24,7 +24,7 @@ A = [1,2,3]    B = [10,20,30]    C = [11,22,33]
 - 性能测试取 `M = N = 4096`（`16M` 元素，`64MB`/矩阵）
 - 容差 `atol = rtol = 1e-5`
 
-> 💡 这是 Week 1 的"毕业考试"题之一（[Day 7 综合练习 1](../../aiinfra/week1/day7/README.md)）。它是 **memory-bound** 算子的典型案例——算术强度 `1 FLOP / 12B`（1 次加法 ↔ 读 2 个 float + 写 1 个 float），远低于 GPU 平衡点。优化核心不是"算得快"而是"**读得快**"：用 `float4` 向量化加载把 4 条 `load` 合并为 1 条 128-bit 事务，配合 grid-stride loop 和 coalesced access 把 HBM 带宽榨干。本题综合检验 Week 1 的三大概念：coalesced access（Day 4）、occupancy 调优（Day 2）、Roofline 判定（Day 6）。
+> 💡 这是 Week 1 的"毕业考试"题之一（[Day 7 综合练习 1](../../aiinfra/daily/week1/day7/README.md)）。它是 **memory-bound** 算子的典型案例——算术强度 `1 FLOP / 12B`（1 次加法 ↔ 读 2 个 float + 写 1 个 float），远低于 GPU 平衡点。优化核心不是"算得快"而是"**读得快**"：用 `float4` 向量化加载把 4 条 `load` 合并为 1 条 128-bit 事务，配合 grid-stride loop 和 coalesced access 把 HBM 带宽榨干。本题综合检验 Week 1 的三大概念：coalesced access（Day 4）、occupancy 调优（Day 2）、Roofline 判定（Day 6）。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
@@ -285,7 +285,7 @@ ncu --kernel-name regex:matadd_kernel \
 1. **`float8` / `float16` 更宽向量**：部分架构支持 256-bit（`float8`）或更宽加载。但 `float4`（128-bit）已匹配大多数 GPU 的内存事务粒度，更宽向量收益递减。
 2. **`__ldg`（read-only cache）**：用 `__ldg(A+i)` 提示只读，走 L1 read-only cache 路径。element-wise 数据无复用，L1 命中率为 0，收益有限。
 3. **kernel 融合**：若 Matrix Addition 是某流水线的中间步骤（如 `C = (A+B) * scale`），可融合成单 kernel 避免 `C` 的中间写读。类似 Dot Product #17 的融合思想。
-4. **CUDA Streams 流水线**：极大矩阵可分块多 stream，H2D/compute/D2H 重叠（[Day 3](../../aiinfra/week2/day3/README.md) 主题）。本题单 kernel 已够快，streams 适合 host-device 流水线场景。
+4. **CUDA Streams 流水线**：极大矩阵可分块多 stream，H2D/compute/D2H 重叠（[Day 3](../../aiinfra/daily/week2/day3/README.md) 主题）。本题单 kernel 已够快，streams 适合 host-device 流水线场景。
 5. **unroll**：`#pragma unroll` 展开 grid-stride 循环，减少循环开销。本题循环体简单，收益小。
 
 > 💡 本题优化空间有限——element-wise kernel 的天花板就是 HBM 带宽。float4 已是标准做法，达到 ~85% 带宽利用率即可。剩余 15% 来自 launch 开销和内存控制器调度，难再优化。

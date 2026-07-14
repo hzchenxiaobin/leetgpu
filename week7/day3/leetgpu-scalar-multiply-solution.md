@@ -18,7 +18,7 @@ output = [2.0, 4.0, 6.0, 8.0]
 
 **约束**：`1 ≤ N ≤ 10,000,000`；性能测试取大数组（约 40 MB）。
 
-> 💡 这道题是 **element-wise 操作的最简形式**——标量乘法，零计算强度，纯 memory-bound。它与 [Week7 Day3 高级特性](../../aiinfra/week7/day3/README.md) 的关联在于：attention score scaling（`score /= sqrt(d_k)`）、softmax 温度缩放、LayerNorm 方差缩放都是 scalar multiply 操作。理解它的 memory-bound 特性是理解 Speculative Decoding 加速原理的基础——大模型 decode 的计算密度极低（每步只出 1 token），GPU 大量算力闲置，draft model 正好利用这些闲置算力。
+> 💡 这道题是 **element-wise 操作的最简形式**——标量乘法，零计算强度，纯 memory-bound。它与 [Week7 Day3 高级特性](../../aiinfra/daily/week7/day3/README.md) 的关联在于：attention score scaling（`score /= sqrt(d_k)`）、softmax 温度缩放、LayerNorm 方差缩放都是 scalar multiply 操作。理解它的 memory-bound 特性是理解 Speculative Decoding 加速原理的基础——大模型 decode 的计算密度极低（每步只出 1 token），GPU 大量算力闲置，draft model 正好利用这些闲置算力。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

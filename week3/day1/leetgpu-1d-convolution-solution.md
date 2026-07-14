@@ -11,7 +11,7 @@
 
 **约束**：`1 ≤ N ≤ 10,000,000`，`1 ≤ K ≤ 1024`。
 
-> 💡 与 [Week3 Day1 Trace Transformer 推理流程](../../aiinfra/week3/day1/README.md) 的关联：1D Convolution 是 profiling 中 element-wise + reduction 模式的典型代表——每个输出元素依赖输入的一个局部窗口，与 attention 中每个 query 依赖所有 key 的模式同构。用 ncu 分析可验证其 memory-bound 特性。
+> 💡 与 [Week3 Day1 Trace Transformer 推理流程](../../aiinfra/daily/week3/day1/README.md) 的关联：1D Convolution 是 profiling 中 element-wise + reduction 模式的典型代表——每个输出元素依赖输入的一个局部窗口，与 attention 中每个 query 依赖所有 key 的模式同构。用 ncu 分析可验证其 memory-bound 特性。
 
 ## 2. GPU 设计
 

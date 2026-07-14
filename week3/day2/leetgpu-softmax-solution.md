@@ -13,7 +13,7 @@
 
 **约束**：`1 ≤ N ≤ 1,000,000`，支持 batch 维度。
 
-> 💡 与 [Week3 Day2 手写 Softmax + LayerNorm Kernel](../../aiinfra/week3/day2/README.md) 的关联：本题就是今天 row-wise Softmax 的直接实战。核心是 safe softmax（减 max）+ block 内两级归约（`blockReduceMax` + `blockReduceSum`）。
+> 💡 与 [Week3 Day2 手写 Softmax + LayerNorm Kernel](../../aiinfra/daily/week3/day2/README.md) 的关联：本题就是今天 row-wise Softmax 的直接实战。核心是 safe softmax（减 max）+ block 内两级归约（`blockReduceMax` + `blockReduceSum`）。
 
 ## 2. GPU 设计
 

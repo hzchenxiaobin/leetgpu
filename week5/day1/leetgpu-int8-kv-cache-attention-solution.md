@@ -26,7 +26,7 @@ output     = weights · V_f = [5.0, 6.0, 7.0, 8.0]
 
 **约束**：`1 ≤ H ≤ 64`，`1 ≤ L ≤ 32768`，`8 ≤ d ≤ 256`（8 的倍数）；`K_int8/V_int8 ∈ [-128,127]`；性能测试取 `H=32, L=8192, d=128`；容差 `atol=rtol=1e-3`。
 
-> 💡 这道题就是 [Week5 Day1](../../aiinfra/week5/day1/README.md) 讲的 **Decode 阶段核心算子**：单 query 对 KV Cache 做 1×L 的 attention，是典型 **memory-bound**。题目把 KV 存成 int8 + per-token scale，正是 Day1 "减少 KV Cache 读取"优化方向的落地——int8 相比 fp32 把 KV 的 HBM 流量直接砍到 1/4。生产级推理系统（TensorRT-LLM、vLLM）都用这套。
+> 💡 这道题就是 [Week5 Day1](../../aiinfra/daily/week5/day1/README.md) 讲的 **Decode 阶段核心算子**：单 query 对 KV Cache 做 1×L 的 attention，是典型 **memory-bound**。题目把 KV 存成 int8 + per-token scale，正是 Day1 "减少 KV Cache 读取"优化方向的落地——int8 相比 fp32 把 KV 的 HBM 流量直接砍到 1/4。生产级推理系统（TensorRT-LLM、vLLM）都用这套。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

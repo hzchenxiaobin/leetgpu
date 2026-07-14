@@ -13,7 +13,7 @@
 
 **约束**：`1 ≤ N ≤ 10,000,000`。
 
-> 💡 与 [Week1 Day5 Bank Conflict 分析与实践](../../aiinfra/week1/day5/README.md) 的关联：Reduction 是 bank conflict 分析的经典案例——shared memory 归约中的步长访问模式容易触发 bank conflict。用今天学的 bank conflict 分析方法，对比 `smem[256]` vs `smem[256+1]`（padding）的 ncu `l1tex__data_bank_conflicts_pipe_lsu_mem_shared.sum` 指标差异。
+> 💡 与 [Week1 Day5 Bank Conflict 分析与实践](../../aiinfra/daily/week1/day5/README.md) 的关联：Reduction 是 bank conflict 分析的经典案例——shared memory 归约中的步长访问模式容易触发 bank conflict。用今天学的 bank conflict 分析方法，对比 `smem[256]` vs `smem[256+1]`（padding）的 ncu `l1tex__data_bank_conflicts_pipe_lsu_mem_shared.sum` 指标差异。
 
 ## 2. GPU 设计
 

@@ -18,7 +18,7 @@
 
 **约束**：`1 ≤ N ≤ 10,000,000`；性能测试取大数组（约 40 MB）。
 
-> 💡 这道题是最简单的 element-wise 操作（`output[i] = -input[i]`），与 [Week7 Day5 系统联调](../../aiinfra/week7/day5/README.md) 中的**结果一致性验证**同构——联调时需要对比自定义 kernel 与 PyTorch 的输出，逐元素比较是否一致。Element Reversal 的"逐元素变换 + 逐元素对比"正是联调精度验证的基础操作：`assert (custom_output - pytorch_output).abs().max() < threshold`。
+> 💡 这道题是最简单的 element-wise 操作（`output[i] = -input[i]`），与 [Week7 Day5 系统联调](../../aiinfra/daily/week7/day5/README.md) 中的**结果一致性验证**同构——联调时需要对比自定义 kernel 与 PyTorch 的输出，逐元素比较是否一致。Element Reversal 的"逐元素变换 + 逐元素对比"正是联调精度验证的基础操作：`assert (custom_output - pytorch_output).abs().max() < threshold`。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

@@ -13,7 +13,7 @@
 
 **约束**：元素为 32-bit float，规模达数百万量级。
 
-> 💡 与 [Week3 Day5 算子接入 Mini 引擎](../../aiinfra/week3/day5/README.md) 的关联：本题是"自定义算子集成"模式的最简案例。用今天的 C++ Extension 流程把它封装为 `my_ops.matrix_add_forward`，就掌握了"任何自定义 kernel 接入 PyTorch"的通用模板。
+> 💡 与 [Week3 Day5 算子接入 Mini 引擎](../../aiinfra/daily/week3/day5/README.md) 的关联：本题是"自定义算子集成"模式的最简案例。用今天的 C++ Extension 流程把它封装为 `my_ops.matrix_add_forward`，就掌握了"任何自定义 kernel 接入 PyTorch"的通用模板。
 
 ## 2. GPU 设计
 

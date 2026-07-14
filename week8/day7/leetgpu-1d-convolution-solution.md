@@ -28,7 +28,7 @@ y[4] = 4·1 + 5·0 + 0·(-1) = 4      （右侧补 0）
 
 **约束**：`N` 较大（如 `N ≥ 65536`），`K` 较小且为奇数（如 `K = 3, 5, 7`）。
 
-> 💡 1D Convolution 是 **shared memory + halo region** 模板的最简形态。它与 [Week8 Day7 最终复盘](../../aiinfra/week8/day7/README.md) 的"8 周能力地图"中 Kernel 优化层强项（Shared Memory Tiling + Bank Conflict）直接对应——这道收官题检验你最基础的 shared memory halo 加载能力。掌握它，2D/3D Convolution 都是同构扩展。
+> 💡 1D Convolution 是 **shared memory + halo region** 模板的最简形态。它与 [Week8 Day7 最终复盘](../../aiinfra/daily/week8/day7/README.md) 的"8 周能力地图"中 Kernel 优化层强项（Shared Memory Tiling + Bank Conflict）直接对应——这道收官题检验你最基础的 shared memory halo 加载能力。掌握它，2D/3D Convolution 都是同构扩展。
 
 ---
 

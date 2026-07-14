@@ -112,7 +112,7 @@ void mha_cpu(const float* Q, const float* K, const float* V, float* O, int B, in
 
 **③ 每 warp 处理 1 行 query，32 lane 拆分 d 维**：block 内 `NUM_WARPS` 个 warp 各负责 1 行 query（`Br = NUM_WARPS`）。每个 warp 的 32 个 thread（lane）沿 `d` 维切分——每 lane 持有 `D_PER_THREAD = ⌈d/32⌉` 个 `d` 元素。点积 `Q·K` 时各 lane 算 partial sum 再 `warp_reduce_sum`；输出累加器 `o_reg[D_PER_THREAD]` 也分布在各 lane。这比"1 block 1 行 query"的朴素做法多了 `Br` 倍 K/V 复用。
 
-> ⚠️ 本实现的 FlashAttention kernel 结构直接复用 [每日教程 Week4 Day2](../../aiinfra/week4/day2/README.md) 的 `flashAttentionFwd`，只是把 grid 维度从 `(N/Br, 1, 1)` 扩展为 `(N/Br, H, B)`，并在寻址时乘上 `batch·H+head` 的 stride。**核心 kernel 逻辑不变**，MHA 的难度在于"如何正确地批量启动 + 寻址"，而非 attention 算法本身。
+> ⚠️ 本实现的 FlashAttention kernel 结构直接复用 [每日教程 Week4 Day2](../../aiinfra/daily/week4/day2/README.md) 的 `flashAttentionFwd`，只是把 grid 维度从 `(N/Br, 1, 1)` 扩展为 `(N/Br, H, B)`，并在寻址时乘上 `batch·H+head` 的 stride。**核心 kernel 逻辑不变**，MHA 的难度在于"如何正确地批量启动 + 寻址"，而非 attention 算法本身。
 
 ## 4. Kernel 实现
 

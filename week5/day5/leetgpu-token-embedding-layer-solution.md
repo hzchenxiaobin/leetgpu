@@ -27,7 +27,7 @@ tok_emb[12] = [0,1,0,0], pos_emb[1] = [0,1,0,0] → s=[0,2,0,0], LN → ...
 
 **约束**：`B=32, T=512, V=30000, P=2048, D=768`（BERT-base 配置）；`token_ids/position_ids` 为 `int32`，其余 `float32`；容差 `atol=rtol=1e-4`。
 
-> 💡 这道题是 [Week5 Day5](../../aiinfra/week5/day5/README.md) 讲的 **Mini 推理引擎 v0 的第一个算子**——`self.embedding(input_ids)` 在 v0 里是 PyTorch 的 `nn.Embedding`，本题就是它的手写 CUDA 版。引擎 `model.forward` 第一步把 token id 转成向量，本题拆成 `gather token emb + gather pos emb + 相加 + LayerNorm` 四步融合。Week7 替换 PyTorch 后端时，引擎的 embedding 层就换成这个手写 kernel。
+> 💡 这道题是 [Week5 Day5](../../aiinfra/daily/week5/day5/README.md) 讲的 **Mini 推理引擎 v0 的第一个算子**——`self.embedding(input_ids)` 在 v0 里是 PyTorch 的 `nn.Embedding`，本题就是它的手写 CUDA 版。引擎 `model.forward` 第一步把 token id 转成向量，本题拆成 `gather token emb + gather pos emb + 相加 + LayerNorm` 四步融合。Week7 替换 PyTorch 后端时，引擎的 embedding 层就换成这个手写 kernel。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
@@ -352,4 +352,4 @@ ncu --kernel-name regex:token_embedding_layernorm_kernel \
 | **HBM IO** | 读 token_emb + pos_emb + γ/β，写 output | 融合后无中间矩阵 |
 | **瓶颈** | gather 随机读 token_emb | 大表随机访问，L2 命中率关键 |
 
-> 💡 **一句话总结**：Token Embedding Layer 是推理引擎的第一个算子——token id → 向量。用融合 kernel 把 gather + 加 + LayerNorm 一次完成（中间 `s[D]` 不落 HBM）。它是 [Day5 Mini 引擎](../../aiinfra/week5/day5/README.md) `self.embedding` 的手写版，Week7 替换 PyTorch 后端时直接用。瓶颈在 embedding 大表的 gather 随机读，优化靠行对齐 + L2 友好访问。
+> 💡 **一句话总结**：Token Embedding Layer 是推理引擎的第一个算子——token id → 向量。用融合 kernel 把 gather + 加 + LayerNorm 一次完成（中间 `s[D]` 不落 HBM）。它是 [Day5 Mini 引擎](../../aiinfra/daily/week5/day5/README.md) `self.embedding` 的手写版，Week7 替换 PyTorch 后端时直接用。瓶颈在 embedding 大表的 gather 随机读，优化靠行对齐 + L2 友好访问。
