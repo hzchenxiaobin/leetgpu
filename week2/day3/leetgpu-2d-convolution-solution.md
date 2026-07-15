@@ -65,6 +65,9 @@ __global__ void conv2d_naive(const float* input, const float* kernel, float* out
 
 ![朴素卷积的邻域重复读取](../../images/conv2d_naive_redundant_reads.svg)
 
+> **图：朴素卷积的冗余读取。**  
+> 每个 thread 负责一个输出像素并独立读取自己的 `K×K` 邻域。图中 t0、t1 的 `3×3` 邻域有大量重叠（黄色虚线框），同一 input cell 被多个 thread 重复从 global memory 读取。K=5 时每个元素会被周围 25 个 thread 各读一次，导致 global 读次数高达 `H·W·K²`。
+
 - 每个 input 元素被周围 `K×K` 个输出 thread 各读一次 → **global 读次数 = H·W·K²**。
 - `K=5` 时每个元素被读 25 次，带宽被冗余读吃光。
 - kernel 权重 `kernel[]` 也每 thread 重复从 global 读（虽会被 L2 缓存，但常量内存更优）。
@@ -80,6 +83,11 @@ __global__ void conv2d_naive(const float* input, const float* kernel, float* out
 输出 tile `OT×OT` 需要的 input 区域是 `(OT+K-1)×(OT+K-1)`——多出的 `K-1` 圈边界就是 **halo（光晕/apron）**，供 tile 边缘输出的卷积窗口读取邻域。
 
 ![Halo Tiling：block 加载含光晕的 tile](../../images/conv2d_halo_tile.svg)
+
+> **图：Halo Tiling 示意图。**  
+> 绿色 `OT×OT` 区域是本 block 要计算的核心输出 tile；橙色外圈就是 **halo（光晕/裙边）**，半径 `R = K/2`。只有加载了这圈 halo，tile 边缘的输出像素才能从 shared memory 中拿到完整的 `K×K` 卷积窗口，而不必再次访问 global memory。
+
+**halo 是什么？** 在 tiling 卷积里，halo 指的是“为了计算一个输出 tile，需要从输入中多读取的边界像素”。因为卷积每个输出要看 `K×K` 邻域，位于输出 tile 边缘的像素，其邻域会超出 tile 本身，必须提前把这一圈输入也载入 shared memory。halo 的宽度等于卷积半径 `R = K/2`，因此输入 tile 的边长是 `OT + K - 1`（也就是 `OT + 2R`）。
 
 流程（每 block）：
 1. **协作加载**：`OT×OT` 个线程用 strided loop 把 `(OT+K-1)²` 个 input（含 halo）载入 `smem`。
