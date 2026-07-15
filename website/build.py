@@ -175,8 +175,7 @@ def page_template(title: str, nav_html: str, markdown: str) -> str:
         <aside class="sidebar">
             <div class="sidebar-header">
                 <a href="./index.html" style="text-decoration: none;">
-                    <h1 class="sidebar-title">AI Infra 学习笔记</h1>
-                    <p class="sidebar-subtitle">LeetGPU 题解</p>
+                    <h1 class="sidebar-title" style="font-size: 1.5rem; margin-bottom: 0;">LeetGPU 题解</h1>
                 </a>
             </div>
             <nav class="sidebar-nav">
