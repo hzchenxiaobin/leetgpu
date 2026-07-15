@@ -248,6 +248,7 @@ def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
     solutions = []
     for md_file in md_files:
         markdown_text = md_file.read_text(encoding="utf-8")
+        markdown_text = markdown_text.replace("](../../images/", "](./images/")
         markdown_text = markdown_text.replace("](images/", "](./images/")
         markdown_text = rewrite_md_links_to_html(markdown_text)
 
