@@ -615,6 +615,123 @@ int main(int argc, char** argv) {
 
 > 💡 提交 LeetGPU 平台时，只需把 `solve` 函数（含 `gemm_wmma` kernel）填入 starter 的空壳；带 `main()` 的版本用于本地自测、cuBLAS 对比与 profiling。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出可直接复制到 LeetGPU 编辑器的提交版本（基于上面的 WMMA Tensor Core kernel，去掉本地自测代码）。它保留 `alpha` / `beta` 的 epilogue 处理与 FP32 累加。
+
+```cuda
+#include <cuda_fp16.h>
+#include <cuda_runtime.h>
+#include <mma.h>
+
+using namespace nvcuda;
+
+const int WMMA_M = 16, WMMA_N = 16, WMMA_K = 16;
+const int BM = 128, BN = 128, BK = 16;    // BK == WMMA_K
+const int WARPS_M = 4, WARPS_N = 2;       // 8 warps / block
+const int NUM_WARPS = WARPS_M * WARPS_N;
+const int NUM_THREADS = NUM_WARPS * 32;
+const int WARP_TILE_M = BM / WARPS_M;     // 32
+const int WARP_TILE_N = BN / WARPS_N;     // 64
+const int FRAGS_M = WARP_TILE_M / WMMA_M; // 2
+const int FRAGS_N = WARP_TILE_N / WMMA_N; // 4
+const int LOAD_A = BM * BK / NUM_THREADS; // 8 half / thread
+const int LOAD_B = BK * BN / NUM_THREADS; // 8 half / thread
+
+__global__ void gemm_wmma(const half* __restrict__ A, const half* __restrict__ B, half* __restrict__ C,
+                          int M, int N, int K, float alpha, float beta) {
+    __shared__ half As[BM][BK];
+    __shared__ half Bs[BK][BN];
+    extern __shared__ float Cs[]; // BM×BN fp32 staging
+
+    const int bx = blockIdx.x, by = blockIdx.y;
+    const int tid = threadIdx.x;
+    const int warp_id = tid >> 5;
+    const int warp_m = warp_id / WARPS_N;
+    const int warp_n = warp_id % WARPS_N;
+    const int warp_row = warp_m * WARP_TILE_M;
+    const int warp_col = warp_n * WARP_TILE_N;
+
+    using AccFrag = wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float>;
+    AccFrag acc[FRAGS_M][FRAGS_N];
+    #pragma unroll
+    for (int i = 0; i < FRAGS_M; ++i) {
+        #pragma unroll
+        for (int j = 0; j < FRAGS_N; ++j) {
+            wmma::fill_fragment(acc[i][j], 0.0f);
+        }
+    }
+
+    using AFrag = wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major>;
+    using BFrag = wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major>;
+
+    for (int bk = 0; bk < K; bk += BK) {
+        #pragma unroll
+        for (int i = 0; i < LOAD_A; ++i) {
+            int lin = tid + i * NUM_THREADS;
+            int r = lin / BK, c = lin % BK;
+            int ar = by * BM + r, ac = bk + c;
+            As[r][c] = (ar < M && ac < K) ? A[ar * K + ac] : __float2half(0.0f);
+        }
+        #pragma unroll
+        for (int i = 0; i < LOAD_B; ++i) {
+            int lin = tid + i * NUM_THREADS;
+            int r = lin / BN, c = lin % BN;
+            int br = bk + r, bc = bx * BN + c;
+            Bs[r][c] = (br < K && bc < N) ? B[br * N + bc] : __float2half(0.0f);
+        }
+        __syncthreads();
+
+        #pragma unroll
+        for (int i = 0; i < FRAGS_M; ++i) {
+            #pragma unroll
+            for (int j = 0; j < FRAGS_N; ++j) {
+                AFrag a_frag;
+                BFrag b_frag;
+                wmma::load_matrix_sync(a_frag, &As[warp_row + i * WMMA_M][0], BK);
+                wmma::load_matrix_sync(b_frag, &Bs[0][warp_col + j * WMMA_N], BN);
+                wmma::mma_sync(acc[i][j], a_frag, b_frag, acc[i][j]);
+            }
+        }
+        __syncthreads();
+    }
+
+    #pragma unroll
+    for (int i = 0; i < FRAGS_M; ++i) {
+        #pragma unroll
+        for (int j = 0; j < FRAGS_N; ++j) {
+            wmma::store_matrix_sync(&Cs[(warp_row + i * WMMA_M) * BN + (warp_col + j * WMMA_N)],
+                                    acc[i][j], BN, wmma::mem_row_major);
+        }
+    }
+    __syncthreads();
+
+    const int total = BM * BN;
+    #pragma unroll
+    for (int i = 0; i < total / NUM_THREADS; ++i) {
+        int idx = tid + i * NUM_THREADS;
+        int r = idx / BN, c = idx % BN;
+        int gr = by * BM + r, gc = bx * BN + c;
+        if (gr < M && gc < N) {
+            float acc_val = Cs[idx];
+            float c_init = (beta != 0.0f) ? __half2float(C[gr * N + gc]) : 0.0f;
+            C[gr * N + gc] = __float2half(alpha * acc_val + beta * c_init);
+        }
+    }
+}
+
+// A, B, and C are device pointers
+extern "C" void solve(const half* A, const half* B, half* C, int M, int N, int K, float alpha, float beta) {
+    const int dyn_smem = BM * BN * sizeof(float); // 64 KB staging
+    cudaFuncSetAttribute(gemm_wmma, cudaFuncAttributeMaxDynamicSharedMemorySize, dyn_smem);
+
+    dim3 threads(NUM_THREADS);
+    dim3 blocks((N + BN - 1) / BN, (M + BM - 1) / BM);
+    gemm_wmma<<<blocks, threads, dyn_smem>>>(A, B, C, M, N, K, alpha, beta);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

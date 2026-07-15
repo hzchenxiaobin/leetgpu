@@ -177,6 +177,37 @@ int main() {
 
 > 💡 提交给 LeetGPU 平台时，把 `swiglu_kernel` 填进 `solve`。核心是 kernel fusion（SiLU + 乘法在 register 内完成）+ `__expf` + grid-stride。带宽 = `3 × halfN × sizeof(float) / time`（读 x₁+x₂ + 写 output）。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。保留 kernel fusion 与 `__expf` 快速数学，可直接粘贴到平台的 `solve` 空壳中。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK 256
+
+// 融合 kernel：SiLU(x₁) * x₂ 在一个 kernel 内完成
+__global__ void swiglu_kernel(const float* input, float* output, int N) {
+    int halfN = N / 2;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = gridDim.x * blockDim.x;
+    for (int i = tid; i < halfN; i += stride) {
+        float x1 = input[i];                    // 前半
+        float x2 = input[i + halfN];            // 后半
+        float silu = x1 / (1.0f + __expf(-x1)); // SiLU（register 内）
+        output[i] = silu * x2;                  // 融合乘法（register 内）
+    }
+}
+
+// input, output are device pointers
+extern "C" void solve(const float* input, float* output, int N) {
+    int halfN = N / 2;
+    int grid = (halfN + BLOCK - 1) / BLOCK;
+    swiglu_kernel<<<grid, BLOCK>>>(input, output, N);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ```bash

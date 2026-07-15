@@ -463,6 +463,261 @@ int main(int argc, char** argv) {
 
 > 💡 提交给 LeetGPU 平台时，把 `mha_flash_kernel` 填进 starter 的 `solve` 即可。带 `main()` 的版本用于本地自测与 profiling。`mha_standard_kernel` 仅供对比，大规模测试下会因 `S/P` 的 `O(B·H·N²)` 显存而 OOM。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。它假设输入 `Q/K/V` 为行主序 `(N, d_model)`，按 `head_size = d_model / h` 切分成 `h` 个头，每个头独立做 FlashAttention（online softmax + tiling），不物化 `S/P`。
+
+```cuda
+#include <cuda_runtime.h>
+#include <math.h>
+
+constexpr int kWarpSize = 32;
+constexpr int kFlashTile = 32;
+constexpr int kFlashMaxDkTiles = 4;
+constexpr int kFlashSmallMaxHeadSize = kFlashTile * kFlashMaxDkTiles;
+
+__device__ __forceinline__ float warp_allreduce_sum(float value) {
+    #pragma unroll
+    for (int offset = kWarpSize / 2; offset > 0; offset /= 2)
+        value += __shfl_xor_sync(0xffffffffu, value, offset);
+    return value;
+}
+
+__device__ __forceinline__ float warp_allreduce_max(float value) {
+    #pragma unroll
+    for (int offset = kWarpSize / 2; offset > 0; offset /= 2)
+        value = fmaxf(value, __shfl_xor_sync(0xffffffffu, value, offset));
+    return value;
+}
+
+__device__ __forceinline__ float warp_reduce_max(float value) {
+    #pragma unroll
+    for (int offset = kWarpSize / 2; offset > 0; offset /= 2)
+        value = fmaxf(value, __shfl_down_sync(0xffffffffu, value, offset));
+    return value;
+}
+
+__device__ __forceinline__ float warp_reduce_sum(float value) {
+    #pragma unroll
+    for (int offset = kWarpSize / 2; offset > 0; offset /= 2)
+        value += __shfl_down_sync(0xffffffffu, value, offset);
+    return value;
+}
+
+__device__ __forceinline__ float block_reduce_max(float value) {
+    __shared__ float warp_values[8];
+    const int lane = threadIdx.x & (kWarpSize - 1);
+    const int warp_id = threadIdx.x / kWarpSize;
+    value = warp_reduce_max(value);
+    if (lane == 0) warp_values[warp_id] = value;
+    __syncthreads();
+    float block_value = -INFINITY;
+    if (warp_id == 0) {
+        block_value = lane < 8 ? warp_values[lane] : -INFINITY;
+        block_value = warp_reduce_max(block_value);
+        if (lane == 0) warp_values[0] = block_value;
+    }
+    __syncthreads();
+    return warp_values[0];
+}
+
+__device__ __forceinline__ float block_reduce_sum(float value) {
+    __shared__ float warp_values[8];
+    const int lane = threadIdx.x & (kWarpSize - 1);
+    const int warp_id = threadIdx.x / kWarpSize;
+    value = warp_reduce_sum(value);
+    if (lane == 0) warp_values[warp_id] = value;
+    __syncthreads();
+    float block_value = 0.0f;
+    if (warp_id == 0) {
+        block_value = lane < 8 ? warp_values[lane] : 0.0f;
+        block_value = warp_reduce_sum(block_value);
+        if (lane == 0) warp_values[0] = block_value;
+    }
+    __syncthreads();
+    return warp_values[0];
+}
+
+template <int kWarpRows>
+__global__ void flash_attn_small_kernel(const float* __restrict__ Q,
+                                        const float* __restrict__ K,
+                                        const float* __restrict__ V,
+                                        float* __restrict__ output,
+                                        int N, int d_model, int head_size, float scale) {
+    const int tx = threadIdx.x;
+    const int ty = threadIdx.y;
+    const int q_row = blockIdx.x * kWarpRows + ty;
+    const int head_offset = blockIdx.y * head_size;
+    const int d_k_tiles = (head_size + kFlashTile - 1) / kFlashTile;
+    const int num_kv_blocks = (N + kFlashTile - 1) / kFlashTile;
+
+    __shared__ float sQ[kWarpRows][kFlashTile + 1];
+    __shared__ float sK[kFlashTile][kFlashTile + 1];
+    __shared__ float sP[kWarpRows][kFlashTile + 1];
+
+    float output_local[kFlashMaxDkTiles];
+    #pragma unroll
+    for (int tile = 0; tile < kFlashMaxDkTiles; ++tile)
+        output_local[tile] = 0.0f;
+
+    float running_max = -INFINITY, running_sum = 0.0f;
+
+    for (int kv_block = 0; kv_block < num_kv_blocks; ++kv_block) {
+        const int kv_base = kv_block * kFlashTile;
+        float score = 0.0f;
+
+        #pragma unroll
+        for (int tile = 0; tile < kFlashMaxDkTiles; ++tile) {
+            if (tile >= d_k_tiles) break;
+            const int dk_col = tile * kFlashTile + tx;
+            sQ[ty][tx] = (q_row < N && dk_col < head_size)
+                ? Q[q_row * d_model + head_offset + dk_col] : 0.0f;
+            #pragma unroll
+            for (int row = ty; row < kFlashTile; row += kWarpRows) {
+                const int kv_row = kv_base + row;
+                sK[row][tx] = (kv_row < N && dk_col < head_size)
+                    ? K[kv_row * d_model + head_offset + dk_col] : 0.0f;
+            }
+            __syncthreads();
+
+            #pragma unroll
+            for (int k = 0; k < kFlashTile; ++k)
+                score += sQ[ty][k] * sK[tx][k];
+            __syncthreads();
+        }
+
+        const int kv_col = kv_base + tx;
+        score = (q_row < N && kv_col < N) ? score * scale : -INFINITY;
+
+        const float block_max = warp_allreduce_max(score);
+        const float next_max = fmaxf(running_max, block_max);
+        const float alpha = expf(running_max - next_max);
+        const float prob = expf(score - next_max);
+        const float block_sum = warp_allreduce_sum(prob);
+
+        #pragma unroll
+        for (int tile = 0; tile < kFlashMaxDkTiles; ++tile)
+            output_local[tile] *= alpha;
+        running_sum = alpha * running_sum + block_sum;
+        running_max = next_max;
+
+        sP[ty][tx] = prob;
+        __syncthreads();
+
+        #pragma unroll
+        for (int tile = 0; tile < kFlashMaxDkTiles; ++tile) {
+            if (tile >= d_k_tiles) break;
+            const int dk_col = tile * kFlashTile + tx;
+            #pragma unroll
+            for (int row = ty; row < kFlashTile; row += kWarpRows) {
+                const int kv_row = kv_base + row;
+                sK[row][tx] = (kv_row < N && dk_col < head_size)
+                    ? V[kv_row * d_model + head_offset + dk_col] : 0.0f;
+            }
+            __syncthreads();
+
+            float acc = 0.0f;
+            #pragma unroll
+            for (int jj = 0; jj < kFlashTile; ++jj)
+                acc += sP[ty][jj] * sK[jj][tx];
+            output_local[tile] += acc;
+            __syncthreads();
+        }
+    }
+
+    if (q_row < N) {
+        const float inv_running_sum = 1.0f / running_sum;
+        #pragma unroll
+        for (int tile = 0; tile < kFlashMaxDkTiles; ++tile) {
+            if (tile >= d_k_tiles) break;
+            const int dk_col = tile * kFlashTile + tx;
+            if (dk_col < head_size)
+                output[q_row * d_model + head_offset + dk_col] = output_local[tile] * inv_running_sum;
+        }
+    }
+}
+
+__global__ void flash_attn_generic_kernel(const float* __restrict__ Q,
+                                          const float* __restrict__ K,
+                                          const float* __restrict__ V,
+                                          float* __restrict__ output,
+                                          int N, int d_model, int head_size) {
+    const int q_row = blockIdx.x;
+    const int head_idx = blockIdx.y;
+    const int tid = threadIdx.x;
+    if (q_row >= N) return;
+
+    extern __shared__ float shared_mem[];
+    float* scores = shared_mem;
+    float* q_vec = scores + N;
+    __shared__ float score_sum_shared;
+
+    const int head_offset = head_idx * head_size;
+    const int q_base = q_row * d_model + head_offset;
+
+    for (int dim = tid; dim < head_size; dim += blockDim.x)
+        q_vec[dim] = Q[q_base + dim];
+    __syncthreads();
+
+    const float scale = rsqrtf(static_cast<float>(head_size));
+    for (int k_row = tid; k_row < N; k_row += blockDim.x) {
+        const float* k_ptr = K + k_row * d_model + head_offset;
+        float dot = 0.0f;
+        for (int dim = 0; dim < head_size; ++dim)
+            dot += q_vec[dim] * k_ptr[dim];
+        scores[k_row] = dot * scale;
+    }
+    __syncthreads();
+
+    if (tid == 0) {
+        float score_max = -INFINITY;
+        for (int k_row = 0; k_row < N; ++k_row)
+            score_max = fmaxf(score_max, scores[k_row]);
+        float score_sum = 0.0f;
+        for (int k_row = 0; k_row < N; ++k_row) {
+            scores[k_row] = expf(scores[k_row] - score_max);
+            score_sum += scores[k_row];
+        }
+        score_sum_shared = score_sum;
+    }
+    __syncthreads();
+
+    const float score_sum = score_sum_shared;
+    for (int dim = tid; dim < head_size; dim += blockDim.x) {
+        float result = 0.0f;
+        for (int k_row = 0; k_row < N; ++k_row)
+            result += (scores[k_row] / score_sum) * V[k_row * d_model + head_offset + dim];
+        output[q_row * d_model + head_offset + dim] = result;
+    }
+}
+
+// Q, K, V, output are device pointers
+extern "C" void solve(const float* Q, const float* K, const float* V, float* output,
+                      int N, int d_model, int h) {
+    if (Q == nullptr || K == nullptr || V == nullptr || output == nullptr) return;
+    if (N <= 0 || d_model <= 0 || h <= 0 || (d_model % h) != 0) return;
+    const int head_size = d_model / h;
+
+    if (head_size <= kFlashSmallMaxHeadSize) {
+        const float scale = rsqrtf(static_cast<float>(head_size));
+        if (head_size > 64) {
+            dim3 block(kFlashTile, 4);
+            dim3 grid((N + 4 - 1) / 4, h);
+            flash_attn_small_kernel<4><<<grid, block>>>(Q, K, V, output, N, d_model, head_size, scale);
+        } else {
+            dim3 block(kFlashTile, 8);
+            dim3 grid((N + 8 - 1) / 8, h);
+            flash_attn_small_kernel<8><<<grid, block>>>(Q, K, V, output, N, d_model, head_size, scale);
+        }
+    } else {
+        const size_t shared_mem_size = static_cast<size_t>(N + head_size) * sizeof(float);
+        dim3 grid(N, h);
+        flash_attn_generic_kernel<<<grid, 256, shared_mem_size>>>(Q, K, V, output, N, d_model, head_size);
+    }
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

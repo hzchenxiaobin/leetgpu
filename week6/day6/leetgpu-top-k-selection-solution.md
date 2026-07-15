@@ -184,6 +184,70 @@ int main() {
 
 > 💡 提交给 LeetGPU 平台时，把 `bitonic_sort_block` 填进 `solve`。教学版用单 block shared memory 排序（N ≤ 512），正式版大 N 需多 block 协作（cooperative groups 或多 kernel launch）。bitonic sort 的核心是 `compare-swap` 网络：`tid ^ j` 配对、`(tid & k)==0` 定方向。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。采用全局 bitonic sort 将输入升序排列，然后从末尾逆序取出最大的 `k` 个元素作为输出。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK 256
+
+__global__ void fill_neg_inf(float* data, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) data[i] = -1e30f;
+}
+
+__global__ void bitonic_step(float* data, int j, int k, int N) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= N) return;
+    int ixj = i ^ j;
+    if (ixj > i && ixj < N) {
+        bool up = ((i & k) == 0);
+        float a = data[i], b = data[ixj];
+        if ((up && a > b) || (!up && a < b)) {
+            data[i] = b;
+            data[ixj] = a;
+        }
+    }
+}
+
+__global__ void copy_topk_desc(const float* data, float* output, int P, int k) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < k) output[i] = data[P - 1 - i];
+}
+
+// input, output are device pointers
+extern "C" void solve(const float* input, float* output, int N, int k) {
+    if (k <= 0 || k > N) return;
+
+    int P = 1;
+    while (P < N) P <<= 1;
+
+    float* d_temp;
+    cudaMalloc(&d_temp, (size_t)P * sizeof(float));
+    cudaMemcpy(d_temp, input, (size_t)N * sizeof(float), cudaMemcpyDeviceToDevice);
+
+    if (P > N) {
+        int blocks = (P - N + BLOCK - 1) / BLOCK;
+        fill_neg_inf<<<blocks, BLOCK>>>(d_temp + N, P - N);
+    }
+
+    int blocks = (P + BLOCK - 1) / BLOCK;
+    for (int kk = 2; kk <= P; kk <<= 1) {
+        for (int j = kk >> 1; j > 0; j >>= 1) {
+            bitonic_step<<<blocks, BLOCK>>>(d_temp, j, kk, P);
+        }
+    }
+
+    int blocks_k = (k + BLOCK - 1) / BLOCK;
+    copy_topk_desc<<<blocks_k, BLOCK>>>(d_temp, output, P, k);
+    cudaDeviceSynchronize();
+
+    cudaFree(d_temp);
+}
+```
+
 ## 5. 性能分析与优化
 
 ```bash

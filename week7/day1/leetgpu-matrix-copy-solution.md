@@ -153,6 +153,34 @@ int main() {
 
 > 💡 提交给 LeetGPU 平台时，把 `matrix_copy_kernel` 填进 `solve`。核心是 coalesced（x 维连续映射）。`float4` 向量化是进阶优化。带宽 = `2 × M × N × sizeof(float) / time`（读 src + 写 dst）。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。它使用一维 grid-stride loop，保证 warp 内线程访问连续地址，实现合并访存。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK 256
+
+// coalesced 1D copy: consecutive threads touch consecutive floats
+__global__ void matrix_copy_kernel(const float* src, float* dst, int total) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    for (int i = idx; i < total; i += blockDim.x * gridDim.x) {
+        dst[i] = src[i];
+    }
+}
+
+// A, B are device pointers (i.e. pointers to memory on the GPU)
+extern "C" void solve(const float* A, float* B, int N) {
+    int total = N * N;
+    int threadsPerBlock = BLOCK;
+    int blocksPerGrid = (total + threadsPerBlock - 1) / threadsPerBlock;
+
+    matrix_copy_kernel<<<blocksPerGrid, threadsPerBlock>>>(A, B, total);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ```bash

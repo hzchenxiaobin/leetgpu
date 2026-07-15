@@ -66,6 +66,20 @@ def solve(input: torch.Tensor, model: nn.Module, output: torch.Tensor):
 
 > 💡 PyTorch 的 `nn.Linear` 底层调用 cuBLAS GEMM（`cublasSgemm`），已自动利用 Tensor Core。本题的"优化"不在 kernel 层面，而在**系统层面**——Dynamic Batcher 确保传入的 `batch_size` 足够大。
 
+### 4.1 LeetGPU 提交版本
+
+```python
+# simple_inference.py —— LeetGPU Simple Inference 提交版
+import torch
+import torch.nn as nn
+
+
+def solve(input: torch.Tensor, model: nn.Module, output: torch.Tensor):
+    """计算 output = input @ weight.T + bias"""
+    with torch.no_grad():
+        output.copy_(model(input))
+```
+
 ## 5. 性能分析
 
 ```bash

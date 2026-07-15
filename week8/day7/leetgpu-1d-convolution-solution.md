@@ -215,6 +215,58 @@ int main() {
 }
 ```
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。保留 shared memory halo 与 `__constant__` 卷积核，把 `kernel` 从 device 全局内存拷到常量内存后启动 kernel。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define TILE 256
+
+// 卷积核放 constant 内存（小且广播访问）
+__constant__ float c_kernel[64];
+
+__global__ void conv1d_kernel(const float* __restrict__ x,
+                              float* __restrict__ y,
+                              int N, int K) {
+    int half = K / 2;
+    int tid = threadIdx.x;
+    int block_start = blockIdx.x * TILE;
+    int i = block_start + tid;
+
+    __shared__ float s_x[TILE + 2 * 32]; // halo 最大 half=32，足够 K<=65
+
+    // 协作加载 tile + halo
+    int s_len = TILE + 2 * half;
+    for (int idx = tid; idx < s_len; idx += blockDim.x) {
+        int gidx = block_start - half + idx;
+        s_x[idx] = (gidx >= 0 && gidx < N) ? x[gidx] : 0.0f;
+    }
+    __syncthreads();
+
+    if (i < N) {
+        float acc = 0.0f;
+        #pragma unroll
+        for (int j = 0; j < K; ++j)
+            acc += s_x[tid + j] * c_kernel[j];
+        y[i] = acc;
+    }
+}
+
+// input, kernel, output are device pointers
+extern "C" void solve(const float* input, const float* kernel, float* output,
+                      int input_size, int kernel_size) {
+    // 把卷积核从 device 全局内存拷到常量内存
+    cudaMemcpyToSymbol(c_kernel, kernel, kernel_size * sizeof(float),
+                       0, cudaMemcpyDeviceToDevice);
+
+    int blocks = (input_size + TILE - 1) / TILE;
+    conv1d_kernel<<<blocks, TILE>>>(input, output, input_size, kernel_size);
+    cudaDeviceSynchronize();
+}
+```
+
 ---
 
 ## 5. 性能分析与优化

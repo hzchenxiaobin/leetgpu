@@ -300,6 +300,105 @@ int main(int argc, char** argv) {
 
 > 💡 提交给 LeetGPU 平台时，把 `token_embedding_layernorm_kernel` 填进 starter 的 `solve` 即可。带 `main()` 的版本用于本地自测与 profiling。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK_SIZE 256
+#define WARP_SIZE 32
+#define NUM_WARPS (BLOCK_SIZE / WARP_SIZE)
+#define D_MAX 1024
+
+__inline__ __device__ float warp_reduce_sum(float v) {
+    #pragma unroll
+    for (int o = WARP_SIZE / 2; o > 0; o >>= 1)
+        v += __shfl_down_sync(0xffffffff, v, o);
+    return v;
+}
+
+__inline__ __device__ float block_reduce_sum(float v, float* sh) {
+    int lane = threadIdx.x & 31, wid = threadIdx.x >> 5;
+    v = warp_reduce_sum(v);
+    if (lane == 0)
+        sh[wid] = v;
+    __syncthreads();
+    if (wid == 0) {
+        v = (lane < NUM_WARPS) ? sh[lane] : 0.f;
+        v = warp_reduce_sum(v);
+        if (lane == 0)
+            sh[0] = v;
+    }
+    __syncthreads();
+    return sh[0];
+}
+
+__global__ void token_embedding_layernorm_kernel(const int* __restrict__ token_ids,
+                                                 const int* __restrict__ position_ids,
+                                                 const float* __restrict__ token_emb,
+                                                 const float* __restrict__ position_emb,
+                                                 const float* __restrict__ gamma,
+                                                 const float* __restrict__ beta,
+                                                 float* __restrict__ output,
+                                                 int B, int T, int V, int P, int D, float eps) {
+    int idx = blockIdx.x;
+    int b = idx / T, t = idx % T;
+    int tid = threadIdx.x;
+    if (b >= B)
+        return;
+
+    int tok_id = token_ids[b * T + t];
+    int pos_id = position_ids[t];
+
+    __shared__ float s_shm[D_MAX];
+    __shared__ float red[NUM_WARPS + 1];
+
+    for (int d = tid; d < D; d += BLOCK_SIZE)
+        s_shm[d] = token_emb[tok_id * D + d] + position_emb[pos_id * D + d];
+    __syncthreads();
+
+    float local_sum = 0.f;
+    for (int d = tid; d < D; d += BLOCK_SIZE)
+        local_sum += s_shm[d];
+    float mu = block_reduce_sum(local_sum, red) / (float)D;
+    __shared__ float s_mu;
+    if (tid == 0)
+        s_mu = mu;
+    __syncthreads();
+    mu = s_mu;
+
+    float local_sq = 0.f;
+    for (int d = tid; d < D; d += BLOCK_SIZE) {
+        float diff = s_shm[d] - mu;
+        local_sq += diff * diff;
+    }
+    float var = block_reduce_sum(local_sq, red) / (float)D;
+    __shared__ float s_var;
+    if (tid == 0)
+        s_var = var;
+    __syncthreads();
+    var = s_var;
+
+    float inv_std = 1.0f / sqrtf(var + eps);
+
+    for (int d = tid; d < D; d += BLOCK_SIZE)
+        output[(b * T + t) * D + d] = gamma[d] * (s_shm[d] - mu) * inv_std + beta[d];
+}
+
+// token_ids, position_ids, token_embeddings, position_embeddings, gamma, beta, output are device pointers
+extern "C" void solve(const int* token_ids, const int* position_ids, const float* token_embeddings,
+                      const float* position_embeddings, const float* gamma, const float* beta,
+                      float* output, int B, int T, int V, int P, int D, float eps) {
+    int grid = B * T;
+    token_embedding_layernorm_kernel<<<grid, BLOCK_SIZE>>>(token_ids, position_ids, token_embeddings,
+                                                           position_embeddings, gamma, beta, output,
+                                                           B, T, V, P, D, eps);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

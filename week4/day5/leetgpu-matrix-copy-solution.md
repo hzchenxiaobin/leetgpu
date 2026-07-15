@@ -248,6 +248,43 @@ int main(int argc, char** argv) {
 
 > 💡 提交给 LeetGPU 平台时，把 `matrix_copy_vectorized`（或标量版）填进 `solve` 里的 `__global__` 空壳即可，启动配置用 `blocks = num_sm * 4` 或保守的 `(num/4 + 255)/256`。上面这份带 `main()` 的完整文件用于本地自测与 profiling，并额外对照了 `cudaMemcpy` 作为「金标准」。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。它使用 `float4` 向量化 + 1D grid-stride，最大化 memory-bound 拷贝的带宽利用率。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK_SIZE 256
+
+__global__ void matrix_copy_vectorized(const float* in, float* out, int N) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = gridDim.x * blockDim.x;
+    int vec_n = N / 4;
+
+    const float4* in4 = reinterpret_cast<const float4*>(in);
+    float4* out4 = reinterpret_cast<float4*>(out);
+
+    for (int i = tid; i < vec_n; i += stride) {
+        out4[i] = in4[i];
+    }
+
+    int tail_start = vec_n * 4;
+    for (int i = tail_start + tid; i < N; i += stride) {
+        out[i] = in[i];
+    }
+}
+
+// A, B are device pointers
+extern "C" void solve(const float* A, float* B, int N) {
+    int num_sm;
+    cudaDeviceGetAttribute(&num_sm, cudaDevAttrMultiProcessorCount, 0);
+    int blocks = num_sm * 4;
+    matrix_copy_vectorized<<<blocks, BLOCK_SIZE>>>(A, B, N);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

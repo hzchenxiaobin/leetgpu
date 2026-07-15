@@ -389,6 +389,122 @@ int main(int argc, char** argv) {
 
 > 💡 提交给 LeetGPU 平台时，把 `attention_fused_kernel` 填进 starter 的 `solve` 即可（平台只验证正确性，不强制 fused）。带 `main()` 的版本用于本地自测与 profiling。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配官方 starter 签名 `solve(Q, K, V, output, M, N, d)` 的提交版本。它使用 online softmax 把 `QK^T → softmax → PV` 融合在一个 kernel 内，不物化 `S/P`。
+
+```cuda
+#include <cmath>
+#include <cuda_runtime.h>
+
+#define BLOCK_SIZE 256
+#define WARP_SIZE 32
+#define NUM_WARPS (BLOCK_SIZE / WARP_SIZE)
+#define D_MAX 128 // 假设 head_dim <= 128
+
+__inline__ __device__ float warp_reduce_sum(float v) {
+    #pragma unroll
+    for (int o = WARP_SIZE / 2; o > 0; o >>= 1)
+        v += __shfl_down_sync(0xffffffff, v, o);
+    return v;
+}
+
+__inline__ __device__ float warp_reduce_max(float v) {
+    #pragma unroll
+    for (int o = WARP_SIZE / 2; o > 0; o >>= 1)
+        v = fmaxf(v, __shfl_down_sync(0xffffffff, v, o));
+    return v;
+}
+
+__inline__ __device__ float block_reduce_sum(float v, float* sh) {
+    int lane = threadIdx.x & 31, wid = threadIdx.x >> 5;
+    v = warp_reduce_sum(v);
+    if (lane == 0)
+        sh[wid] = v;
+    __syncthreads();
+    if (wid == 0) {
+        v = (lane < NUM_WARPS) ? sh[lane] : 0.f;
+        v = warp_reduce_sum(v);
+        if (lane == 0)
+            sh[0] = v;
+    }
+    __syncthreads();
+    return sh[0];
+}
+
+__inline__ __device__ float block_reduce_max(float v, float* sh) {
+    int lane = threadIdx.x & 31, wid = threadIdx.x >> 5;
+    v = warp_reduce_max(v);
+    if (lane == 0)
+        sh[wid] = v;
+    __syncthreads();
+    if (wid == 0) {
+        v = (lane < NUM_WARPS) ? sh[lane] : -INFINITY;
+        v = warp_reduce_max(v);
+        if (lane == 0)
+            sh[0] = v;
+    }
+    __syncthreads();
+    return sh[0];
+}
+
+__global__ void attention_fused_kernel(const float* __restrict__ Q, const float* __restrict__ K,
+                                       const float* __restrict__ V, float* __restrict__ O,
+                                       int M, int N, int d) {
+    __shared__ float q_shm[D_MAX];
+    __shared__ float red[NUM_WARPS + 1];
+    __shared__ float s_k_shm, alpha_shm, beta_shm;
+
+    int i = blockIdx.x, tid = threadIdx.x;
+    if (i >= M)
+        return;
+
+    for (int t = tid; t < d; t += BLOCK_SIZE)
+        q_shm[t] = Q[i * d + t];
+    __syncthreads();
+
+    float m = -INFINITY, l = 0.f;
+    float o_local = 0.f;
+    const float scale = 1.0f / sqrtf((float)d);
+
+    for (int k = 0; k < N; ++k) {
+        float part = 0.f;
+        for (int t = tid; t < d; t += BLOCK_SIZE)
+            part += q_shm[t] * K[k * d + t];
+        float s_k = block_reduce_sum(part, red) * scale;
+        if (tid == 0)
+            s_k_shm = s_k;
+        __syncthreads();
+        s_k = s_k_shm;
+
+        if (tid == 0) {
+            float m_new = fmaxf(m, s_k);
+            float alpha = expf(m - m_new);
+            float p = expf(s_k - m_new);
+            float l_new = l * alpha + p;
+            alpha_shm = (l * alpha) / l_new;
+            beta_shm = p / l_new;
+            m = m_new;
+            l = l_new;
+        }
+        __syncthreads();
+
+        if (tid < d)
+            o_local = o_local * alpha_shm + beta_shm * V[k * d + tid];
+        __syncthreads();
+    }
+    if (tid < d)
+        O[i * d + tid] = o_local;
+}
+
+// Q, K, V, output are device pointers
+extern "C" void solve(const float* Q, const float* K, const float* V, float* output, int M, int N, int d) {
+    if (M <= 0 || N <= 0 || d <= 0) return;
+    attention_fused_kernel<<<M, BLOCK_SIZE>>>(Q, K, V, output, M, N, d);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

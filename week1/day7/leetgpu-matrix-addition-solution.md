@@ -238,6 +238,52 @@ int main(int argc, char** argv) {
 
 > 💡 提交给 LeetGPU 平台时，把 `matadd_kernel` 填进 `solve` 函数即可。带 `main()` 的版本用于本地自测与 profiling。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本，其中 `N` 为方阵边长，kernel 内部按 `N * N` 个元素做 `float4` 向量化和尾部兜底。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK_SIZE 256
+
+__global__ void matrix_add(const float* A, const float* B, float* C, int N) {
+    int total = N * N;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = gridDim.x * blockDim.x;
+    int vec_count = total / 4;
+
+    const float4* A4 = reinterpret_cast<const float4*>(A);
+    const float4* B4 = reinterpret_cast<const float4*>(B);
+    float4* C4 = reinterpret_cast<float4*>(C);
+
+    for (int i = tid; i < vec_count; i += stride) {
+        float4 a = A4[i];
+        float4 b = B4[i];
+        float4 c;
+        c.x = a.x + b.x;
+        c.y = a.y + b.y;
+        c.z = a.z + b.z;
+        c.w = a.w + b.w;
+        C4[i] = c;
+    }
+
+    int tail_start = vec_count * 4;
+    for (int i = tail_start + tid; i < total; i += stride) {
+        C[i] = A[i] + B[i];
+    }
+}
+
+// A, B, C are device pointers (i.e. pointers to memory on the GPU)
+extern "C" void solve(const float* A, const float* B, float* C, int N) {
+    int threadsPerBlock = 256;
+    int blocksPerGrid = (N * N + threadsPerBlock - 1) / threadsPerBlock;
+
+    matrix_add<<<blocksPerGrid, threadsPerBlock>>>(A, B, C, N);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

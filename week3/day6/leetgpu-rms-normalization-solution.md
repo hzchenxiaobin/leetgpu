@@ -254,6 +254,73 @@ int main(int argc, char** argv) {
 
 > 💡 提交给 LeetGPU 平台时，把 `rmsnorm_kernel` 填进 starter 的 `solve` 函数即可。注意确认输入 `x` 是 `(M, D)` 行主序、`gamma` 形状为 `(D,)`。带 `main()` 的版本用于本地自测与 profiling。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。与上方完整教学版不同，starter 传入的是标量 `gamma`、`beta` 以及一维长度 `N`，因此提交版按整体一维数组做 RMS 归一化：
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK_SIZE 256
+#define WARP_SIZE 32
+#define NUM_WARPS (BLOCK_SIZE / WARP_SIZE)
+
+__inline__ __device__ float warp_reduce_sum(float val) {
+    #pragma unroll
+    for (int offset = WARP_SIZE / 2; offset > 0; offset >>= 1)
+        val += __shfl_down_sync(0xffffffff, val, offset);
+    return val;
+}
+
+__inline__ __device__ float block_reduce_sum(float val, float* shared) {
+    int lane = threadIdx.x & (WARP_SIZE - 1);
+    int warpId = threadIdx.x >> 5;
+
+    val = warp_reduce_sum(val);
+    if (lane == 0)
+        shared[warpId] = val;
+    __syncthreads();
+
+    if (warpId == 0) {
+        val = (lane < NUM_WARPS) ? shared[lane] : 0.0f;
+        val = warp_reduce_sum(val);
+        if (lane == 0)
+            shared[0] = val; // 广播 slot
+    }
+    __syncthreads();
+    return shared[0];
+}
+
+__global__ void rmsnorm_kernel(const float* __restrict__ input, float gamma, float beta,
+                               float* __restrict__ output, int N, float eps) {
+    __shared__ float shared[NUM_WARPS + 1];
+
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Pass 1：求 sum of squares
+    float local_sq = 0.0f;
+    for (int i = tid; i < N; i += gridDim.x * blockDim.x) {
+        float v = input[i];
+        local_sq += v * v;
+    }
+    float sum_sq = block_reduce_sum(local_sq, shared);
+
+    // Pass 2：归一化 + affine
+    float rrms = rsqrtf(sum_sq / N + eps);
+    for (int i = tid; i < N; i += gridDim.x * blockDim.x)
+        output[i] = input[i] * rrms * gamma + beta;
+}
+
+// input, output are device pointers
+extern "C" void solve(const float* input, float gamma, float beta, float* output, int N,
+                      float eps) {
+    int blockSize = BLOCK_SIZE;
+    int gridSize = (N + blockSize - 1) / blockSize;
+    rmsnorm_kernel<<<gridSize, blockSize>>>(input, gamma, beta, output, N, eps);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

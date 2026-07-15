@@ -240,6 +240,101 @@ int main() {
 
 > 💡 提交给 LeetGPU 平台时，把 `block_excl_scan_kernel` + `scatter_kernel` 填进 `solve`。教学版省略了独立的 `pred` kernel（把 `input!=0` 内联到 scan 读取），正式版应先用一个 elementwise kernel 算 `pred[i]=(input[i]!=0)`，再 scan。`warp_excl_scan` 用 `__shfl_up_sync` 实现 Hillis-Steele scan，零 bank conflict。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。判题 predicate 为 `A[i] > 0.0f`（保留正数），输出前 `k` 个元素为紧凑后的结果，其余位置保持平台初始化的 0。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK 256
+#define WARP 32
+
+__device__ __forceinline__ int warp_excl_scan(int val) {
+    int orig = val;
+    int sum = val;
+    #pragma unroll
+    for (int offset = 1; offset < WARP; offset *= 2) {
+        int v = __shfl_up_sync(0xffffffff, sum, offset);
+        if ((threadIdx.x & (WARP - 1)) >= offset)
+            sum += v;
+    }
+    return sum - orig;
+}
+
+__global__ void predicate_kernel(const float* A, int* pred, int N) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < N)
+        pred[i] = (A[i] > 0.0f) ? 1 : 0;
+}
+
+__global__ void block_excl_scan_kernel(const int* pred, int* ps, int* block_sums, int N) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int lane = threadIdx.x & (WARP - 1);
+    int warp_id = threadIdx.x >> 5;
+    __shared__ int warp_sums[WARP];
+
+    int val = (tid < N) ? pred[tid] : 0;
+    int warp_excl = warp_excl_scan(val);
+    int warp_total = warp_excl + val;
+
+    if (lane == WARP - 1) warp_sums[warp_id] = warp_total;
+    __syncthreads();
+
+    if (warp_id == 0) {
+        int w = (lane < blockDim.x / WARP) ? warp_sums[lane] : 0;
+        int w_excl = warp_excl_scan(w);
+        if (lane < blockDim.x / WARP) warp_sums[lane] = w_excl;
+    }
+    __syncthreads();
+
+    int block_excl = warp_excl + warp_sums[warp_id];
+    if (tid < N) ps[tid] = block_excl;
+    if (threadIdx.x == blockDim.x - 1) block_sums[blockIdx.x] = block_excl + val;
+}
+
+__global__ void add_prev_blocks(int* ps, const int* block_sums_excl, int N) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < N && blockIdx.x > 0)
+        ps[tid] += block_sums_excl[blockIdx.x];
+}
+
+__global__ void scatter_kernel(const float* A, const int* pred, const int* ps, float* out, int N) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < N && pred[i] == 1)
+        out[ps[i]] = A[i];
+}
+
+// A, out are device pointers
+extern "C" void solve(const float* A, int N, float* out) {
+    if (N <= 0) return;
+
+    int blocks = (N + BLOCK - 1) / BLOCK;
+    int second_blocks = (blocks + BLOCK - 1) / BLOCK;
+
+    int *d_pred, *d_ps, *d_block_sums, *d_block_sums_excl, *d_dummy;
+    cudaMalloc(&d_pred, (size_t)N * sizeof(int));
+    cudaMalloc(&d_ps, (size_t)N * sizeof(int));
+    cudaMalloc(&d_block_sums, (size_t)blocks * sizeof(int));
+    cudaMalloc(&d_block_sums_excl, (size_t)blocks * sizeof(int));
+    cudaMalloc(&d_dummy, (size_t)second_blocks * sizeof(int));
+
+    predicate_kernel<<<blocks, BLOCK>>>(A, d_pred, N);
+    block_excl_scan_kernel<<<blocks, BLOCK>>>(d_pred, d_ps, d_block_sums, N);
+    block_excl_scan_kernel<<<second_blocks, BLOCK>>>(d_block_sums, d_block_sums_excl, d_dummy, blocks);
+    add_prev_blocks<<<blocks, BLOCK>>>(d_ps, d_block_sums_excl, N);
+    scatter_kernel<<<blocks, BLOCK>>>(A, d_pred, d_ps, out, N);
+
+    cudaDeviceSynchronize();
+
+    cudaFree(d_pred);
+    cudaFree(d_ps);
+    cudaFree(d_block_sums);
+    cudaFree(d_block_sums_excl);
+    cudaFree(d_dummy);
+}
+```
+
 ## 5. 性能分析与优化
 
 ```bash

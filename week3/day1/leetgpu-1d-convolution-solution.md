@@ -48,6 +48,37 @@ extern "C" void solve(const float* input, const float* kernel, float* output, in
 }
 ```
 
+### 3.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本（从上方实现中提取，增加了 `cudaDeviceSynchronize()`）。
+
+```cuda
+#include <cuda_runtime.h>
+
+__global__ void conv1d_kernel(const float* input, const float* kernel, float* output, int N, int K) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= N)
+        return;
+
+    float sum = 0.0f;
+    for (int j = 0; j < K; j++) {
+        int idx = i + j;
+        if (idx < N) {
+            sum += input[idx] * kernel[j];
+        }
+    }
+    output[i] = sum;
+}
+
+// input, kernel, output are device pointers
+extern "C" void solve(const float* input, const float* kernel, float* output, int N, int K) {
+    int blockSize = 256;
+    int gridSize = (N + blockSize - 1) / blockSize;
+    conv1d_kernel<<<gridSize, blockSize>>>(input, kernel, output, N, K);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 4. 复杂度分析
 
 | 维度 | 分析 |

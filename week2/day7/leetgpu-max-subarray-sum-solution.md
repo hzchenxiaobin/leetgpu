@@ -104,6 +104,119 @@ extern "C" void solve(const int* input, int* output, int N, int window_size) {
 }
 ```
 
+### 3.1 LeetGPU 提交版本
+
+下面给出适配官方 starter 签名 `solve(input, output, N, window_size)` 的完整提交版本。它分三阶段：先做 block 级 inclusive prefix sum，再用 block 和的 exclusive 前缀把各块拼成全局前缀，最后 grid-stride 求窗口最大和。
+
+```cuda
+#include <algorithm>
+#include <climits>
+#include <cuda_runtime.h>
+#include <vector>
+
+#define SCAN_BLOCK 1024
+
+__inline__ __device__ int warp_reduce_max(int val) {
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        int other = __shfl_down_sync(0xffffffff, val, offset);
+        val = max(val, other);
+    }
+    return val;
+}
+
+__global__ void block_inclusive_scan(const int* input, long long* prefix, long long* block_sums, int N) {
+    __shared__ long long sdata[SCAN_BLOCK];
+    int tid = threadIdx.x;
+    int gid = blockIdx.x * SCAN_BLOCK + tid;
+    sdata[tid] = (gid < N) ? (long long)input[gid] : 0LL;
+    __syncthreads();
+
+    for (int offset = 1; offset < SCAN_BLOCK; offset <<= 1) {
+        long long tmp = (tid >= offset) ? sdata[tid - offset] : 0LL;
+        __syncthreads();
+        sdata[tid] += tmp;
+        __syncthreads();
+    }
+
+    if (gid < N)
+        prefix[gid] = sdata[tid];
+    if (tid == SCAN_BLOCK - 1)
+        block_sums[blockIdx.x] = sdata[tid];
+}
+
+__global__ void add_carry(long long* prefix, const long long* carry, int N) {
+    int gid = blockIdx.x * SCAN_BLOCK + threadIdx.x;
+    if (gid < N)
+        prefix[gid] += carry[blockIdx.x];
+}
+
+__global__ void window_max_kernel(const long long* prefix, int* output, int N, int W) {
+    int tid = threadIdx.x;
+    int gid = blockIdx.x * SCAN_BLOCK + tid;
+    int local_max = INT_MIN;
+
+    for (int i = gid; i <= N - W; i += gridDim.x * SCAN_BLOCK) {
+        long long sum = prefix[i + W - 1] - (i > 0 ? prefix[i - 1] : 0LL);
+        local_max = max(local_max, (int)sum);
+    }
+
+    local_max = warp_reduce_max(local_max);
+
+    __shared__ int warp_max[32];
+    int warp_id = tid / 32;
+    int lane = tid % 32;
+    if (lane == 0)
+        warp_max[warp_id] = local_max;
+    __syncthreads();
+
+    if (warp_id == 0) {
+        int num_warps = (SCAN_BLOCK + 31) / 32;
+        local_max = (lane < num_warps) ? warp_max[lane] : INT_MIN;
+        local_max = warp_reduce_max(local_max);
+        if (lane == 0)
+            atomicMax(output, local_max);
+    }
+}
+
+// input, output are device pointers
+extern "C" void solve(const int* input, int* output, int N, int window_size) {
+    if (N <= 0 || window_size <= 0 || window_size > N) return;
+
+    int num_blocks = (N + SCAN_BLOCK - 1) / SCAN_BLOCK;
+
+    long long *d_prefix = nullptr, *d_block_sums = nullptr, *d_carry = nullptr;
+    cudaMalloc(&d_prefix, (size_t)N * sizeof(long long));
+    cudaMalloc(&d_block_sums, (size_t)num_blocks * sizeof(long long));
+    cudaMalloc(&d_carry, (size_t)num_blocks * sizeof(long long));
+
+    // Stage 1: 每 block 做 inclusive prefix sum
+    block_inclusive_scan<<<num_blocks, SCAN_BLOCK>>>(input, d_prefix, d_block_sums, N);
+
+    // Stage 2: block 和在 CPU 上做 exclusive prefix，作为 carry 加回
+    std::vector<long long> h_sums(num_blocks), h_carry(num_blocks);
+    cudaMemcpy(h_sums.data(), d_block_sums, num_blocks * sizeof(long long), cudaMemcpyDeviceToHost);
+    long long acc = 0;
+    for (int b = 0; b < num_blocks; ++b) {
+        h_carry[b] = acc;
+        acc += h_sums[b];
+    }
+    cudaMemcpy(d_carry, h_carry.data(), num_blocks * sizeof(long long), cudaMemcpyHostToDevice);
+    add_carry<<<num_blocks, SCAN_BLOCK>>>(d_prefix, d_carry, N);
+
+    // Stage 3: 窗口和 + 最大归约
+    int init = INT_MIN;
+    cudaMemcpy(output, &init, sizeof(int), cudaMemcpyHostToDevice);
+
+    int win_blocks = std::min((N + SCAN_BLOCK - 1) / SCAN_BLOCK, 1024);
+    window_max_kernel<<<win_blocks, SCAN_BLOCK>>>(d_prefix, output, N, window_size);
+
+    cudaFree(d_prefix);
+    cudaFree(d_block_sums);
+    cudaFree(d_carry);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 4. 复杂度分析
 
 | 维度 | 分析 |

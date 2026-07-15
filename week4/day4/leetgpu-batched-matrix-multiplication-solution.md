@@ -179,6 +179,56 @@ int main() {
 
 > 💡 提交给 LeetGPU 平台时，把 `batched_matmul_kernel` 填进 `solve`。核心是 `blockIdx.z` 索引 batch + stride 寻址 `A + b*M*K`。tiled 部分同 Week1 Day6 的 matmul tiling，沿 K 方向分块用 shared memory 缓存。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。它使用 `blockIdx.z` 索引 batch，并用 shared memory tiling 完成每个 batch 的 GEMM。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define TILE 16
+
+__global__ void batched_matmul_kernel(const float* A, const float* B, float* C,
+                                      int batch, int M, int N, int K) {
+    int b = blockIdx.z;
+    int row = blockIdx.y * TILE + threadIdx.y;
+    int col = blockIdx.x * TILE + threadIdx.x;
+    if (b >= batch || row >= M || col >= N)
+        return;
+
+    const float* A_b = A + b * M * K;
+    const float* B_b = B + b * K * N;
+    float* C_b = C + b * M * N;
+
+    __shared__ float sA[TILE][TILE];
+    __shared__ float sB[TILE][TILE];
+
+    float sum = 0.0f;
+    for (int t = 0; t < (K + TILE - 1) / TILE; t++) {
+        int a_col = t * TILE + threadIdx.x;
+        int b_row = t * TILE + threadIdx.y;
+        sA[threadIdx.y][threadIdx.x] = (row < M && a_col < K) ? A_b[row * K + a_col] : 0.0f;
+        sB[threadIdx.y][threadIdx.x] = (b_row < K && col < N) ? B_b[b_row * N + col] : 0.0f;
+        __syncthreads();
+
+        #pragma unroll
+        for (int k = 0; k < TILE; k++)
+            sum += sA[threadIdx.y][k] * sB[k][threadIdx.x];
+        __syncthreads();
+    }
+    C_b[row * N + col] = sum;
+}
+
+// A, B, C are device pointers
+extern "C" void solve(const float* A, const float* B, float* C,
+                      int BATCH, int M, int N, int K) {
+    dim3 grid((N + TILE - 1) / TILE, (M + TILE - 1) / TILE, BATCH);
+    dim3 block(TILE, TILE);
+    batched_matmul_kernel<<<grid, block>>>(A, B, C, BATCH, M, N, K);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ```bash

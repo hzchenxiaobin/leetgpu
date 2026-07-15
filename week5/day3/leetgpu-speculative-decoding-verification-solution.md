@@ -445,6 +445,165 @@ int main(int argc, char** argv) {
 
 > 💡 提交给 LeetGPU 平台时，把 `spec_decode_verify_kernel` 填进 starter 的 `solve` 即可。带 `main()` 的版本用于本地自测与 profiling。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK_SIZE 256
+#define WARP_SIZE 32
+#define NUM_WARPS (BLOCK_SIZE / WARP_SIZE)
+
+__inline__ __device__ float warp_reduce_sum(float v) {
+    #pragma unroll
+    for (int o = WARP_SIZE / 2; o > 0; o >>= 1)
+        v += __shfl_down_sync(0xffffffff, v, o);
+    return v;
+}
+
+__inline__ __device__ float block_reduce_sum(float v, float* sh) {
+    int lane = threadIdx.x & 31, wid = threadIdx.x >> 5;
+    v = warp_reduce_sum(v);
+    if (lane == 0)
+        sh[wid] = v;
+    __syncthreads();
+    if (wid == 0) {
+        v = (lane < NUM_WARPS) ? sh[lane] : 0.f;
+        v = warp_reduce_sum(v);
+        if (lane == 0)
+            sh[0] = v;
+    }
+    __syncthreads();
+    return sh[0];
+}
+
+__device__ int cdf_searchsorted(const float* probs, const float* sub, float r, int V, float* sh) {
+    int tid = threadIdx.x;
+    float local_sum = 0.f;
+    for (int v = tid; v < V; v += BLOCK_SIZE) {
+        float val = sub ? fmaxf(probs[v] - sub[v], 0.f) : probs[v];
+        local_sum += val;
+    }
+    float total = block_reduce_sum(local_sum, sh);
+    float inv_total = (total > 0.f) ? (1.0f / total) : 0.f;
+    bool use_uniform = (total <= 0.f);
+
+    float running = 0.f;
+    int result = V - 1;
+    for (int chunk_start = 0; chunk_start < V; chunk_start += BLOCK_SIZE) {
+        int v = chunk_start + tid;
+        float val = 0.f;
+        if (v < V) {
+            if (use_uniform)
+                val = 1.0f / V;
+            else {
+                float raw = sub ? fmaxf(probs[v] - sub[v], 0.f) : probs[v];
+                val = raw * inv_total;
+            }
+        }
+
+        __shared__ float scan_sh[NUM_WARPS + 1];
+        int lane = tid & 31, wid = tid >> 5;
+        float prefix = val;
+        #pragma unroll
+        for (int o = 1; o < WARP_SIZE; o <<= 1) {
+            float n = __shfl_up_sync(0xffffffff, prefix, o);
+            if (lane >= o)
+                prefix += n;
+        }
+        if (lane == 31)
+            scan_sh[wid] = prefix;
+        __syncthreads();
+        if (wid == 0) {
+            float w = (lane < NUM_WARPS) ? scan_sh[lane] : 0.f;
+            #pragma unroll
+            for (int o = 1; o < NUM_WARPS; o <<= 1) {
+                float n = __shfl_up_sync(0xffffffff, w, o);
+                if (lane >= o)
+                    w += n;
+            }
+            if (lane < NUM_WARPS)
+                scan_sh[lane] = w;
+        }
+        __syncthreads();
+        float chunk_offset = (wid > 0) ? scan_sh[wid - 1] : 0.f;
+        float my_cdf = running + chunk_offset + (prefix - val);
+
+        if (v < V && r >= my_cdf && r < my_cdf + val) {
+            result = v;
+        }
+        running += scan_sh[NUM_WARPS - 1];
+        __syncthreads();
+    }
+
+    __shared__ int result_sh;
+    if (tid == 0)
+        result_sh = V - 1;
+    __syncthreads();
+    if (result < V)
+        atomicMin(&result_sh, result);
+    __syncthreads();
+    return result_sh;
+}
+
+__global__ void spec_decode_verify_kernel(const int* __restrict__ draft_tokens,
+                                          const float* __restrict__ draft_probs,
+                                          const float* __restrict__ target_probs,
+                                          const float* __restrict__ uniform_samples,
+                                          int* __restrict__ output, int B, int T, int V) {
+    int b = blockIdx.x, tid = threadIdx.x;
+    if (b >= B)
+        return;
+    __shared__ float sh[NUM_WARPS + 1];
+    __shared__ int s_tok;
+    __shared__ float s_p, s_q, s_alpha;
+
+    bool rejected = false;
+    for (int i = 0; i < T; ++i) {
+        if (tid == 0) {
+            s_tok = draft_tokens[b * T + i];
+            s_p = draft_probs[(b * T + i) * V + s_tok];
+            s_q = target_probs[(b * T + i) * V + s_tok];
+            s_alpha = fminf(1.0f, s_q / s_p);
+        }
+        __syncthreads();
+        int tok = s_tok;
+        float alpha = s_alpha, u = uniform_samples[b * (T + 1) + i];
+
+        if (u < alpha) {
+            if (tid == 0)
+                output[b * (T + 1) + i] = tok;
+        } else {
+            const float* tgt = target_probs + (b * T + i) * V;
+            const float* drf = draft_probs + (b * T + i) * V;
+            float r = uniform_samples[b * (T + 1) + T];
+            int new_tok = cdf_searchsorted(tgt, drf, r, V, sh);
+            if (tid == 0)
+                output[b * (T + 1) + i] = new_tok;
+            rejected = true;
+            break;
+        }
+    }
+    if (!rejected) {
+        const float* tgt = target_probs + (b * T + (T - 1)) * V;
+        float r = uniform_samples[b * (T + 1) + T];
+        int bonus = cdf_searchsorted(tgt, nullptr, r, V, sh);
+        if (tid == 0)
+            output[b * (T + 1) + T] = bonus;
+    }
+}
+
+// draft_tokens, draft_probs, target_probs, uniform_samples, output_tokens are device pointers
+extern "C" void solve(const int* draft_tokens, const float* draft_probs, const float* target_probs,
+                      const float* uniform_samples, int* output_tokens, int B, int T, int V) {
+    spec_decode_verify_kernel<<<B, BLOCK_SIZE>>>(draft_tokens, draft_probs, target_probs,
+                                                 uniform_samples, output_tokens, B, T, V);
+    cudaDeviceSynchronize();
+}
+```
+
 > ⚠️ **验证说明**：投机解码的 resample 涉及 CDF searchsorted，浮点累加顺序不同可能导致 token 索引差 1（边界情况）。平台容差 `atol=rtol=1e-5` 针对概率张量；token 索引的精确匹配依赖 CDF 计算的一致性。sparse 概率分布（官方测试用）可消除此问题。
 
 ## 5. 性能分析与优化

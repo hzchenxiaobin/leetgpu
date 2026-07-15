@@ -207,6 +207,31 @@ int main(int argc, char** argv) {
 
 > 💡 提交给 LeetGPU 平台时，把 `relu_kernel` 填进 starter 的 `__global__` 空壳即可；`solve` 里的启动配置可用 `blocks = (N + 255) / 256`（朴素）或 `num_sm * 4`（grid-stride），平台只看正确性与大 N 性能。带 `main()` 的完整文件用于本地自测与 profiling。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本，使用无分支的 `fmaxf` 实现 ReLU。
+
+```cuda
+#include <cuda_runtime.h>
+
+__global__ void relu_kernel(const float* input, float* output, int N) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = gridDim.x * blockDim.x;
+    for (int i = tid; i < N; i += stride) {
+        output[i] = fmaxf(0.0f, input[i]);
+    }
+}
+
+// input, output are device pointers (i.e. pointers to memory on the GPU)
+extern "C" void solve(const float* input, float* output, int N) {
+    int threadsPerBlock = 256;
+    int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
+
+    relu_kernel<<<blocksPerGrid, threadsPerBlock>>>(input, output, N);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

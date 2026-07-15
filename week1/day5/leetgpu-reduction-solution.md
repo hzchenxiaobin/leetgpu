@@ -21,6 +21,10 @@
 
 ## 3. Kernel 实现
 
+下面给出可直接提交到 LeetGPU 的 warp shuffle 两阶段归约实现。
+
+### 3.1 LeetGPU 提交版本
+
 ```cuda
 // reduction.cu —— Warp shuffle 两阶段归约
 #include <cuda_runtime.h>

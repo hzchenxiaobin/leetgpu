@@ -246,6 +246,56 @@ int main(int argc, char** argv) {
 
 > 💡 提交给 LeetGPU 平台时，把 `matmul_tiled` kernel 填进 starter 的 `__global__` 空壳即可。starter 已配好 `dim3 threadsPerBlock(16, 16)`，可改成 `TILE=32` 获得更高吞吐。带 `main()` 的版本用于本地自测与 profiling。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本，使用 `TILE=32` 的 shared memory tiling。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define TILE 32
+
+__global__ void matrix_multiplication_kernel(const float* A, const float* B, float* C, int M, int N, int K) {
+    __shared__ float A_tile[TILE][TILE];
+    __shared__ float B_tile[TILE][TILE];
+
+    int row = blockIdx.y * TILE + threadIdx.y;
+    int col = blockIdx.x * TILE + threadIdx.x;
+    float sum = 0.0f;
+
+    int num_tiles = (N + TILE - 1) / TILE;
+    for (int t = 0; t < num_tiles; ++t) {
+        int a_col = t * TILE + threadIdx.x;
+        int b_row = t * TILE + threadIdx.y;
+        A_tile[threadIdx.y][threadIdx.x] = (row < M && a_col < N) ? A[row * N + a_col] : 0.0f;
+        B_tile[threadIdx.y][threadIdx.x] = (b_row < N && col < K) ? B[b_row * K + col] : 0.0f;
+
+        __syncthreads();
+
+        #pragma unroll
+        for (int k = 0; k < TILE; ++k) {
+            sum += A_tile[threadIdx.y][k] * B_tile[k][threadIdx.x];
+        }
+
+        __syncthreads();
+    }
+
+    if (row < M && col < K) {
+        C[row * K + col] = sum;
+    }
+}
+
+// A, B, C are device pointers (i.e. pointers to memory on the GPU)
+extern "C" void solve(const float* A, const float* B, float* C, int M, int N, int K) {
+    dim3 threadsPerBlock(TILE, TILE);
+    dim3 blocksPerGrid((K + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (M + threadsPerBlock.y - 1) / threadsPerBlock.y);
+
+    matrix_multiplication_kernel<<<blocksPerGrid, threadsPerBlock>>>(A, B, C, M, N, K);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

@@ -198,6 +198,159 @@ int main() {
 
 > 💡 提交给 LeetGPU 平台时，把 `segmented_excl_scan_kernel` 填进 `solve`。教学版假设每段不超过一个 block（省略跨 block 段 carry）；正式版需补 block 间段和传递（类似 Week2 Day1 三阶段 scan 的 block_sums 修正，但只在同段内 carry）。段首归零是核心技巧：`if (seg_flag) block_excl = 0`。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。采用 warp shuffle 实现块内 segmented scan，并通过 block 间 carry 传播支持跨 block 的长段。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK 256
+#define WARP 32
+#define NUM_WARPS (BLOCK / WARP)
+
+// warp 内 segmented inclusive scan；遇到段首(flag==1) 则重置
+__device__ __forceinline__ float warp_seg_incl_scan(float val, int flag, int lane) {
+    unsigned ballot = __ballot_sync(0xffffffff, flag);
+    float sum = val;
+    if (flag == 0) {
+        #pragma unroll
+        for (int offset = 1; offset < WARP; offset *= 2) {
+            float v = __shfl_up_sync(0xffffffff, sum, offset);
+            int src = lane - offset;
+            if (src >= 0) {
+                unsigned mask = ((1u << lane) - 1u) ^ ((1u << (src + 1)) - 1u);
+                if ((ballot & mask) == 0) sum += v;
+            }
+        }
+    }
+    return sum;
+}
+
+__global__ void block_seg_scan_kernel(const float* values, const int* flags, float* out,
+                                      float* block_sum, int* block_has_start,
+                                      int* block_first_start, int N) {
+    int block_start = blockIdx.x * blockDim.x;
+    int lane = threadIdx.x & (WARP - 1);
+    int warp_id = threadIdx.x >> 5;
+    int tid = block_start + threadIdx.x;
+
+    __shared__ float sval[BLOCK];
+    __shared__ int sflag[BLOCK];
+
+    sval[threadIdx.x] = (tid < N) ? values[tid] : 0.0f;
+    sflag[threadIdx.x] = (tid < N) ? flags[tid] : 0;
+    __syncthreads();
+
+    float val = sval[threadIdx.x];
+    int flag = sflag[threadIdx.x];
+
+    float incl = warp_seg_incl_scan(val, flag, lane);
+    float excl = incl - val;
+
+    __shared__ float warp_last_sum[NUM_WARPS];
+    __shared__ int warp_first_flag[NUM_WARPS];
+    __shared__ int warp_first_start[NUM_WARPS];
+    __shared__ float warp_carry[NUM_WARPS];
+
+    unsigned ballot = __ballot_sync(0xffffffff, flag);
+    int first_in_warp = __ffs((int)ballot) - 1;
+
+    if (lane == 0) {
+        warp_first_flag[warp_id] = flag;
+        warp_first_start[warp_id] = (first_in_warp == -1) ? WARP : first_in_warp;
+    }
+    if (lane == WARP - 1) warp_last_sum[warp_id] = incl;
+    __syncthreads();
+
+    if (threadIdx.x == 0) {
+        float carry = 0.0f;
+        warp_carry[0] = 0.0f;
+        for (int w = 1; w < NUM_WARPS; ++w) {
+            carry += warp_last_sum[w - 1];
+            if (warp_first_flag[w]) carry = 0.0f;
+            warp_carry[w] = carry;
+        }
+    }
+    __syncthreads();
+
+    if (!flag && warp_carry[warp_id] != 0.0f && lane < warp_first_start[warp_id])
+        excl += warp_carry[warp_id];
+
+    if (tid < N) out[tid] = excl;
+
+    if (threadIdx.x == 0) {
+        int last_flag = -1;
+        for (int t = BLOCK - 1; t >= 0; --t) {
+            if (sflag[t] == 1) { last_flag = t; break; }
+        }
+        float sum = 0.0f;
+        if (last_flag == -1) {
+            for (int t = 0; t < BLOCK; ++t) sum += sval[t];
+        } else {
+            for (int t = last_flag; t < BLOCK; ++t) sum += sval[t];
+        }
+        block_sum[blockIdx.x] = sum;
+        block_has_start[blockIdx.x] = (block_start < N) ? sflag[0] : 1;
+
+        int first = BLOCK;
+        for (int t = 0; t < BLOCK; ++t) {
+            if (sflag[t] == 1) { first = t; break; }
+        }
+        block_first_start[blockIdx.x] = first;
+    }
+}
+
+__global__ void block_carry_scan(const float* block_sum, const int* block_has_start,
+                                  float* block_carry, int num_blocks) {
+    if (threadIdx.x != 0) return;
+    float carry = 0.0f;
+    block_carry[0] = 0.0f;
+    for (int i = 1; i < num_blocks; ++i) {
+        carry += block_sum[i - 1];
+        if (block_has_start[i]) carry = 0.0f;
+        block_carry[i] = carry;
+    }
+}
+
+__global__ void add_carry_kernel(float* out, const int* flags, const float* block_carry,
+                                  const int* block_first_start, int N) {
+    int block_start = blockIdx.x * blockDim.x;
+    int lane = threadIdx.x;
+    int tid = block_start + lane;
+    if (tid >= N) return;
+
+    int first = block_first_start[blockIdx.x];
+    if (lane < first && flags[tid] != 1)
+        out[tid] += block_carry[blockIdx.x];
+}
+
+// values, flags, output are device pointers
+extern "C" void solve(const float* values, const int* flags, float* output, int N) {
+    if (N <= 0) return;
+    int blocks = (N + BLOCK - 1) / BLOCK;
+
+    float *d_block_sum, *d_block_carry;
+    int *d_block_has_start, *d_block_first_start;
+    cudaMalloc(&d_block_sum, (size_t)blocks * sizeof(float));
+    cudaMalloc(&d_block_carry, (size_t)blocks * sizeof(float));
+    cudaMalloc(&d_block_has_start, (size_t)blocks * sizeof(int));
+    cudaMalloc(&d_block_first_start, (size_t)blocks * sizeof(int));
+
+    block_seg_scan_kernel<<<blocks, BLOCK>>>(values, flags, output, d_block_sum,
+                                              d_block_has_start, d_block_first_start, N);
+    block_carry_scan<<<1, 1>>>(d_block_sum, d_block_has_start, d_block_carry, blocks);
+    add_carry_kernel<<<blocks, BLOCK>>>(output, flags, d_block_carry, d_block_first_start, N);
+
+    cudaDeviceSynchronize();
+
+    cudaFree(d_block_sum);
+    cudaFree(d_block_carry);
+    cudaFree(d_block_has_start);
+    cudaFree(d_block_first_start);
+}
+```
+
 ## 5. 性能分析与优化
 
 ```bash

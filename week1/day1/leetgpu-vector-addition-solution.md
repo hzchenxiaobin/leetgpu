@@ -208,6 +208,31 @@ int main(int argc, char** argv) {
 
 > 💡 提交给 LeetGPU 平台时，只需把 `vector_add` kernel 填进 starter 的 `__global__` 空壳、并把 `solve` 里的启动配置改成 `blocks = num_sm * 4`（或直接保留 `(N+255)/256` 也能过，平台只看正确性 + 大 N 性能）。上面这份带 `main()` 的完整文件用于本地自测与 profiling。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本，保留 grid-stride loop 以兼顾大 `N` 时的调度效率。
+
+```cuda
+#include <cuda_runtime.h>
+
+__global__ void vector_add(const float* A, const float* B, float* C, int N) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = gridDim.x * blockDim.x;
+    for (int i = tid; i < N; i += stride) {
+        C[i] = A[i] + B[i];
+    }
+}
+
+// A, B, C are device pointers (i.e. pointers to memory on the GPU)
+extern "C" void solve(const float* A, const float* B, float* C, int N) {
+    int threadsPerBlock = 256;
+    int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
+
+    vector_add<<<blocksPerGrid, threadsPerBlock>>>(A, B, C, N);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

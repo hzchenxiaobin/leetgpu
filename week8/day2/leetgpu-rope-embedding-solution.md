@@ -200,6 +200,39 @@ int main() {
 
 > 💡 提交给 LeetGPU 平台时，把 `rope_kernel` 填进 `solve`。核心是 grid-stride 覆盖 + 2D 映射避免除法 + rotate_half 索引计算。带宽 = `4 × M × D × sizeof(float) / time`（读 Q+cos+sin + 写 output）。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。保留 2D grid-stride 映射与 `rotate_half` 索引计算，可直接粘贴到平台的 `solve` 空壳中。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK_X 32
+#define BLOCK_Y 8
+
+// grid-stride + 2D 映射：避免除法，coalesced 访存
+__global__ void rope_kernel(const float* Q, const float* cos, const float* sin, float* output, int M, int D) {
+    int half = D / 2;
+    for (int row = blockIdx.y * blockDim.y + threadIdx.y; row < M; row += gridDim.y * blockDim.y) {
+        for (int col = blockIdx.x * blockDim.x + threadIdx.x; col < D; col += gridDim.x * blockDim.x) {
+            int idx = row * D + col;
+            float q = Q[idx];
+            // rotate_half：前半取后半取反，后半取前半
+            float rotated = (col < half) ? -Q[idx + half] : Q[idx - half];
+            output[idx] = q * cos[idx] + rotated * sin[idx];
+        }
+    }
+}
+
+// Q, cos, sin, output are device pointers
+extern "C" void solve(float* Q, float* cos, float* sin, float* output, int M, int D) {
+    dim3 block(BLOCK_X, BLOCK_Y);
+    dim3 grid((D + BLOCK_X - 1) / BLOCK_X, (M + BLOCK_Y - 1) / BLOCK_Y);
+    rope_kernel<<<grid, block>>>(Q, cos, sin, output, M, D);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ```bash

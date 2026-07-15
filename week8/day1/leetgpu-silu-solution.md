@@ -154,6 +154,33 @@ int main() {
 
 > 💡 提交给 LeetGPU 平台时，把 `silu_kernel` 填进 `solve`。核心是 grid-stride 覆盖 + `__expf` 快速数学。带宽 = `2 × N × sizeof(float) / time`（读 input + 写 output）。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。保留 grid-stride 与 `__expf` 快速数学，可直接粘贴到平台的 `solve` 空壳中。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK 256
+
+// grid-stride + __expf：任意 N 一次覆盖，coalesced 访存
+__global__ void silu_kernel(const float* input, float* output, int N) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = gridDim.x * blockDim.x;
+    for (int i = tid; i < N; i += stride) {
+        float x = input[i];
+        output[i] = x / (1.0f + __expf(-x));
+    }
+}
+
+// input, output are device pointers
+extern "C" void solve(const float* input, float* output, int N) {
+    int grid = (N + BLOCK - 1) / BLOCK;
+    silu_kernel<<<grid, BLOCK>>>(input, output, N);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ```bash

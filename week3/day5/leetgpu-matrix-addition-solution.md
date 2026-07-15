@@ -40,6 +40,30 @@ extern "C" void solve(const float* A, const float* B, float* C, int M, int N) {
 }
 ```
 
+### 3.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本（从上方实现中提取，增加了 `cudaDeviceSynchronize()`）。
+
+```cuda
+#include <cuda_runtime.h>
+
+__global__ void matrix_add_kernel(const float* A, const float* B, float* C, int total) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < total) {
+        C[idx] = A[idx] + B[idx];
+    }
+}
+
+// A, B, C are device pointers
+extern "C" void solve(const float* A, const float* B, float* C, int M, int N) {
+    int total = M * N;
+    int blockSize = 256;
+    int gridSize = (total + blockSize - 1) / blockSize;
+    matrix_add_kernel<<<gridSize, blockSize>>>(A, B, C, total);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 4. 复杂度分析
 
 | 维度 | 分析 |

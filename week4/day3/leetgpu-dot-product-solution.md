@@ -166,6 +166,56 @@ int main() {
 
 > 💡 提交给 LeetGPU 平台时，把 `dot_product_kernel` 填进 `solve`。核心是 `warp_reduce` 用 `__shfl_down_sync` 树形归约 + block 两级 + `atomicAdd` 跨 block。kernel 融合（乘法+归约一个 kernel）避免中间数组。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。它把结果缓冲区先清零，再用两级归约 + `atomicAdd` 得到最终点积。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK 256
+#define WARP 32
+
+__device__ __forceinline__ float warp_reduce(float val) {
+    #pragma unroll
+    for (int offset = WARP / 2; offset > 0; offset /= 2)
+        val += __shfl_down_sync(0xffffffff, val, offset);
+    return val;
+}
+
+__global__ void dot_product_kernel(const float* a, const float* b, float* result, int N) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int lane = threadIdx.x & (WARP - 1);
+    int warp_id = threadIdx.x / WARP;
+    __shared__ float warp_sums[WARP];
+
+    float sum = 0.0f;
+    for (int i = tid; i < N; i += gridDim.x * blockDim.x) {
+        sum += a[i] * b[i];
+    }
+
+    sum = warp_reduce(sum);
+    if (lane == 0)
+        warp_sums[warp_id] = sum;
+    __syncthreads();
+
+    if (warp_id == 0) {
+        sum = (lane < blockDim.x / WARP) ? warp_sums[lane] : 0.0f;
+        sum = warp_reduce(sum);
+        if (lane == 0)
+            atomicAdd(result, sum);
+    }
+}
+
+// A, B, result are device pointers
+extern "C" void solve(const float* A, const float* B, float* result, int N) {
+    cudaMemset(result, 0, sizeof(float));
+    int blocks = (N + BLOCK - 1) / BLOCK;
+    dot_product_kernel<<<blocks, BLOCK>>>(A, B, result, N);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ```bash

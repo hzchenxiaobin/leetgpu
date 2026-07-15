@@ -189,6 +189,41 @@ int main(int argc, char** argv) {
 
 > 💡 提交给 LeetGPU 平台时，把 `weight_dequant_kernel` 填进 starter 的 `solve` 即可。带 `main()` 的版本用于本地自测与 profiling。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK_SIZE 256
+
+__global__ void weight_dequant_kernel(const float* __restrict__ X,
+                                      const float* __restrict__ S,
+                                      float* __restrict__ Y,
+                                      int M, int N, int T) {
+    int s_cols = (N + T - 1) / T;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = gridDim.x * blockDim.x;
+
+    for (int idx = tid; idx < M * N; idx += stride) {
+        int i = idx / N;
+        int j = idx % N;
+        int sr = i / T;
+        int sc = j / T;
+        float scale = S[sr * s_cols + sc];
+        Y[idx] = X[idx] * scale;
+    }
+}
+
+// X, S, Y are device pointers
+extern "C" void solve(const float* X, const float* S, float* Y, int M, int N, int TILE_SIZE) {
+    int grid = (M * N + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    weight_dequant_kernel<<<grid, BLOCK_SIZE>>>(X, S, Y, M, N, TILE_SIZE);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

@@ -86,6 +86,106 @@ extern "C" void solve(const float* input, int* output, int N) {
 }
 ```
 
+### 3.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。与上方教学版不同，这里使用两次 kernel（block 内 warp reduce 出局部最优，再一个 block 归约出全局下标）来正确处理平局与跨 block 竞争。
+
+```cuda
+#include <cuda_runtime.h>
+#include <climits>
+
+struct ValIdx {
+    float val;
+    int idx;
+};
+
+__device__ ValIdx warp_reduce_argmax(ValIdx v) {
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        float other_val = __shfl_down_sync(0xffffffff, v.val, offset);
+        int other_idx = __shfl_down_sync(0xffffffff, v.idx, offset);
+        if (other_val > v.val || (other_val == v.val && other_idx < v.idx)) {
+            v.val = other_val;
+            v.idx = other_idx;
+        }
+    }
+    return v;
+}
+
+__global__ void argmax_kernel(const float* input, ValIdx* block_results, int N) {
+    int tid = threadIdx.x;
+    int gid = blockIdx.x * blockDim.x + tid;
+
+    ValIdx local = {__int_as_float(0xff800000), INT_MAX}; // -inf, 哨兵下标
+    for (int i = gid; i < N; i += gridDim.x * blockDim.x) {
+        if (input[i] > local.val || (input[i] == local.val && i < local.idx)) {
+            local.val = input[i];
+            local.idx = i;
+        }
+    }
+
+    local = warp_reduce_argmax(local);
+
+    __shared__ ValIdx warp_results[32];
+    int warp_id = tid / 32;
+    int lane = tid % 32;
+    if (lane == 0)
+        warp_results[warp_id] = local;
+    __syncthreads();
+
+    if (warp_id == 0) {
+        int num_warps = (blockDim.x + 31) / 32;
+        local = (lane < num_warps) ? warp_results[lane]
+                                  : ValIdx{__int_as_float(0xff800000), INT_MAX};
+        local = warp_reduce_argmax(local);
+        if (lane == 0)
+            block_results[blockIdx.x] = local;
+    }
+}
+
+__global__ void reduce_argmax_kernel(const ValIdx* block_results, int* output, int num_blocks) {
+    int tid = threadIdx.x;
+    ValIdx local = {__int_as_float(0xff800000), INT_MAX};
+
+    for (int i = tid; i < num_blocks; i += blockDim.x) {
+        ValIdx other = block_results[i];
+        if (other.val > local.val || (other.val == local.val && other.idx < local.idx)) {
+            local = other;
+        }
+    }
+
+    local = warp_reduce_argmax(local);
+
+    __shared__ ValIdx warp_results[32];
+    int warp_id = tid / 32;
+    int lane = tid % 32;
+    if (lane == 0)
+        warp_results[warp_id] = local;
+    __syncthreads();
+
+    if (warp_id == 0) {
+        int num_warps = (blockDim.x + 31) / 32;
+        local = (lane < num_warps) ? warp_results[lane]
+                                  : ValIdx{__int_as_float(0xff800000), INT_MAX};
+        local = warp_reduce_argmax(local);
+        if (lane == 0)
+            *output = local.idx;
+    }
+}
+
+// input, output are device pointers
+extern "C" void solve(const float* input, int* output, int N) {
+    int blockSize = 256;
+    int gridSize = min((N + blockSize - 1) / blockSize, 1024);
+
+    ValIdx* d_block_results;
+    cudaMalloc(&d_block_results, gridSize * sizeof(ValIdx));
+    argmax_kernel<<<gridSize, blockSize>>>(input, d_block_results, N);
+    reduce_argmax_kernel<<<1, 256>>>(d_block_results, output, gridSize);
+    cudaFree(d_block_results);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 4. 复杂度分析
 
 | 维度 | 分析 |

@@ -289,6 +289,76 @@ int main() {
 
 > 💡 提交给 LeetGPU 平台时，把 kernel 主体填进 `solve` 函数。教学版为了本地可运行加了 `main()` 和 CPU 验证。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。参数 `M` 对应题面中的序列长度 `N`，`window_size` 对应窗口宽度 `W`。实现采用 1 thread 处理 1 个 query，三 pass online softmax 不物化 score 矩阵。
+
+```cuda
+#include <cuda_runtime.h>
+#include <cmath>
+#include <algorithm>
+
+#define BLOCK 256
+#define MAX_D 64
+
+__global__ void sliding_window_attn_kernel(const float* Q, const float* K, const float* V, float* O,
+                                           int M, int d, int window_size) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= M)
+        return;
+
+    float scale = 1.0f / sqrtf((float)d);
+    int win_start = max(0, i - window_size + 1);
+
+    // 把当前 Q[i] 读到 register（题目中 d 较小，MAX_D 仅作上限保护）
+    float q[MAX_D];
+    #pragma unroll
+    for (int k = 0; k < d; ++k)
+        q[k] = Q[i * d + k];
+
+    // 第一遍：求窗口内 max score
+    float m = -1e30f;
+    for (int j = win_start; j <= i; ++j) {
+        float s = 0.0f;
+        #pragma unroll
+        for (int k = 0; k < d; ++k)
+            s += q[k] * K[j * d + k];
+        m = fmaxf(m, s * scale);
+    }
+
+    // 第二遍：求 softmax 分母
+    float l = 0.0f;
+    for (int j = win_start; j <= i; ++j) {
+        float s = 0.0f;
+        #pragma unroll
+        for (int k = 0; k < d; ++k)
+            s += q[k] * K[j * d + k];
+        l += expf(s * scale - m);
+    }
+
+    // 第三遍：加权 V 得到输出
+    for (int k = 0; k < d; ++k)
+        O[i * d + k] = 0.0f;
+    for (int j = win_start; j <= i; ++j) {
+        float s = 0.0f;
+        #pragma unroll
+        for (int k = 0; k < d; ++k)
+            s += q[k] * K[j * d + k];
+        float p = expf(s * scale - m) / l;
+        for (int k = 0; k < d; ++k)
+            O[i * d + k] += p * V[j * d + k];
+    }
+}
+
+// Q, K, V, output are device pointers
+extern "C" void solve(const float* Q, const float* K, const float* V, float* output,
+                      int M, int d, int window_size) {
+    int grid = (M + BLOCK - 1) / BLOCK;
+    sliding_window_attn_kernel<<<grid, BLOCK>>>(Q, K, V, output, M, d, window_size);
+    cudaDeviceSynchronize();
+}
+```
+
 ---
 
 ## 5. 性能分析与优化

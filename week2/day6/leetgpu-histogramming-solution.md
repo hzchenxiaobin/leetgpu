@@ -249,6 +249,55 @@ int main(int argc, char** argv) {
 
 > 💡 提交给 LeetGPU 平台时，把 `histogram_privatized` kernel 填进 `solve` 函数即可。注意 starter 通常已 `cudaMemset` 了 `hist`，无需在 kernel 内清 global。带 `main()` 的版本用于本地自测与性能对比。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配官方 starter 签名 `solve(input, histogram, N, num_bins)` 的提交版本。它先清零全局 `histogram`，再启动 privatized kernel 统计并合并。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK_SIZE 256
+#define NUM_BINS 256
+
+__global__ void histogram_privatized(const int* input, int* hist, int N, int B) {
+    __shared__ int shared_hist[NUM_BINS];
+
+    int tid = threadIdx.x;
+
+    for (int b = tid; b < B; b += blockDim.x) {
+        shared_hist[b] = 0;
+    }
+    __syncthreads();
+
+    int gid = blockIdx.x * blockDim.x + tid;
+    int stride = gridDim.x * blockDim.x;
+    for (int i = gid; i < N; i += stride) {
+        int bin = input[i];
+        if (bin >= 0 && bin < B) {
+            atomicAdd(&shared_hist[bin], 1);
+        }
+    }
+    __syncthreads();
+
+    for (int b = tid; b < B; b += blockDim.x) {
+        int v = shared_hist[b];
+        if (v > 0) {
+            atomicAdd(&hist[b], v);
+        }
+    }
+}
+
+// input, histogram are device pointers
+extern "C" void solve(const int* input, int* histogram, int N, int num_bins) {
+    if (N <= 0 || num_bins <= 0) return;
+    cudaMemset(histogram, 0, num_bins * sizeof(int));
+
+    int blocks = (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    histogram_privatized<<<blocks, BLOCK_SIZE>>>(input, histogram, N, num_bins);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

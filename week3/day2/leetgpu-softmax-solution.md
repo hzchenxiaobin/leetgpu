@@ -80,6 +80,104 @@ extern "C" void solve(const float* input, float* output, int M, int N) {
 }
 ```
 
+### 3.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。这里改用 warp shuffle 完成 block 内 `max` 与 `sum` 两级归约，避免对浮点位做 `atomicMax`，可同时兼容正/负输入。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK_SIZE 256
+
+__inline__ __device__ float warp_reduce_max(float val) {
+    #pragma unroll
+    for (int offset = 16; offset > 0; offset >>= 1)
+        val = fmaxf(val, __shfl_down_sync(0xffffffff, val, offset));
+    return val;
+}
+
+__inline__ __device__ float warp_reduce_sum(float val) {
+    #pragma unroll
+    for (int offset = 16; offset > 0; offset >>= 1)
+        val += __shfl_down_sync(0xffffffff, val, offset);
+    return val;
+}
+
+__inline__ __device__ float block_reduce_max(float val, float* shared) {
+    int lane = threadIdx.x & 31;
+    int warpId = threadIdx.x >> 5;
+
+    val = warp_reduce_max(val);
+    if (lane == 0)
+        shared[warpId] = val;
+    __syncthreads();
+
+    if (warpId == 0) {
+        val = (lane < (BLOCK_SIZE >> 5)) ? shared[lane] : -1e30f;
+        val = warp_reduce_max(val);
+        if (lane == 0)
+            shared[0] = val;
+    }
+    __syncthreads();
+    return shared[0];
+}
+
+__inline__ __device__ float block_reduce_sum(float val, float* shared) {
+    int lane = threadIdx.x & 31;
+    int warpId = threadIdx.x >> 5;
+
+    val = warp_reduce_sum(val);
+    if (lane == 0)
+        shared[warpId] = val;
+    __syncthreads();
+
+    if (warpId == 0) {
+        val = (lane < (BLOCK_SIZE >> 5)) ? shared[lane] : 0.0f;
+        val = warp_reduce_sum(val);
+        if (lane == 0)
+            shared[0] = val;
+    }
+    __syncthreads();
+    return shared[0];
+}
+
+__global__ void softmax_kernel(const float* input, float* output, int M, int N) {
+    int row = blockIdx.x;
+    if (row >= M)
+        return;
+
+    const float* in_row = input + row * N;
+    float* out_row = output + row * N;
+
+    __shared__ float shared[BLOCK_SIZE >> 5];
+
+    // Pass 1: 求行内 max（数值稳定性）
+    float max_val = -1e30f;
+    for (int i = threadIdx.x; i < N; i += BLOCK_SIZE)
+        max_val = fmaxf(max_val, in_row[i]);
+    max_val = block_reduce_max(max_val, shared);
+
+    // Pass 2: 求 exp 之和
+    float sum = 0.0f;
+    for (int i = threadIdx.x; i < N; i += BLOCK_SIZE) {
+        float e = expf(in_row[i] - max_val);
+        out_row[i] = e;
+        sum += e;
+    }
+    sum = block_reduce_sum(sum, shared);
+
+    // Pass 3: 归一化
+    for (int i = threadIdx.x; i < N; i += BLOCK_SIZE)
+        out_row[i] /= sum;
+}
+
+// input, output are device pointers
+extern "C" void solve(const float* input, float* output, int M, int N) {
+    softmax_kernel<<<M, BLOCK_SIZE>>>(input, output, M, N);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 4. 复杂度分析
 
 | 维度 | 分析 |

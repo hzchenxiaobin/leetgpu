@@ -253,6 +253,69 @@ int main() {
 
 > 💡 提交给 LeetGPU 平台时，把 kernel 主体填进 `solve` 函数。教学版为了本地可运行加了 `main()` 和 CPU 验证。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。输入 `x` 形状为 `[batch, d_in]`，`W` 为 `[d_out, d_in]`，`A` 为 `[rank, d_in]`，`B` 为 `[d_out, rank]`；每个 block 处理一个 batch 样本，用 shared memory 缓存 `x` 与中间向量 `h`。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK 256
+
+__global__ void lora_linear_kernel(const float* x, const float* W, const float* A, const float* B,
+                                   float* y, int batch, int d_in, int d_out, int rank,
+                                   float lora_scale) {
+    extern __shared__ float sbuf[]; // x[d_in] + h[rank]
+    float* s_x = sbuf;
+    float* s_h = sbuf + d_in;
+
+    int tid = threadIdx.x;
+    int b = blockIdx.x;
+    if (b >= batch)
+        return;
+
+    const float* xb = x + b * d_in;
+    float* yb = y + b * d_out;
+
+    // 1) 协作加载 x 到 shared memory
+    for (int k = tid; k < d_in; k += blockDim.x)
+        s_x[k] = xb[k];
+    __syncthreads();
+
+    // 2) 并行计算 h[j] = (A[j,:] · s_x) * (lora_scale / rank)
+    float scale = lora_scale / (float)rank;
+    for (int j = tid; j < rank; j += blockDim.x) {
+        float s = 0.0f;
+        for (int k = 0; k < d_in; ++k)
+            s += A[j * d_in + k] * s_x[k];
+        s_h[j] = s * scale;
+    }
+    __syncthreads();
+
+    // 3) 每个 thread 算一个输出元素 yb[i]
+    for (int i = tid; i < d_out; i += blockDim.x) {
+        float y0 = 0.0f;
+        for (int k = 0; k < d_in; ++k)
+            y0 += W[i * d_in + k] * s_x[k];
+
+        float delta = 0.0f;
+        for (int j = 0; j < rank; ++j)
+            delta += B[i * rank + j] * s_h[j];
+
+        yb[i] = y0 + delta;
+    }
+}
+
+// x, W, A, B, output are device pointers
+extern "C" void solve(const float* x, const float* W, const float* A, const float* B, float* output,
+                      int batch, int d_in, int d_out, int rank, float lora_scale) {
+    int smem = (d_in + rank) * sizeof(float);
+    lora_linear_kernel<<<batch, BLOCK, smem>>>(x, W, A, B, output, batch, d_in, d_out, rank,
+                                               lora_scale);
+    cudaDeviceSynchronize();
+}
+```
+
 ---
 
 ## 5. 性能分析与优化

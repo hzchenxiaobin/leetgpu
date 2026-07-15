@@ -40,3 +40,11 @@ for (int j = 0; j < BLOCK_N; j++) {
 | 综合考察 | Attention（Day4）+ Softmax（Day2）+ Mask + Profiling（Day6） |
 
 > 💡 完整版题解见 [Week5 Day4 Causal Self-Attention 题解](../week5/day4/leetgpu-causal-self-attention-solution.md)。
+
+## 4. LeetGPU 提交版本
+
+Week3 Day7 为综合验收日，本页仅做概念串讲。Causal Self-Attention 的完整实现较长，其可直接提交的 CUDA 版本详见：
+
+- [Week5 Day4 Causal Self-Attention 题解](../week5/day4/leetgpu-causal-self-attention-solution.md)
+
+请直接复制该页面的 LeetGPU 提交版本代码块到挑战编辑器中；其 `solve` 签名与官方 starter 一致，为 `extern "C" void solve(const float* Q, const float* K, const float* V, float* output, int M, int d)`。

@@ -344,6 +344,107 @@ int main(int argc, char** argv) {
 
 > 💡 提交给 LeetGPU 平台时，把 `int8_kv_attention_kernel` 填进 starter 的 `solve` 即可（平台只验证正确性）。带 `main()` 的版本用于本地自测与 profiling。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define BLOCK_SIZE 256
+#define WARP_SIZE 32
+#define NUM_WARPS (BLOCK_SIZE / WARP_SIZE)
+#define D_MAX 256
+
+__inline__ __device__ float warp_reduce_sum(float v) {
+    #pragma unroll
+    for (int o = WARP_SIZE / 2; o > 0; o >>= 1)
+        v += __shfl_down_sync(0xffffffff, v, o);
+    return v;
+}
+
+__inline__ __device__ float block_reduce_sum(float v, float* sh) {
+    int lane = threadIdx.x & 31, wid = threadIdx.x >> 5;
+    v = warp_reduce_sum(v);
+    if (lane == 0)
+        sh[wid] = v;
+    __syncthreads();
+    if (wid == 0) {
+        v = (lane < NUM_WARPS) ? sh[lane] : 0.f;
+        v = warp_reduce_sum(v);
+        if (lane == 0)
+            sh[0] = v;
+    }
+    __syncthreads();
+    return sh[0];
+}
+
+__global__ void int8_kv_attention_kernel(const float* __restrict__ Q, const int8_t* __restrict__ K_int8,
+                                         const int8_t* __restrict__ V_int8, const float* __restrict__ k_scale,
+                                         const float* __restrict__ v_scale, float* __restrict__ output,
+                                         int num_heads, int seq_len, int head_dim) {
+    __shared__ float q_shm[D_MAX];
+    __shared__ float red[NUM_WARPS + 1];
+    __shared__ float s_k_shm, alpha_shm, beta_shm;
+
+    int h = blockIdx.x, tid = threadIdx.x;
+    if (h >= num_heads)
+        return;
+    const float scale = 1.0f / sqrtf((float)head_dim);
+
+    for (int t = tid; t < head_dim; t += BLOCK_SIZE)
+        q_shm[t] = Q[h * head_dim + t];
+    __syncthreads();
+
+    float m = -INFINITY, l = 0.f;
+    float o_local = 0.f;
+
+    for (int s = 0; s < seq_len; ++s) {
+        const int8_t* Ks = K_int8 + (h * seq_len + s) * head_dim;
+        const int8_t* Vs = V_int8 + (h * seq_len + s) * head_dim;
+        const float ks = k_scale[h * seq_len + s];
+        const float vs = v_scale[h * seq_len + s];
+
+        float part = 0.f;
+        for (int t = tid; t < head_dim; t += BLOCK_SIZE)
+            part += q_shm[t] * (Ks[t] * ks);
+        float s_k = block_reduce_sum(part, red) * scale;
+        if (tid == 0)
+            s_k_shm = s_k;
+        __syncthreads();
+        s_k = s_k_shm;
+
+        if (tid == 0) {
+            float m_new = fmaxf(m, s_k);
+            float alpha = expf(m - m_new);
+            float p = expf(s_k - m_new);
+            float l_new = l * alpha + p;
+            alpha_shm = (l * alpha) / l_new;
+            beta_shm = p / l_new;
+            m = m_new;
+            l = l_new;
+        }
+        __syncthreads();
+
+        for (int t = tid; t < head_dim; t += BLOCK_SIZE)
+            o_local = o_local * alpha_shm + beta_shm * (Vs[t] * vs);
+        __syncthreads();
+    }
+
+    for (int t = tid; t < head_dim; t += BLOCK_SIZE)
+        output[h * head_dim + t] = o_local;
+}
+
+// Q, K_int8, V_int8, k_scale, v_scale, output are device pointers
+extern "C" void solve(const float* Q, const int8_t* K_int8, const int8_t* V_int8,
+                      const float* k_scale, const float* v_scale, float* output,
+                      int num_heads, int seq_len, int head_dim) {
+    int8_kv_attention_kernel<<<num_heads, BLOCK_SIZE>>>(Q, K_int8, V_int8, k_scale, v_scale, output,
+                                                        num_heads, seq_len, head_dim);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

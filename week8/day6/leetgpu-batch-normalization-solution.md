@@ -300,6 +300,97 @@ int main() {
 }
 ```
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。LeetGPU 该题的输入按 `[N, C]` 二维布局存储（`N` 为样本数，`C` 为通道数），每个 block 负责一个通道的归一化。
+
+```cuda
+#include <cuda_runtime.h>
+#include <cmath>
+
+#define BLOCK 256
+
+// Warp 内归约（求和）
+__inline__ __device__ float warpReduceSum(float val) {
+    #pragma unroll
+    for (int offset = 16; offset > 0; offset >>= 1)
+        val += __shfl_down_sync(0xFFFFFFFF, val, offset);
+    return val;
+}
+
+// Block 内归约：warp reduce → shared memory → 第一个 warp 汇总
+__inline__ __device__ float blockReduceSum(float val, float* s_partial, int tid) {
+    int lane = tid & 31;
+    int warp_id = tid >> 5;
+    int num_warps = blockDim.x >> 5;
+
+    val = warpReduceSum(val);
+    if (lane == 0) s_partial[warp_id] = val;
+    __syncthreads();
+
+    if (warp_id == 0) {
+        val = (tid < num_warps) ? s_partial[lane] : 0.0f;
+        val = warpReduceSum(val);
+        if (lane == 0) s_partial[0] = val;
+    }
+    __syncthreads();
+    return s_partial[0];
+}
+
+// 每个 block 处理一个通道 c：对 N 个样本求 mean、var，再逐元素归一化
+__global__ void batchnorm_kernel(const float* __restrict__ x,
+                                 const float* __restrict__ gamma,
+                                 const float* __restrict__ beta,
+                                 float* __restrict__ y,
+                                 int N, int C, float eps) {
+    int c = blockIdx.y;
+    if (c >= C) return;
+
+    int tid = threadIdx.x;
+    __shared__ float s_partial[32];
+    __shared__ float s_mean;
+    __shared__ float s_inv_std;
+
+    // x 按 [N, C] 行优先存储，通道 c 的元素间隔为 C
+    float local_sum = 0.0f;
+    for (int n = tid; n < N; n += blockDim.x)
+        local_sum += x[n * C + c];
+
+    float mean = blockReduceSum(local_sum, s_partial, tid) / (float)N;
+    if (tid == 0) s_mean = mean;
+    __syncthreads();
+    mean = s_mean;
+
+    float local_sqsum = 0.0f;
+    for (int n = tid; n < N; n += blockDim.x) {
+        float d = x[n * C + c] - mean;
+        local_sqsum += d * d;
+    }
+
+    float var = blockReduceSum(local_sqsum, s_partial, tid) / (float)N;
+    float inv_std = 1.0f / sqrtf(var + eps);
+    if (tid == 0) s_inv_std = inv_std;
+    __syncthreads();
+    inv_std = s_inv_std;
+
+    float g = gamma[c];
+    float b = beta[c];
+    for (int n = tid; n < N; n += blockDim.x) {
+        int idx = n * C + c;
+        y[idx] = g * (x[idx] - mean) * inv_std + b;
+    }
+}
+
+// input, gamma, beta, output are device pointers
+extern "C" void solve(const float* input, const float* gamma, const float* beta, float* output,
+                      int N, int C, float eps) {
+    dim3 grid(1, C);
+    dim3 block(BLOCK);
+    batchnorm_kernel<<<grid, block>>>(input, gamma, beta, output, N, C, eps);
+    cudaDeviceSynchronize();
+}
+```
+
 ---
 
 ## 5. 性能分析与优化

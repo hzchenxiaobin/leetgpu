@@ -124,6 +124,68 @@ int main() {
 
 > 💡 提交给 LeetGPU 平台时，把 `max_subarray_sum_kernel` 填进 `solve`。生产版用 prefix sum 把窗口求和从 O(W) 降到 O(1)。
 
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。每个线程负责若干个窗口，暴力求和后用 warp / block 归约得到当前最大值，最终通过 `atomicMax` 写入结果。
+
+```cuda
+#include <cuda_runtime.h>
+#include <climits>
+
+#define BLOCK 256
+
+__device__ __forceinline__ int warp_reduce_max(int val) {
+    #pragma unroll
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        int v = __shfl_down_sync(0xffffffff, val, offset);
+        if (v > val) val = v;
+    }
+    return val;
+}
+
+__global__ void max_window_sum_kernel(const int* input, int* output, int N, int W) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int num_windows = N - W + 1;
+    int local_max = INT_MIN;
+
+    for (int i = tid; i < num_windows; i += gridDim.x * blockDim.x) {
+        int sum = 0;
+        for (int j = 0; j < W; ++j)
+            sum += input[i + j];
+        if (sum > local_max) local_max = sum;
+    }
+
+    int lane = threadIdx.x & 31;
+    int warp_id = threadIdx.x >> 5;
+    __shared__ int warp_max[8];
+
+    local_max = warp_reduce_max(local_max);
+    if (lane == 0) warp_max[warp_id] = local_max;
+    __syncthreads();
+
+    if (warp_id == 0) {
+        local_max = (lane < blockDim.x / 32) ? warp_max[lane] : INT_MIN;
+        local_max = warp_reduce_max(local_max);
+        if (lane == 0)
+            atomicMax(output, local_max);
+    }
+}
+
+// input, output are device pointers (i.e. pointers to memory on the GPU)
+extern "C" void solve(const int* input, int* output, int N, int window_size) {
+    if (N <= 0 || window_size <= 0 || window_size > N) return;
+    int num_windows = N - window_size + 1;
+    int blocks = (num_windows + BLOCK - 1) / BLOCK;
+    if (blocks < 1) blocks = 1;
+
+    int neg_inf = INT_MIN;
+    cudaMemcpy(output, &neg_inf, sizeof(int), cudaMemcpyHostToDevice);
+
+    max_window_sum_kernel<<<blocks, BLOCK>>>(input, output, N, window_size);
+    cudaDeviceSynchronize();
+}
+```
+
 ## 5. 复杂度分析
 
 | 维度 | 暴力版 | prefix sum 优化版 |
