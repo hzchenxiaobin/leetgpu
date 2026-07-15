@@ -74,6 +74,9 @@ __global__ void conv2d_naive(const float* input, const float* kernel, float* out
 
 > ⚠️ 这是 stencil 类 kernel 的通病：**计算只 K² 次/像素（FLOP 少），访存却 K² 次/像素且大量重复** → 严重 memory-bound。破局点是用 shared memory 把重叠邻域一次性载入、block 内复用。
 
+> **什么是 stencil？**  
+> stencil（模板）是一类 GPU kernel 的统称：每个输出元素只由输入中一个**固定形状的局部邻域**（如 3×3、5×5 窗口）计算得到。2D 卷积、图像滤波、高斯模糊、Jacobi 迭代、Laplacian、有限差分等都属于 stencil。它们的共同特点是**计算量小、访存量大、邻域高度重叠**，因此很容易陷入 memory-bound，halo tiling 正是解决这类问题的标准模板。
+
 ## 3. GPU 设计
 
 ### 3.1 并行化策略：shared memory halo tiling
