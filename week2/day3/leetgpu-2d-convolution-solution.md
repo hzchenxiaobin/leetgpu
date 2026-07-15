@@ -386,7 +386,26 @@ extern "C" void solve(const float* input, const float* kernel, float* output,
 
 > **说明**：LeetGPU 的 starter 注释说明 `input`、`kernel`、`output` 都是 device pointer，所以这里用 `cudaMemcpyDeviceToDevice` 把卷积核拷入常量内存。如果平台实际传入的是 host pointer，请把 `cudaMemcpyDeviceToDevice` 改成默认的 `cudaMemcpyHostToDevice`。
 
-### 4.2 cudaMemcpyToSymbol 详解
+### 4.2 索引计算图解
+
+![2D 卷积索引计算示意图](../../images/conv2d_index_calculation.svg)
+
+> **图：2D 卷积 shared memory 索引计算示意。** 左侧是包含 halo 的输入 tile（`tileH × tileW`），绿色区域为输出 tile（`OT × OT`），橙色外圈为 halo；右侧是每个 thread 对应的输出 tile 坐标 `(tx, ty)`。以线程 `(tx=2, ty=1)` 为例，它负责计算输出像素 `(ox=ox0+2, oy=oy0+1)`，并从 shared memory 中读取从 `(sy=ty, sx=tx)` 开始的 `K×K` 窗口做卷积。
+
+图中的关键索引关系如下：
+
+| 公式 | 含义 |
+|------|------|
+| `tid = ty * OT + tx` | 把二维 block 线程坐标展平为一维编号，用于协作加载 |
+| `idx = tid + k * nTH` | strided 遍历整个输入 tile，每个线程可能负责多个元素 |
+| `sy = idx / tileW`，`sx = idx % tileW` | 把一维 `idx` 还原为 shared memory 的二维 `(sy, sx)` 坐标 |
+| `gx = ox0 + sx`，`gy = oy0 + sy` | 由 shared memory 坐标得到对应的全局输入坐标 |
+| `ox = ox0 + tx`，`oy = oy0 + ty` | thread `(tx, ty)` 负责计算的输出像素坐标 |
+| `smem[(ty+ky)*tileW + (tx+kx)]` | 计算时从 shared memory 读取的 `K×K` 卷积窗口 |
+
+这样 `(tx, ty)` 同时确定了线程在输出 tile 中的位置，也确定了它在 shared memory 中卷积窗口的起点。
+
+### 4.3 cudaMemcpyToSymbol 详解
 
 `cudaMemcpyToSymbol` 是 CUDA runtime 提供的、向 **全局可见的 `__constant__` 符号** 拷贝数据的 API。它最常见的用途就是把 CPU 或 GPU 上的小型只读数据（如卷积核权重）写入常量内存，供整个 grid 的线程通过硬件广播读取。
 
