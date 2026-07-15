@@ -382,6 +382,57 @@ extern "C" void solve(const float* input, const float* kernel, float* output,
 
 > **说明**：LeetGPU 的 starter 注释说明 `input`、`kernel`、`output` 都是 device pointer，所以这里用 `cudaMemcpyDeviceToDevice` 把卷积核拷入常量内存。如果平台实际传入的是 host pointer，请把 `cudaMemcpyDeviceToDevice` 改成默认的 `cudaMemcpyHostToDevice`。
 
+### 4.2 cudaMemcpyToSymbol 详解
+
+`cudaMemcpyToSymbol` 是 CUDA runtime 提供的、向 **全局可见的 `__constant__` 符号** 拷贝数据的 API。它最常见的用途就是把 CPU 或 GPU 上的小型只读数据（如卷积核权重）写入常量内存，供整个 grid 的线程通过硬件广播读取。
+
+#### 函数原型
+
+```cpp
+cudaError_t cudaMemcpyToSymbol(
+    const void* symbol,    // 目标符号，直接写变量名，如 c_kernel
+    const void* src,       // 源数据地址
+    size_t       count,    // 拷贝字节数
+    size_t       offset = 0,                    // 符号内的字节偏移
+    cudaMemcpyKind kind = cudaMemcpyHostToDevice // 传输方向
+);
+```
+
+#### 参数说明
+
+| 参数 | 含义 | 注意 |
+|------|------|------|
+| `symbol` | 要写入的 `__constant__` 变量名 | **不是字符串**，直接写 `c_kernel`；编译器会解析其符号地址 |
+| `src` | 源数据指针 | 根据 `kind` 决定指向 host 还是 device 内存 |
+| `count` | 拷贝字节数 | 不能超过该 `__constant__` 变量的大小，且累计不能超过 64 KB（每 SM 常量内存上限） |
+| `offset` | 从符号起始处的偏移 | 通常写 0；需要分多次拷贝时指定 |
+| `kind` | 传输方向 | `HostToDevice`、`DeviceToDevice`、`DeviceToHost`、`HostToHost` |
+
+#### 传输方向选择
+
+- **`cudaMemcpyHostToDevice` 方向**（默认值）：源地址在 host（CPU）内存。适用于从 CPU 数组初始化常量内存。
+- **`cudaMemcpyDeviceToDevice` 方向**：源地址已经在 GPU 全局内存。LeetGPU 的 starter 注释说明 `kernel` 是 device pointer，所以提交版本使用这个方向。
+- 如果传错方向（例如把 device pointer 当成 host pointer 使用默认的 `HostToDevice`），会导致非法访问或数据错误。
+
+#### 常见错误
+
+1. **把 `symbol` 写成字符串**：`cudaMemcpyToSymbol("c_kernel", ...)` 会编译失败或找不到符号。应该直接写 `c_kernel`。
+2. **`__constant__` 变量和 `cudaMemcpyToSymbol` 不在同一编译单元**：`__constant__` 符号对 `.cu` 文件内部可见；跨文件访问需要用 `cudaMemcpyToSymbol` 配合外部声明，或在同一文件内定义。
+3. **超过常量内存容量**：每 SM 常量内存 64 KB，所有 `__constant__` 变量合计不能超过。本题 `K²≤25` 个 float，仅占 100 B，完全无压力。
+4. **偏移/大小没对齐**：常量内存支持按字节偏移，但为获得最佳性能，建议起始地址和大小至少 4 B 对齐（float 天然对齐）。
+
+#### 本题用法示例
+
+```cpp
+__constant__ float c_kernel[MAX_KH * MAX_KW];   // kernel 内定义
+
+// 在 solve 中，kernel 是 device pointer
+size_t kbytes = (size_t)kernel_rows * kernel_cols * sizeof(float);
+cudaMemcpyToSymbol(c_kernel, kernel, kbytes, 0, cudaMemcpyDeviceToDevice);
+```
+
+> 💡 **形象理解**：如果把 `__constant__` 想象成 GPU 上的一块“只读全局公告板”，`cudaMemcpyToSymbol` 就是往公告板上贴数据的“管理员”。贴好之后，所有 block、所有 warp 都能以极低延迟、广播方式读取同一份数据。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行
