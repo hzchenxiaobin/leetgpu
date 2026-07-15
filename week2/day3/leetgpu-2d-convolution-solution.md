@@ -380,6 +380,10 @@ extern "C" void solve(const float* input, const float* kernel, float* output,
 }
 ```
 
+> **关于 `smem_bytes`（第三个尖括号参数）**：CUDA kernel 启动语法 `<<<blocks, threads, smem_bytes>>>` 的第三个参数表示**每个 block 动态分配的 shared memory 字节数**。它与 kernel 里的 `extern __shared__ float smem[];` 配合，运行时会为每个 block 分配这么多字节。本题中它等于 `(OT+KH-1)*(OT+KW-1)*sizeof(float)`，也就是包含 halo 的整个输入 tile 大小。
+>
+> 如果不传第三个参数，`extern __shared__` 数组的大小就是 0，访问会越界；传得过大则可能超过 GPU 每 block 的 shared memory 上限（通常 48 KB，可扩展至 99 KB）。
+
 > **说明**：LeetGPU 的 starter 注释说明 `input`、`kernel`、`output` 都是 device pointer，所以这里用 `cudaMemcpyDeviceToDevice` 把卷积核拷入常量内存。如果平台实际传入的是 host pointer，请把 `cudaMemcpyDeviceToDevice` 改成默认的 `cudaMemcpyHostToDevice`。
 
 ### 4.2 cudaMemcpyToSymbol 详解
