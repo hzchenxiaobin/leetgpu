@@ -293,7 +293,94 @@ int main(int argc, char** argv) {
 }
 ```
 
-> 💡 提交 LeetGPU 时，把 `conv2d_shared_halo` kernel 填进 starter 的 `__global__` 空壳，`c_kernel` 用 `cudaMemcpyToSymbol` 在 host 端载入即可。带 `main()` 的完整文件用于本地自测与 profiling。
+> 💡 上面带 `main()` 的完整文件用于本地自测与 profiling。提交 LeetGPU 时，需要把 kernel 填入官方 starter 的 `__global__` 空壳，并适配它的 `solve` 函数签名。
+
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。它使用**动态 shared memory** 支持矩形卷积核，并把卷积核拷到 `__constant__` 常量内存。
+
+```cuda
+#include <cuda_runtime.h>
+
+#define OT 16
+#define MAX_KH 64
+#define MAX_KW 64
+
+// 卷积核放到常量内存，整个 grid 共享一份，支持 warp 广播
+__constant__ float c_kernel[MAX_KH * MAX_KW];
+
+__global__ void conv2d_shared_halo(const float* __restrict__ input,
+                                   float* __restrict__ output,
+                                   int H, int W,
+                                   int KH, int KW) {
+    const int outH = H - KH + 1;
+    const int outW = W - KW + 1;
+
+    const int tileH = OT + KH - 1;
+    const int tileW = OT + KW - 1;
+    extern __shared__ float smem[];
+
+    const int ox0 = blockIdx.x * OT;
+    const int oy0 = blockIdx.y * OT;
+    const int tx  = threadIdx.x;
+    const int ty  = threadIdx.y;
+    const int tid = ty * OT + tx;
+    const int nTH = OT * OT;
+
+    // ① 协作加载 input tile（含 halo）到 shared memory
+    for (int idx = tid; idx < tileH * tileW; idx += nTH) {
+        int sy = idx / tileW;
+        int sx = idx % tileW;
+        int gx = ox0 + sx;
+        int gy = oy0 + sy;
+        gx = (gx < 0) ? 0 : (gx >= W ? W - 1 : gx);
+        gy = (gy < 0) ? 0 : (gy >= H ? H - 1 : gy);
+        smem[sy * tileW + sx] = input[gy * W + gx];
+    }
+    __syncthreads();
+
+    // ② 每个线程算一个输出像素：K×K 窗口全从 shared 读
+    const int ox = ox0 + tx;
+    const int oy = oy0 + ty;
+    if (ox < outW && oy < outH) {
+        float acc = 0.0f;
+        for (int ky = 0; ky < KH; ++ky) {
+            const float* srow = &smem[(ty + ky) * tileW + tx];
+            const float* krow = &c_kernel[ky * KW];
+            for (int kx = 0; kx < KW; ++kx) {
+                acc += srow[kx] * krow[kx];
+            }
+        }
+        output[oy * outW + ox] = acc;
+    }
+}
+
+// input, kernel, output are device pointers
+extern "C" void solve(const float* input, const float* kernel, float* output,
+                      int input_rows, int input_cols,
+                      int kernel_rows, int kernel_cols) {
+    int outH = input_rows - kernel_rows + 1;
+    int outW = input_cols - kernel_cols + 1;
+    if (outH <= 0 || outW <= 0) return;
+
+    // 把卷积核从 device 全局内存拷到常量内存
+    size_t kbytes = (size_t)kernel_rows * kernel_cols * sizeof(float);
+    cudaMemcpyToSymbol(c_kernel, kernel, kbytes, 0, cudaMemcpyDeviceToDevice);
+
+    dim3 threads(OT, OT);
+    dim3 blocks((outW + OT - 1) / OT, (outH + OT - 1) / OT);
+
+    int tileH = OT + kernel_rows - 1;
+    int tileW = OT + kernel_cols - 1;
+    size_t smem_bytes = (size_t)tileH * tileW * sizeof(float);
+
+    conv2d_shared_halo<<<blocks, threads, smem_bytes>>>(
+        input, output, input_rows, input_cols, kernel_rows, kernel_cols);
+    cudaDeviceSynchronize();
+}
+```
+
+> **说明**：LeetGPU 的 starter 注释说明 `input`、`kernel`、`output` 都是 device pointer，所以这里用 `cudaMemcpyDeviceToDevice` 把卷积核拷入常量内存。如果平台实际传入的是 host pointer，请把 `cudaMemcpyDeviceToDevice` 改成默认的 `cudaMemcpyHostToDevice`。
 
 ## 5. 性能分析与优化
 
