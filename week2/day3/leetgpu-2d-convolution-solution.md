@@ -94,7 +94,7 @@ __global__ void conv2d_naive(const float* input, const float* kernel, float* out
 
 流程（每 block）：
 1. **协作加载**：`OT×OT` 个线程用 strided loop 把 `(OT+K-1)²` 个 input（含 halo）载入 `smem`。
-2. **`__syncthreads()`**：等 tile 全部就绪。
+2. **调用 `__syncthreads()` 同步**：等 tile 全部就绪。
 3. **卷积计算**：每 thread 读 `smem[ty..ty+K-1][tx..tx+K-1]` 的 K×K 窗口，乘加 `c_kernel`，写一个输出像素。
 
 > 💡 halo 的本质：把"多个输出共享的邻域"在 shared memory 里**只存一份**。载入时每 input cell 只读 1 次 global（含 halo 冗余约 `(IT/OT)²≈1.27×`，K=3），计算时 K² 次读全打在 shared memory（~20 cycle、~19 TB/s），global 读次数从 `H·W·K²` 降到 `~H·W·1.27`。
@@ -108,7 +108,7 @@ __global__ void conv2d_naive(const float* input, const float* kernel, float* out
 | **`__constant__` memory** | ✓ | 卷积核权重 `c_kernel[K²]`，全 thread 读同一地址 → 硬件广播 |
 | **register** | ✓（隐式） | 累加器 `acc`、线程局部坐标 |
 
-**为什么 kernel 权重放 `__constant__`**：64 KB 常量内存有专属 cache，且支持 **broadcast**——一个 warp 内 32 个 thread 读同一地址（如 `c_kernel[4]`）时只花 1 cycle、不触发 bank conflict。卷积核只有 `K²≤25` 个权重，每个 thread 都读同一份，完美匹配常量内存的广播语义。若放 global 则走 L1/L2 cache（延迟更高）；若放 shared 则每个 block 都要拷一份（浪费）。
+**为什么 kernel 权重放 `__constant__` 内存**：64 KB 常量内存有专属 cache，且支持 **broadcast**——一个 warp 内 32 个 thread 读同一地址（如 `c_kernel[4]`）时只花 1 cycle、不触发 bank conflict。卷积核只有 `K²≤25` 个权重，每个 thread 都读同一份，完美匹配常量内存的广播语义。若放 global 则走 L1/L2 cache（延迟更高）；若放 shared 则每个 block 都要拷一份（浪费）。
 
 | 特性 | global (HBM) | shared (SRAM) | `__constant__` |
 |------|--------------|---------------|----------------|
@@ -122,7 +122,7 @@ __global__ void conv2d_naive(const float* input, const float* kernel, float* out
 1. **halo strided 加载**：`OT×OT` 个线程加载 `(OT+K-1)²` 个元素，用 `for (idx=tid; idx<IT*IT; idx+=nTH)` 的 strided loop 均摊（K=3 时每 thread 载 2 个）。
 2. **`__constant__` 广播权重**：`cudaMemcpyToSymbol(c_kernel, ...)` 一次性载入，kernel 内 `c_kernel[ky*K+kx]` 全 warp 广播。
 3. **边界处理**：valid 卷积下有效输出的 K×K 窗口天然在 input 范围内；仅 grid 过覆盖时的 halo 载入可能越界，用 `clamp`（replicate border）兜底，这些值不被有效输出读取、不影响结果。
-4. **`#pragma unroll`**：K 是编译期小常量（3/5），展开 K² 内层循环，消除循环开销、便于指令级并行。
+4. **`#pragma unroll` 展开**：K 是编译期小常量（3/5），展开 K² 内层循环，消除循环开销、便于指令级并行。
 
 > ⚠️ **bank conflict 检查**：卷积读 `smem[ty+ky][tx+kx]`，同 warp 内 `tx` 连续 → 读 `smem[*][tx..tx+31]`，地址按 4B 递增，32 个 thread 落在 32 个不同 bank → **零冲突**。这是卷积相比转置更"友好"的地方（转置按列读会冲突，卷积按行读不会）。
 
