@@ -144,8 +144,6 @@ def build_nav(current_slug: Optional[str], solutions: List[Dict]) -> str:
         lines.append('</div>')
 
     lines.append('<div class="nav-section-title">更多</div>')
-    lines.append('<a class="nav-link" href="../index.html">← Week 1</a>')
-    lines.append('<a class="nav-link" href="../week2/index.html">← Week 2</a>')
     lines.append('<a class="nav-link" href="../leetcode/index.html">🧩 LeetCode 题解</a>')
     return "\n".join(lines)
 
