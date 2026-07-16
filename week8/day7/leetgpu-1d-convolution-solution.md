@@ -267,6 +267,28 @@ extern "C" void solve(const float* input, const float* kernel, float* output,
 }
 ```
 
+### 4.2 代码详解
+
+`conv1d_kernel` 的核心是**halo 加载 + shared memory 复用**——block 协作把 tile 和左右 halo 一次性载入 shared memory，之后每线程只需从 shared 读 K 个元素做点积。
+
+| 步骤 | 代码 | 说明 |
+|------|------|------|
+| **坐标计算** | `i = block_start + tid` | thread `tid` 负责输出 `y[i]`；`block_start = blockIdx.x * TILE` |
+| **halo 范围** | `s_len = TILE + 2 * half` | shared 数组长度含左右各 `half=K/2` 个 halo 元素 |
+| **协作加载** | `for (idx=tid; idx<s_len; idx+=blockDim.x)` | grid-stride 把 `s_len` 个元素分摊给 `TILE` 个线程 |
+| **全局→smem** | `gidx = block_start - half + idx` | shared 索引 `idx` 映射到全局 `gidx`；越界填 0 |
+| **屏障** | `__syncthreads()` | 等 tile + halo 全部就绪后才能计算 |
+| **卷积** | `acc += s_x[tid + j] * c_kernel[j]` | `tid+j` 已含 left halo 偏移；从 shared 读，不走 global |
+| **写回** | `y[i] = acc` | 每 thread 写一个输出元素 |
+
+**关键索引关系**：
+
+- shared 数组 `s_x[0..s_len-1]` 的前 `half` 个是 left halo，接着 `TILE` 个是本 tile，最后 `half` 个是 right halo
+- thread `tid` 的输出 `y[i]` 对应 shared 中从 `s_x[tid]` 开始的 K 个元素（`s_x[tid], s_x[tid+1], ..., s_x[tid+K-1]`）
+- 这 K 个元素的**第一个** `s_x[tid]` 在全局中对应 `x[block_start - half + tid] = x[i - half]`，正好是卷积窗口的左端
+
+> 💡 **关键洞察**：halo 的本质是"提前加载邻居数据"。没有 halo，tile 边缘的线程无法在 shared 中拿到完整的 K 元素窗口；有了 halo，所有线程统一从 `s_x[tid]` 开始读 K 个元素，无需判断"我是不是边缘线程"。
+
 ---
 
 ## 5. 性能分析与优化
