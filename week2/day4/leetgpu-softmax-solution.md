@@ -287,7 +287,137 @@ int main(int argc, char** argv) {
 
 > 💡 提交给 LeetGPU 平台时，把 `softmax_kernel` 填进 starter 的 `solve` 函数即可。注意确认输入 `x` 是 `(M, D)` 行主序、`M×D = N`。带 `main()` 的版本用于本地自测与 profiling。
 
-### 4.1 LeetGPU 提交版本
+### 4.1 归约积木代码详解
+
+Softmax kernel 的核心是**两次块归约**（`block_reduce_max` + `block_reduce_sum`），它们都由相同的两块积木组成：`warp_reduce_*`（warp 内 shuffle 归约）和 `block_reduce_*`（warp 间 shared memory 汇总 + 广播）。下面逐行拆解这两个积木。
+
+#### 4.1.1 Warp 级归约：`__shfl_down_sync`
+
+![Warp Shuffle 归约详解](../../images/softmax_warp_shuffle.svg)
+
+> **图：`__shfl_down_sync` 逐步归约。** 左侧 `warp_reduce_sum` 以 8 个 lane 为例（实际 32 个），offset 从 4→2→1 折半，每步 lane[i] 与 lane[i+offset] 运算，最终 lane 0 持有全局 sum。右侧 `warp_reduce_max` 结构完全对称，只把 `+=` 换成 `fmaxf`。
+
+```cuda
+__inline__ __device__ float warp_reduce_sum(float val) {
+    #pragma unroll
+    for (int offset = WARP_SIZE / 2; offset > 0; offset >>= 1)
+        val += __shfl_down_sync(0xffffffff, val, offset);
+    return val;
+}
+```
+
+**逐行解释**：
+
+1. **`offset = WARP_SIZE / 2`（初始值 16）**：第一轮，lane i 从 lane i+16 收到数据并累加。32 个 lane 变成 16 个有效结果（lane 0~15 各持有两个值的和）。
+
+2. **`offset >>= 1`（16→8→4→2→1）**：每轮 offset 折半，有效数据量减半。5 轮后（`log₂32 = 5`），lane 0 持有全部 32 个 lane 的总和。
+
+3. **`__shfl_down_sync(0xffffffff, val, offset)`**：
+   - `mask = 0xffffffff`：32 位全 1，warp 内所有 lane 参与同步
+   - `val`：当前 lane 要发送出去的值
+   - `offset`：从下方第 offset 个 lane 拉取数据
+   - lane i 收到 lane (i+offset) 的 `val`；若 i+offset ≥ 32（超出 warp 边界），lane i 的值不变
+
+4. **`#pragma unroll`**：编译器展开 5 次迭代，消除循环判断开销，便于指令级并行（ILP）。
+
+5. **结果位置**：归约完成后，**只有 lane 0** 持有正确的最终结果。其余 lane 的值是中间结果，不能直接使用。
+
+**`warp_reduce_max` 的对称性**：
+
+```cuda
+__inline__ __device__ float warp_reduce_max(float val) {
+    #pragma unroll
+    for (int offset = WARP_SIZE / 2; offset > 0; offset >>= 1)
+        val = fmaxf(val, __shfl_down_sync(0xffffffff, val, offset));
+    return val;
+}
+```
+
+与 `warp_reduce_sum` 的唯一区别：`+=` → `fmaxf`。shuffle 机制完全相同，因为 `__shfl_down_sync` 只搬运数据，不关心运算符。这就是"**一个归约模板，max/sum/min 通用**"的含义。
+
+> 💡 **为什么用 shuffle 而不是 shared memory？** Shuffle 在寄存器间直接传递数据，不经过 shared memory，零 bank conflict、零内存延迟。warp 内 32 个 lane 的归约只需 5 个时钟周期，是 GPU 上最快的归约方式。
+
+#### 4.1.2 Block 级归约：warp 间 shared memory 汇总 + 广播
+
+![Block 归约详解](../../images/softmax_block_reduce.svg)
+
+> **图：Block 归约三阶段流程。** 阶段 1：8 个 warp 各自做 warp_reduce，lane 0 写入 `shared[warpId]`；阶段 2：`__syncthreads` 后，warp 0 读 `shared[0..7]` 再做一次 warp_reduce，结果写入 `shared[0]`；阶段 3：第二次 `__syncthreads` 后，全 block 256 个 thread 从 `shared[0]` 读取最终结果。
+
+```cuda
+__inline__ __device__ float block_reduce_sum(float val, float* shared) {
+    int lane = threadIdx.x & (WARP_SIZE - 1);   // lane = threadIdx.x % 32
+    int warpId = threadIdx.x >> 5;               // warpId = threadIdx.x / 32
+    val = warp_reduce_sum(val);                  // 阶段 1a：warp 内归约
+    if (lane == 0)
+        shared[warpId] = val;                    // 阶段 1b：lane 0 写 shared
+    __syncthreads();                             // 屏障：等 8 个 warp 都写完
+    if (warpId == 0) {                           // 阶段 2a：仅 warp 0 执行
+        val = (lane < NUM_WARPS) ? shared[lane] : 0.0f;  // 读 8 个 warp 结果
+        val = warp_reduce_sum(val);              // 阶段 2b：对 8 个值再归约
+        if (lane == 0)
+            shared[0] = val;                     // 阶段 2c：写入广播槽
+    }
+    __syncthreads();                             // 屏障：等 warp 0 写完
+    return shared[0];                            // 阶段 3：全 block 读 shared[0]
+}
+```
+
+**逐步解释**：
+
+| 步骤 | 代码 | 作用 |
+|------|------|------|
+| **lane / warpId 计算** | `lane = threadIdx.x & 31`<br>`warpId = threadIdx.x >> 5` | 位运算替代 `%` 和 `/`（更快）。256 个 thread 分成 8 个 warp，每 warp 32 lane |
+| **阶段 1a：warp 归约** | `val = warp_reduce_sum(val)` | 每 warp 内 32 个值归约为 1 个，结果在 lane 0 |
+| **阶段 1b：写 shared** | `if (lane == 0) shared[warpId] = val` | 8 个 warp 的 lane 0 各写一个 slot → `shared[0..7]` 填满 |
+| **屏障 1** | `__syncthreads()` | 确保 8 个 warp 都写完 `shared[0..7]` 后才继续。否则 warp 0 可能读到旧值 |
+| **阶段 2a：warp 0 读取** | `val = (lane < 8) ? shared[lane] : 0.0f` | warp 0 的 lane 0~7 读 `shared[0..7]`，lane 8~31 填默认值 0（不影响 sum） |
+| **阶段 2b：最终归约** | `val = warp_reduce_sum(val)` | 对 8 个 warp 结果再做一次 warp_reduce（只用 3 步：offset 4→2→1） |
+| **阶段 2c：写广播槽** | `if (lane == 0) shared[0] = val` | lane 0 写最终结果到 `shared[0]` |
+| **屏障 2** | `__syncthreads()` | 确保 warp 0 写完 `shared[0]` 后全 block 才读 |
+| **阶段 3：广播** | `return shared[0]` | 全 block 256 个 thread 同时读 `shared[0]`，获得最终结果 |
+
+> 💡 **为什么需要两次 `__syncthreads`？**
+> - 第一次：保证 8 个 warp 都写完 `shared[warpId]` → warp 0 能读到完整数据
+> - 第二次：保证 warp 0 写完 `shared[0]` → 其他 warp 读到的不是旧值
+> - 缺少任一屏障都会导致数据竞争（读到未完成的写入）
+
+**`block_reduce_max` 的对称性**：与 `block_reduce_sum` 结构完全相同，只把 `warp_reduce_sum` → `warp_reduce_max`，默认值 `0.0f` → `-INFINITY`（max 归约的幺元是负无穷，不是 0）。
+
+#### 4.1.3 三遍扫描中的归约调用
+
+理解了归约积木后，kernel 的三遍扫描就非常清晰：
+
+```cuda
+// Pass 1: 求 row_max
+float local_max = -INFINITY;
+for (int i = threadIdx.x; i < D; i += BLOCK_SIZE)   // grid-stride 扫描
+    local_max = fmaxf(local_max, xr[i]);
+float row_max = block_reduce_max(local_max, shared);  // 归约 + 广播
+// → 此时全 block 256 个 thread 的 row_max 都相同
+
+// Pass 2: 求 row_sum
+float local_sum = 0.0f;
+for (int i = threadIdx.x; i < D; i += BLOCK_SIZE)
+    local_sum += expf(xr[i] - row_max);              // 用 Pass 1 的 row_max
+float row_sum = block_reduce_sum(local_sum, shared);  // 归约 + 广播
+// → 此时全 block 的 row_sum 都相同
+
+// Pass 3: 归一化
+for (int i = threadIdx.x; i < D; i += BLOCK_SIZE)
+    yr[i] = expf(xr[i] - row_max) * (1.0f / row_sum); // 用 Pass 1+2 的结果
+```
+
+**关键点**：
+
+1. **`for (i = threadIdx.x; i < D; i += BLOCK_SIZE)`**：grid-stride loop。256 个 thread 把 D 个元素分摊——每 thread 处理 `D/256` 个元素，各自累加局部 `local_max` / `local_sum`。
+
+2. **Pass 2 依赖 Pass 1**：`expf(xr[i] - row_max)` 中的 `row_max` 必须先算完。这就是为什么不能把 max 和 sum 合并到同一遍扫描——**除非用 online softmax**（见 5.4 优化方向）。
+
+3. **广播后全 block 一致**：`block_reduce_*` 返回后，256 个 thread 拿到的 `row_max` / `row_sum` 完全相同（都从 `shared[0]` 读取），Pass 3 各 thread 独立写自己的 output 元素，无需再同步。
+
+4. **`1.0f / row_sum` 替代除法**：除法 `expf(...) / row_sum` 变成乘法 `expf(...) * inv_sum`，因为 GPU 上乘法比除法快 ~4 倍。`inv_sum` 只算一次、全 block 复用。
+
+### 4.2 LeetGPU 提交版本
 
 下面给出适配官方 starter 签名 `solve(input, output, N)` 的提交版本。由于 starter 只传入总元素数 `N`，这里把全部 `N` 个元素视为**一行**做 softmax（等价于 `M=1, D=N`）。
 

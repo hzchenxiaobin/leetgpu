@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="680" viewBox="0 0 1000 680">
+  <defs>
+    <marker id="arr_w" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="680" fill="#fafafa"/>
+
+  <!-- Title -->
+  <text x="500" y="36" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold" fill="#222">
+    Warp Shuffle 归约：__shfl_down_sync 逐步详解
+  </text>
+  <text x="500" y="60" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#666">
+    以 8 个 lane 为例（实际 warp=32），offset 从 4→2→1 折半，lane 0 持有最终结果
+  </text>
+
+  <!-- ========== Left: warp_reduce_sum ========== -->
+  <text x="250" y="95" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="bold" fill="#1565c0">
+    warp_reduce_sum（加法归约）
+  </text>
+
+  <!-- Step 0: initial values -->
+  <text x="60" y="125" font-family="monospace" font-size="12" fill="#333" font-weight="bold">初始值:</text>
+  <g font-family="monospace" font-size="12">
+    <text x="140" y="125" fill="#1565c0">lane0=3</text>
+    <text x="210" y="125" fill="#1565c0">lane1=1</text>
+    <text x="280" y="125" fill="#1565c0">lane2=4</text>
+    <text x="350" y="125" fill="#1565c0">lane3=2</text>
+    <text x="420" y="125" fill="#888">lane4=5</text>
+    <text x="490" y="125" fill="#888">lane5=6</text>
+    <text x="560" y="125" fill="#888">lane6=1</text>
+    <text x="630" y="125" fill="#888">lane7=2</text>
+  </g>
+
+  <!-- Step 1: offset=4 -->
+  <text x="60" y="165" font-family="monospace" font-size="12" fill="#333" font-weight="bold">offset=4:</text>
+  <text x="60" y="182" font-family="sans-serif" font-size="10" fill="#888">lane[i] += lane[i+4]</text>
+  <g font-family="monospace" font-size="12">
+    <rect x="135" y="150" width="70" height="24" fill="#bbdefb" stroke="#1565c0" stroke-width="1" rx="3"/>
+    <text x="170" y="167" text-anchor="middle" fill="#0d47a1">3+5=8</text>
+    <rect x="205" y="150" width="70" height="24" fill="#bbdefb" stroke="#1565c0" stroke-width="1" rx="3"/>
+    <text x="240" y="167" text-anchor="middle" fill="#0d47a1">1+6=7</text>
+    <rect x="275" y="150" width="70" height="24" fill="#bbdefb" stroke="#1565c0" stroke-width="1" rx="3"/>
+    <text x="310" y="167" text-anchor="middle" fill="#0d47a1">4+1=5</text>
+    <rect x="345" y="150" width="70" height="24" fill="#bbdefb" stroke="#1565c0" stroke-width="1" rx="3"/>
+    <text x="380" y="167" text-anchor="middle" fill="#0d47a1">2+2=4</text>
+    <rect x="415" y="150" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="450" y="167" text-anchor="middle" fill="#aaa">5</text>
+    <rect x="485" y="150" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="520" y="167" text-anchor="middle" fill="#aaa">6</text>
+    <rect x="555" y="150" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="590" y="167" text-anchor="middle" fill="#aaa">1</text>
+    <rect x="625" y="150" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="660" y="167" text-anchor="middle" fill="#aaa">2</text>
+  </g>
+  <text x="720" y="167" font-family="sans-serif" font-size="10" fill="#888">lane4~7 值不变</text>
+
+  <!-- Step 2: offset=2 -->
+  <text x="60" y="215" font-family="monospace" font-size="12" fill="#333" font-weight="bold">offset=2:</text>
+  <text x="60" y="232" font-family="sans-serif" font-size="10" fill="#888">lane[i] += lane[i+2]</text>
+  <g font-family="monospace" font-size="12">
+    <rect x="135" y="200" width="70" height="24" fill="#90caf9" stroke="#1565c0" stroke-width="1" rx="3"/>
+    <text x="170" y="217" text-anchor="middle" fill="#0d47a1">8+5=13</text>
+    <rect x="205" y="200" width="70" height="24" fill="#90caf9" stroke="#1565c0" stroke-width="1" rx="3"/>
+    <text x="240" y="217" text-anchor="middle" fill="#0d47a1">7+4=11</text>
+    <rect x="275" y="200" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="310" y="217" text-anchor="middle" fill="#aaa">5</text>
+    <rect x="345" y="200" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="380" y="217" text-anchor="middle" fill="#aaa">4</text>
+    <rect x="415" y="200" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="450" y="217" text-anchor="middle" fill="#aaa">5</text>
+    <rect x="485" y="200" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="520" y="217" text-anchor="middle" fill="#aaa">6</text>
+    <rect x="555" y="200" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="590" y="217" text-anchor="middle" fill="#aaa">1</text>
+    <rect x="625" y="200" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="660" y="217" text-anchor="middle" fill="#aaa">2</text>
+  </g>
+
+  <!-- Step 3: offset=1 -->
+  <text x="60" y="265" font-family="monospace" font-size="12" fill="#333" font-weight="bold">offset=1:</text>
+  <text x="60" y="282" font-family="sans-serif" font-size="10" fill="#888">lane[i] += lane[i+1]</text>
+  <g font-family="monospace" font-size="12">
+    <rect x="135" y="250" width="70" height="24" fill="#42a5f5" stroke="#1565c0" stroke-width="2" rx="3"/>
+    <text x="170" y="267" text-anchor="middle" fill="#fff" font-weight="bold">13+11=24</text>
+    <rect x="205" y="250" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="240" y="267" text-anchor="middle" fill="#aaa">11</text>
+    <rect x="275" y="250" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="310" y="267" text-anchor="middle" fill="#aaa">5</text>
+    <rect x="345" y="250" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="380" y="267" text-anchor="middle" fill="#aaa">4</text>
+    <rect x="415" y="250" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="450" y="267" text-anchor="middle" fill="#aaa">5</text>
+    <rect x="485" y="250" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="520" y="267" text-anchor="middle" fill="#aaa">6</text>
+    <rect x="555" y="250" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="590" y="267" text-anchor="middle" fill="#aaa">1</text>
+    <rect x="625" y="250" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="660" y="267" text-anchor="middle" fill="#aaa">2</text>
+  </g>
+
+  <!-- Result -->
+  <rect x="135" y="290" width="70" height="28" fill="#1565c0" stroke="#0d47a1" stroke-width="2" rx="3"/>
+  <text x="170" y="309" text-anchor="middle" font-family="monospace" font-size="13" fill="#fff" font-weight="bold">24</text>
+  <text x="220" y="309" font-family="sans-serif" font-size="12" fill="#1565c0" font-weight="bold">← lane 0 持有最终 sum = 3+1+4+2+5+6+1+2 = 24</text>
+
+  <!-- Code snippet -->
+  <rect x="40" y="340" width="420" height="100" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="6"/>
+  <text x="55" y="360" font-family="monospace" font-size="12" fill="#333">__device__ float warp_reduce_sum(float val) {</text>
+  <text x="65" y="378" font-family="monospace" font-size="12" fill="#333">#pragma unroll</text>
+  <text x="65" y="396" font-family="monospace" font-size="12" fill="#333">for (int offset = 16; offset > 0; offset >>= 1)</text>
+  <text x="75" y="414" font-family="monospace" font-size="12" fill="#1565c0">val += __shfl_down_sync(0xffffffff, val, offset);</text>
+  <text x="55" y="432" font-family="monospace" font-size="12" fill="#333">return val;  // lane 0 = 最终结果</text>
+  <text x="40" y="446" font-family="monospace" font-size="12" fill="#333">}</text>
+
+  <!-- ========== Right: warp_reduce_max ========== -->
+  <text x="780" y="95" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="bold" fill="#6a1b9a">
+    warp_reduce_max（最大值归约）
+  </text>
+  <text x="780" y="115" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#888">
+    把 += 换成 fmaxf，结构完全对称
+  </text>
+
+  <!-- Step 0 -->
+  <text x="610" y="125" font-family="monospace" font-size="12" fill="#333" font-weight="bold">初始值:</text>
+  <g font-family="monospace" font-size="12">
+    <text x="680" y="125" fill="#6a1b9a">lane0=3</text>
+    <text x="750" y="125" fill="#6a1b9a">lane1=7</text>
+    <text x="820" y="125" fill="#6a1b9a">lane2=4</text>
+    <text x="890" y="125" fill="#6a1b9a">lane3=2</text>
+  </g>
+
+  <!-- Step 1: offset=4 (simplified to 2 for the 4-lane example) -->
+  <text x="610" y="165" font-family="monospace" font-size="12" fill="#333" font-weight="bold">offset=2:</text>
+  <text x="610" y="182" font-family="sans-serif" font-size="10" fill="#888">fmaxf(lane[i], lane[i+2])</text>
+  <g font-family="monospace" font-size="12">
+    <rect x="675" y="150" width="70" height="24" fill="#e1bee7" stroke="#6a1b9a" stroke-width="1" rx="3"/>
+    <text x="710" y="167" text-anchor="middle" fill="#4a148c">max(3,4)=4</text>
+    <rect x="745" y="150" width="70" height="24" fill="#e1bee7" stroke="#6a1b9a" stroke-width="1" rx="3"/>
+    <text x="780" y="167" text-anchor="middle" fill="#4a148c">max(7,2)=7</text>
+    <rect x="815" y="150" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="850" y="167" text-anchor="middle" fill="#aaa">4</text>
+    <rect x="885" y="150" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="920" y="167" text-anchor="middle" fill="#aaa">2</text>
+  </g>
+
+  <!-- Step 2: offset=1 -->
+  <text x="610" y="215" font-family="monospace" font-size="12" fill="#333" font-weight="bold">offset=1:</text>
+  <text x="610" y="232" font-family="sans-serif" font-size="10" fill="#888">fmaxf(lane[i], lane[i+1])</text>
+  <g font-family="monospace" font-size="12">
+    <rect x="675" y="200" width="70" height="24" fill="#ab47bc" stroke="#6a1b9a" stroke-width="2" rx="3"/>
+    <text x="710" y="217" text-anchor="middle" fill="#fff" font-weight="bold">max(4,7)=7</text>
+    <rect x="745" y="200" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="780" y="217" text-anchor="middle" fill="#aaa">7</text>
+    <rect x="815" y="200" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="850" y="217" text-anchor="middle" fill="#aaa">4</text>
+    <rect x="885" y="200" width="70" height="24" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="3"/>
+    <text x="920" y="217" text-anchor="middle" fill="#aaa">2</text>
+  </g>
+
+  <!-- Result -->
+  <rect x="675" y="290" width="70" height="28" fill="#6a1b9a" stroke="#4a148c" stroke-width="2" rx="3"/>
+  <text x="710" y="309" text-anchor="middle" font-family="monospace" font-size="13" fill="#fff" font-weight="bold">7</text>
+  <text x="760" y="309" font-family="sans-serif" font-size="12" fill="#6a1b9a" font-weight="bold">← lane 0 持有最终 max = 7</text>
+
+  <!-- Code snippet -->
+  <rect x="580" y="340" width="390" height="100" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="6"/>
+  <text x="595" y="360" font-family="monospace" font-size="12" fill="#333">__device__ float warp_reduce_max(float val) {</text>
+  <text x="605" y="378" font-family="monospace" font-size="12" fill="#333">#pragma unroll</text>
+  <text x="605" y="396" font-family="monospace" font-size="12" fill="#333">for (int offset = 16; offset > 0; offset >>= 1)</text>
+  <text x="615" y="414" font-family="monospace" font-size="12" fill="#6a1b9a">val = fmaxf(val, __shfl_down_sync(..., offset));</text>
+  <text x="595" y="432" font-family="monospace" font-size="12" fill="#333">return val;  // lane 0 = 最终结果</text>
+  <text x="580" y="446" font-family="monospace" font-size="12" fill="#333">}</text>
+
+  <!-- ========== Bottom: key points ========== -->
+  <rect x="40" y="465" width="930" height="200" rx="8" fill="#f5f5f5" stroke="#ddd" stroke-width="1"/>
+  <text x="500" y="493" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="bold" fill="#222">
+    __shfl_down_sync 工作原理
+  </text>
+
+  <text x="70" y="522" font-family="sans-serif" font-size="13" fill="#333" font-weight="bold">1. 函数签名</text>
+  <text x="70" y="542" font-family="monospace" font-size="12" fill="#333">__shfl_down_sync(mask, val, offset)</text>
+  <text x="70" y="560" font-family="sans-serif" font-size="12" fill="#666">lane i 收到 lane (i+offset) 的 val 值；超出 warp 边界的 lane 值不变</text>
+
+  <text x="70" y="590" font-family="sans-serif" font-size="13" fill="#333" font-weight="bold">2. mask = 0xffffffff</text>
+  <text x="70" y="610" font-family="sans-serif" font-size="12" fill="#666">32 位全 1，表示 warp 内所有 32 个 lane 都参与同步</text>
+
+  <text x="500" y="522" font-family="sans-serif" font-size="13" fill="#333" font-weight="bold">3. offset 折半：16 → 8 → 4 → 2 → 1</text>
+  <text x="500" y="542" font-family="sans-serif" font-size="12" fill="#666">5 步完成 32 → 1 的归约（log₂32 = 5），每步数据量减半</text>
+  <text x="500" y="560" font-family="sans-serif" font-size="12" fill="#666">#pragma unroll 让编译器展开 5 次迭代，零循环开销</text>
+
+  <text x="500" y="590" font-family="sans-serif" font-size="13" fill="#333" font-weight="bold">4. 结果只在 lane 0</text>
+  <text x="500" y="610" font-family="sans-serif" font-size="12" fill="#666">归约后 lane 0 持有最终值，其余 lane 的值是中间结果</text>
+  <text x="500" y="628" font-family="sans-serif" font-size="12" fill="#666">后续用 shared memory 广播给全 block（见 block_reduce 图）</text>
+
+  <text x="70" y="650" font-family="sans-serif" font-size="12" fill="#555">
+    💡 shuffle 在寄存器间直接传递数据，不经过 shared memory → 零 bank conflict、零内存延迟，是 GPU 上最快的归约方式。
+  </text>
+</svg>

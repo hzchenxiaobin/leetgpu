@@ -178,6 +178,71 @@ extern "C" void solve(const float* input, float* output, int M, int N) {
 }
 ```
 
+### 3.2 归约积木代码详解
+
+上面的 kernel 核心是**两次块归约**（`block_reduce_max` + `block_reduce_sum`），它们都由相同的两块积木组成：`warp_reduce_*`（warp 内 shuffle 归约）和 `block_reduce_*`（warp 间 shared memory 汇总 + 广播）。
+
+#### Warp 级归约：`__shfl_down_sync`
+
+![Warp Shuffle 归约详解](../../images/softmax_warp_shuffle.svg)
+
+> **图：`__shfl_down_sync` 逐步归约。** 左侧 `warp_reduce_sum` 以 8 个 lane 为例（实际 32 个），offset 从 4→2→1 折半，每步 lane[i] 与 lane[i+offset] 运算，最终 lane 0 持有全局 sum。右侧 `warp_reduce_max` 结构完全对称，只把 `+=` 换成 `fmaxf`。
+
+```cuda
+__inline__ __device__ float warp_reduce_sum(float val) {
+    #pragma unroll
+    for (int offset = WARP_SIZE / 2; offset > 0; offset >>= 1)
+        val += __shfl_down_sync(0xffffffff, val, offset);
+    return val;
+}
+```
+
+- **`offset` 折半**：从 16→8→4→2→1，5 步完成 32→1 归约（`log₂32 = 5`），每步数据量减半
+- **`__shfl_down_sync(mask, val, offset)`**：lane i 收到 lane (i+offset) 的 `val`；超出 warp 边界的 lane 值不变
+- **`#pragma unroll`**：编译器展开 5 次迭代，零循环开销，便于指令级并行
+- **结果只在 lane 0**：归约后其余 lane 的值是中间结果，需用 shared memory 广播给全 block
+- **`warp_reduce_max` 完全对称**：只把 `+=` → `fmaxf`，shuffle 机制不变
+
+> 💡 Shuffle 在寄存器间直接传递数据，不经过 shared memory，零 bank conflict、零内存延迟，是 GPU 上最快的归约方式。
+
+#### Block 级归约：warp 间 shared memory 汇总 + 广播
+
+![Block 归约详解](../../images/softmax_block_reduce.svg)
+
+> **图：Block 归约三阶段流程。** 阶段 1：8 个 warp 各自做 warp_reduce，lane 0 写入 `shared[warpId]`；阶段 2：`__syncthreads` 后，warp 0 读 `shared[0..7]` 再做一次 warp_reduce，结果写入 `shared[0]`；阶段 3：第二次 `__syncthreads` 后，全 block 从 `shared[0]` 读取最终结果。
+
+```cuda
+__inline__ __device__ float block_reduce_sum(float val, float* shared) {
+    int lane = threadIdx.x & (WARP_SIZE - 1);   // lane = threadIdx.x % 32
+    int warpId = threadIdx.x >> 5;               // warpId = threadIdx.x / 32
+    val = warp_reduce_sum(val);                  // 阶段 1a：warp 内归约
+    if (lane == 0)
+        shared[warpId] = val;                    // 阶段 1b：lane 0 写 shared
+    __syncthreads();                             // 屏障：等 8 个 warp 都写完
+    if (warpId == 0) {                           // 阶段 2a：仅 warp 0 执行
+        val = (lane < NUM_WARPS) ? shared[lane] : 0.0f;  // 读 8 个 warp 结果
+        val = warp_reduce_sum(val);              // 阶段 2b：对 8 个值再归约
+        if (lane == 0)
+            shared[0] = val;                     // 阶段 2c：写入广播槽
+    }
+    __syncthreads();                             // 屏障：等 warp 0 写完
+    return shared[0];                            // 阶段 3：全 block 读 shared[0]
+}
+```
+
+| 步骤 | 作用 |
+|------|------|
+| **阶段 1a：warp 归约** | 每 warp 内 32 个值归约为 1 个，结果在 lane 0 |
+| **阶段 1b：写 shared** | 8 个 warp 的 lane 0 各写一个 slot → `shared[0..7]` 填满 |
+| **屏障 1** | `__syncthreads()` 确保 8 个 warp 都写完后 warp 0 才读 |
+| **阶段 2a：warp 0 读取** | warp 0 的 lane 0~7 读 `shared[0..7]`，lane 8~31 填默认值 |
+| **阶段 2b：最终归约** | 对 8 个 warp 结果再做 warp_reduce（3 步：offset 4→2→1） |
+| **阶段 2c：写广播槽** | lane 0 写最终结果到 `shared[0]` |
+| **屏障 2** | `__syncthreads()` 确保 warp 0 写完后全 block 才读 |
+| **阶段 3：广播** | 全 block 256 个 thread 同时读 `shared[0]`，获得最终结果 |
+
+> 💡 `block_reduce_max` 与 `block_reduce_sum` 结构完全相同，只把 `warp_reduce_sum` → `warp_reduce_max`，默认值 `0.0f` → `-INFINITY`（max 归约的幺元是负无穷）。
+
 ## 4. 复杂度分析
 
 | 维度 | 分析 |

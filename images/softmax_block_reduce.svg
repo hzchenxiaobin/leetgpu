@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="720" viewBox="0 0 1000 720">
+  <defs>
+    <marker id="arr_b" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="720" fill="#fafafa"/>
+
+  <!-- Title -->
+  <text x="500" y="36" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold" fill="#222">
+    Block 归约：Warp 级 → Shared Memory → 广播
+  </text>
+  <text x="500" y="60" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#666">
+    BLOCK_SIZE=256, NUM_WARPS=8, WARP_SIZE=32 — 两阶段归约 + 一次广播
+  </text>
+
+  <!-- ========== Phase 1: Warp-level reduce ========== -->
+  <rect x="30" y="80" width="940" height="200" rx="8" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.5"/>
+  <text x="50" y="108" font-family="sans-serif" font-size="15" font-weight="bold" fill="#1565c0">
+    阶段 1：每个 warp 独立做 warp_reduce，lane 0 写入 shared[warpId]
+  </text>
+
+  <!-- 8 warps, each with 32 threads → 1 result -->
+  <g font-family="monospace" font-size="11">
+    <!-- Warp 0 -->
+    <text x="50" y="138" fill="#1565c0" font-weight="bold">warp 0</text>
+    <rect x="100" y="125" width="28" height="20" fill="#bbdefb" stroke="#90caf9" stroke-width="0.6" rx="2"/>
+    <text x="114" y="139" text-anchor="middle" font-size="9">t0</text>
+    <rect x="130" y="125" width="28" height="20" fill="#bbdefb" stroke="#90caf9" stroke-width="0.6" rx="2"/>
+    <text x="144" y="139" text-anchor="middle" font-size="9">t1</text>
+    <rect x="160" y="125" width="28" height="20" fill="#bbdefb" stroke="#90caf9" stroke-width="0.6" rx="2"/>
+    <text x="174" y="139" text-anchor="middle" font-size="9">t2</text>
+    <text x="200" y="139" font-size="10" fill="#888">... 32 threads ...</text>
+    <rect x="300" y="125" width="28" height="20" fill="#bbdefb" stroke="#90caf9" stroke-width="0.6" rx="2"/>
+    <text x="314" y="139" text-anchor="middle" font-size="9">t31</text>
+    <path d="M 340 135 L 380 135" stroke="#1565c0" stroke-width="1.2" fill="none" marker-end="url(#arr_b)"/>
+    <text x="350" y="128" font-size="9" fill="#1565c0">warp_reduce</text>
+    <rect x="390" y="125" width="50" height="20" fill="#1565c0" stroke="#0d47a1" stroke-width="1" rx="2"/>
+    <text x="415" y="139" text-anchor="middle" font-size="9" fill="#fff" font-weight="bold">w0_val</text>
+    <text x="450" y="139" font-size="9" fill="#888">lane 0</text>
+    <path d="M 445 135 L 500 135" stroke="#1565c0" stroke-width="1.2" fill="none" marker-end="url(#arr_b)"/>
+    <rect x="510" y="125" width="60" height="20" fill="#fff3e0" stroke="#e65100" stroke-width="1" rx="2"/>
+    <text x="540" y="139" text-anchor="middle" font-size="9" fill="#e65100" font-weight="bold">shared[0]</text>
+
+    <!-- Warp 1 -->
+    <text x="50" y="163" fill="#1565c0" font-weight="bold">warp 1</text>
+    <rect x="100" y="150" width="28" height="20" fill="#bbdefb" stroke="#90caf9" stroke-width="0.6" rx="2"/>
+    <text x="114" y="164" text-anchor="middle" font-size="9">t32</text>
+    <rect x="130" y="150" width="28" height="20" fill="#bbdefb" stroke="#90caf9" stroke-width="0.6" rx="2"/>
+    <text x="144" y="164" text-anchor="middle" font-size="9">t33</text>
+    <text x="200" y="164" font-size="10" fill="#888">... 32 threads ...</text>
+    <rect x="300" y="150" width="28" height="20" fill="#bbdefb" stroke="#90caf9" stroke-width="0.6" rx="2"/>
+    <text x="314" y="164" text-anchor="middle" font-size="9">t63</text>
+    <path d="M 340 160 L 380 160" stroke="#1565c0" stroke-width="1.2" fill="none" marker-end="url(#arr_b)"/>
+    <rect x="390" y="150" width="50" height="20" fill="#1565c0" stroke="#0d47a1" stroke-width="1" rx="2"/>
+    <text x="415" y="164" text-anchor="middle" font-size="9" fill="#fff" font-weight="bold">w1_val</text>
+    <text x="450" y="164" font-size="9" fill="#888">lane 0</text>
+    <path d="M 445 160 L 500 160" stroke="#1565c0" stroke-width="1.2" fill="none" marker-end="url(#arr_b)"/>
+    <rect x="510" y="150" width="60" height="20" fill="#fff3e0" stroke="#e65100" stroke-width="1" rx="2"/>
+    <text x="540" y="164" text-anchor="middle" font-size="9" fill="#e65100" font-weight="bold">shared[1]</text>
+
+    <text x="210" y="188" font-size="12" fill="#888">...</text>
+
+    <!-- Warp 7 -->
+    <text x="50" y="213" fill="#1565c0" font-weight="bold">warp 7</text>
+    <rect x="100" y="200" width="28" height="20" fill="#bbdefb" stroke="#90caf9" stroke-width="0.6" rx="2"/>
+    <text x="114" y="214" text-anchor="middle" font-size="9">t224</text>
+    <text x="200" y="214" font-size="10" fill="#888">... 32 threads ...</text>
+    <rect x="300" y="200" width="28" height="20" fill="#bbdefb" stroke="#90caf9" stroke-width="0.6" rx="2"/>
+    <text x="314" y="214" text-anchor="middle" font-size="9">t255</text>
+    <path d="M 340 210 L 380 210" stroke="#1565c0" stroke-width="1.2" fill="none" marker-end="url(#arr_b)"/>
+    <rect x="390" y="200" width="50" height="20" fill="#1565c0" stroke="#0d47a1" stroke-width="1" rx="2"/>
+    <text x="415" y="214" text-anchor="middle" font-size="9" fill="#fff" font-weight="bold">w7_val</text>
+    <text x="450" y="214" font-size="9" fill="#888">lane 0</text>
+    <path d="M 445 210 L 500 210" stroke="#1565c0" stroke-width="1.2" fill="none" marker-end="url(#arr_b)"/>
+    <rect x="510" y="200" width="60" height="20" fill="#fff3e0" stroke="#e65100" stroke-width="1" rx="2"/>
+    <text x="540" y="214" text-anchor="middle" font-size="9" fill="#e65100" font-weight="bold">shared[7]</text>
+  </g>
+
+  <!-- shared memory layout -->
+  <rect x="620" y="120" width="130" height="120" fill="#fff8e1" stroke="#e65100" stroke-width="1.5" rx="6"/>
+  <text x="685" y="138" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#e65100" font-weight="bold">shared[]</text>
+  <text x="635" y="155" font-family="monospace" font-size="10" fill="#333">[0] = w0_val</text>
+  <text x="635" y="170" font-family="monospace" font-size="10" fill="#333">[1] = w1_val</text>
+  <text x="635" y="185" font-family="monospace" font-size="10" fill="#888">[2] = ...</text>
+  <text x="635" y="200" font-family="monospace" font-size="10" fill="#888">...</text>
+  <text x="635" y="215" font-family="monospace" font-size="10" fill="#333">[7] = w7_val</text>
+  <text x="635" y="232" font-family="monospace" font-size="10" fill="#888">[8] = (广播槽)</text>
+
+  <!-- syncthreads -->
+  <rect x="780" y="150" width="160" height="30" fill="#e8eaf6" stroke="#3f51b5" stroke-width="1" rx="6"/>
+  <text x="860" y="170" text-anchor="middle" font-family="monospace" font-size="11" fill="#3f51b5" font-weight="bold">__syncthreads()</text>
+  <text x="860" y="195" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#666">确保 8 个 warp 都写入</text>
+
+  <!-- ========== Phase 2: Warp 0 final reduce ========== -->
+  <rect x="30" y="300" width="940" height="170" rx="8" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+  <text x="50" y="328" font-family="sans-serif" font-size="15" font-weight="bold" fill="#6a1b9a">
+    阶段 2：warp 0 读 shared[0..7]，再做一次 warp_reduce，结果写入 shared[0]
+  </text>
+
+  <!-- warp 0 reads shared -->
+  <text x="50" y="358" font-family="sans-serif" font-size="12" fill="#333" font-weight="bold">warp 0 (32 threads):</text>
+
+  <g font-family="monospace" font-size="10">
+    <!-- lane 0..7 read shared[0..7], lane 8..31 get default -->
+    <rect x="180" y="345" width="40" height="22" fill="#e1bee7" stroke="#6a1b9a" stroke-width="0.8" rx="2"/>
+    <text x="200" y="360" text-anchor="middle" fill="#4a148c">shared[0]</text>
+    <rect x="222" y="345" width="40" height="22" fill="#e1bee7" stroke="#6a1b9a" stroke-width="0.8" rx="2"/>
+    <text x="242" y="360" text-anchor="middle" fill="#4a148c">shared[1]</text>
+    <text x="275" y="360" font-size="10" fill="#888">...</text>
+    <rect x="295" y="345" width="40" height="22" fill="#e1bee7" stroke="#6a1b9a" stroke-width="0.8" rx="2"/>
+    <text x="315" y="360" text-anchor="middle" fill="#4a148c">shared[7]</text>
+    <rect x="340" y="345" width="40" height="22" fill="#f5f5f5" stroke="#ddd" stroke-width="0.8" rx="2"/>
+    <text x="360" y="360" text-anchor="middle" fill="#aaa">0.0</text>
+    <text x="390" y="360" font-size="10" fill="#888">lane 8~31 = 默认值</text>
+  </g>
+
+  <text x="50" y="388" font-family="monospace" font-size="11" fill="#333">
+    val = (lane &lt; NUM_WARPS) ? shared[lane] : 0.0f;  // 只有 lane 0~7 有有效值
+  </text>
+
+  <!-- warp_reduce on 8 values -->
+  <path d="M 250 395 L 250 415" stroke="#6a1b9a" stroke-width="1.2" fill="none" marker-end="url(#arr_b)"/>
+  <text x="260" y="410" font-family="sans-serif" font-size="10" fill="#6a1b9a">warp_reduce（3 步：offset 4→2→1）</text>
+
+  <rect x="180" y="420" width="140" height="28" fill="#6a1b9a" stroke="#4a148c" stroke-width="2" rx="4"/>
+  <text x="250" y="439" text-anchor="middle" font-family="monospace" font-size="12" fill="#fff" font-weight="bold">
+    shared[0] = 最终结果
+  </text>
+
+  <!-- syncthreads 2 -->
+  <rect x="400" y="420" width="160" height="28" fill="#e8eaf6" stroke="#3f51b5" stroke-width="1" rx="6"/>
+  <text x="480" y="439" text-anchor="middle" font-family="monospace" font-size="11" fill="#3f51b5" font-weight="bold">__syncthreads()</text>
+
+  <text x="580" y="435" font-family="sans-serif" font-size="11" fill="#666">
+    lane 0 把最终结果写入 shared[0]（广播槽）
+  </text>
+
+  <!-- ========== Phase 3: Broadcast ========== -->
+  <rect x="30" y="490" width="940" height="130" rx="8" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5"/>
+  <text x="50" y="518" font-family="sans-serif" font-size="15" font-weight="bold" fill="#2e7d32">
+    阶段 3：所有 thread 从 shared[0] 读取最终结果（广播）
+  </text>
+
+  <!-- shared[0] -->
+  <rect x="50" y="535" width="120" height="30" fill="#2e7d32" stroke="#1b5e20" stroke-width="2" rx="4"/>
+  <text x="110" y="555" text-anchor="middle" font-family="monospace" font-size="12" fill="#fff" font-weight="bold">shared[0]</text>
+
+  <!-- broadcast arrows to all warps -->
+  <path d="M 170 550 L 250 545" stroke="#2e7d32" stroke-width="1.2" fill="none" marker-end="url(#arr_b)"/>
+  <path d="M 170 550 L 250 565" stroke="#2e7d32" stroke-width="1.2" fill="none" marker-end="url(#arr_b)"/>
+  <path d="M 170 550 L 250 585" stroke="#2e7d32" stroke-width="1.2" fill="none" marker-end="url(#arr_b)"/>
+
+  <rect x="260" y="535" width="80" height="22" fill="#c8e6c9" stroke="#2e7d32" stroke-width="0.8" rx="2"/>
+  <text x="300" y="550" text-anchor="middle" font-size="10" fill="#2e7d32">warp 0 → val</text>
+
+  <rect x="260" y="560" width="80" height="22" fill="#c8e6c9" stroke="#2e7d32" stroke-width="0.8" rx="2"/>
+  <text x="300" y="575" text-anchor="middle" font-size="10" fill="#2e7d32">warp 1 → val</text>
+
+  <text x="300" y="600" text-anchor="middle" font-size="10" fill="#888">...</text>
+
+  <rect x="260" y="605" width="80" height="22" fill="#c8e6c9" stroke="#2e7d32" stroke-width="0.8" rx="2"/>
+  <text x="300" y="620" text-anchor="middle" font-size="10" fill="#2e7d32">warp 7 → val</text>
+
+  <!-- Code -->
+  <rect x="380" y="535" width="560" height="80" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="6"/>
+  <text x="395" y="555" font-family="monospace" font-size="11" fill="#333">// 所有 256 个 thread 执行同一行：</text>
+  <text x="395" y="573" font-family="monospace" font-size="11" fill="#2e7d32" font-weight="bold">return shared[0];</text>
+  <text x="395" y="593" font-family="sans-serif" font-size="11" fill="#666">// shared memory 对 block 内所有 thread 可见，读取只需 ~30 cycle</text>
+  <text x="395" y="610" font-family="sans-serif" font-size="11" fill="#666">// 两次 __syncthreads 保证写入→读取的可见性（happens-before）</text>
+
+  <!-- ========== Bottom: code snippet ========== -->
+  <rect x="40" y="640" width="930" height="68" rx="6" fill="#263238" stroke="#37474f" stroke-width="1"/>
+  <text x="55" y="660" font-family="monospace" font-size="11" fill="#81c784">__device__ float block_reduce_sum(float val, float* shared) {</text>
+  <text x="65" y="675" font-family="monospace" font-size="11" fill="#b3e5fc">int lane = threadIdx.x &amp; 31;  int warpId = threadIdx.x &gt;&gt; 5;</text>
+  <text x="65" y="690" font-family="monospace" font-size="11" fill="#fff59d">val = warp_reduce_sum(val);  if (lane==0) shared[warpId]=val;  __syncthreads();</text>
+  <text x="65" y="705" font-family="monospace" font-size="11" fill="#ffcc80">if (warpId==0) { val=(lane&lt;8)?shared[lane]:0; val=warp_reduce_sum(val); if(lane==0) shared[0]=val; }  __syncthreads();  return shared[0];</text>
+</svg>
