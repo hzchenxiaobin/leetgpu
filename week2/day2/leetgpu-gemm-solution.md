@@ -315,6 +315,14 @@ shared tiles  = As[128×16] + Bs[16×128] = 4096 half = 8 KB
 staging (dyn) = Cs[128×128] fp32 = 64 KB   （epilogue 暂存累加器）
 ```
 
+![GEMM 分块变量与层级关系](../../images/gemm_variables.svg)
+
+上图把 `BM/BN/BK`、`WARPS_M/N`、`WARP_TILE_M/N`、`FRAGS_M/N`、`WMMA_M/N/K` 之间的派生关系画在一起：block tile 由 8 个 warp tile 拼成，每个 warp tile 再由 `FRAGS_M×FRAGS_N` 个 `16×16` fragment 组成，`BK = WMMA_K = 16` 让 shared tile 的一列正好喂给一个 fragment。
+
+![Block tile 内 warp / fragment 布局](../../images/gemm_thread_tile_layout.svg)
+
+上图展示 `128×128` block tile 如何被 8 个 warp（`WARPS_M=4 × WARPS_N=2`）切分：每个 warp 负责 `32×64` 的 warp tile，再细分为 `2×4 = 8` 个 `16×16` fragment，最终每个 fragment 由一条 `mma.sync` 完成——warp 与 fragment 如何映射到输出 tile 上一目了然。
+
 > 💡 `BK` 必须等于 `WMMA_K=16`：`mma` 的 K 维固定为 16，shared tile 的一列必须正好喂给一个 fragment。`BM/BN=128` 给足 block 内复用；8 个 warp 各管 `32×64=8` 个 fragment，load 与 compute 都有足够并行度。
 
 ### 3.3 存储层次使用
@@ -731,6 +739,161 @@ extern "C" void solve(const half* A, const half* B, half* C, int M, int N, int K
     cudaDeviceSynchronize();
 }
 ```
+
+### 4.2 WMMA Kernel 代码详解
+
+本节把 `gemm_wmma`（4.1 提交版本）拆成 **存储布局 → 线程映射 → K 循环 → mma 指令 → epilogue → 实例** 六段，逐段对照代码。这套「shared tile + warp tile + fragment 累加 + epilogue 套 α/β」的骨架是所有 Tensor Core GEMM 的共同范式。
+
+#### 4.2.1 共享内存布局
+
+```cuda
+__shared__ half As[BM][BK];   // 128×16，A 的子块
+__shared__ half Bs[BK][BN];   // 16×128，B 的子块
+extern __shared__ float Cs[]; // 128×128 fp32，epilogue 暂存累加器
+```
+
+- `As` / `Bs` 是 **static shared**，编译期固定，共 `(128×16 + 16×128)×2B = 8KB`。它们沿 K 维滑动，每步只装 `BK=16` 深的一列片，供 block 内 8 个 warp 复用。
+- `Cs` 是 **dynamic shared**（`extern __shared__ float Cs[]`），大小由 launch 时的 `dyn_smem = BM*BN*sizeof(float) = 64KB` 指定（4.1 的 `solve`，`leetgpu-gemm-solution.md:733`），只在 epilogue 阶段短暂存放 fp32 累加器，不参与 K 循环。
+- 三者合计 `8KB + 64KB = 72KB/block`，超过默认 48KB 上限，故 `solve` 必须 `cudaFuncSetAttribute(..., cudaFuncAttributeMaxDynamicSharedMemorySize, dyn_smem)` 放开 dynamic shared 上限（`leetgpu-gemm-solution.md:734`）。
+
+> ⚠️ `As`/`Bs` 用 `half` 而非 `float`：WMMA fragment 直接从 half shared 加载，省一半 shared 带宽，且 `BK=16` 的一片正好对齐一个 fragment 的 K 维。
+
+#### 4.2.2 Thread → Warp → Fragment 映射
+
+```cuda
+const int tid = threadIdx.x;
+const int warp_id = tid >> 5;          // 0..7
+const int warp_m = warp_id / WARPS_N;  // 0..3
+const int warp_n = warp_id % WARPS_N;  // 0..1
+const int warp_row = warp_m * WARP_TILE_M; // 32 的倍数，warp tile 行起点
+const int warp_col = warp_n * WARP_TILE_N; // 64 的倍数，warp tile 列起点
+```
+
+1. `tid`（0..255）→ `warp_id`（0..7），每 warp 32 lane。
+2. 8 个 warp 排成 `WARPS_M=4` 行 × `WARPS_N=2` 列网格，`warp_m`/`warp_n` 是其行列坐标。
+3. `warp_row`/`warp_col` 给出该 warp 负责的 `32×64` warp tile 在 `128×128` block tile 内的左上角。
+4. 每个 warp 再用 `FRAGS_M×FRAGS_N = 2×4` 个 16×16 fragment 填满 warp tile：`warp_row + i*WMMA_M`、`warp_col + j*WMMA_N` 即第 `(i,j)` 个 fragment 的左上角。
+
+> 💡 映射只到 **fragment 粒度**，不显式算 lane→元素。16×16 fragment 内部哪些元素归哪个 lane，由 WMMA 硬件布局决定，对程序员不可见，`mma_sync`/`store_matrix_sync` 自动处理。
+
+#### 4.2.3 K 维主循环：① load → ② sync → ③ mma → ④ sync
+
+```cuda
+for (int bk = 0; bk < K; bk += BK) {
+    // ① 协作加载 As / Bs（half，越界补 0）
+    for (int i = 0; i < LOAD_A; ++i) { ... As[r][c] = ...; }
+    for (int i = 0; i < LOAD_B; ++i) { ... Bs[r][c] = ...; }
+    __syncthreads();                                            // ② 装完才能读
+
+    // ③ 每 warp 做 FRAGS_M×FRAGS_N = 2×4 次 mma
+    for (int i = 0; i < FRAGS_M; ++i)
+      for (int j = 0; j < FRAGS_N; ++j) {
+          wmma::load_matrix_sync(a_frag, &As[warp_row + i*WMMA_M][0], BK);
+          wmma::load_matrix_sync(b_frag, &Bs[0][warp_col + j*WMMA_N], BN);
+          wmma::mma_sync(acc[i][j], a_frag, b_frag, acc[i][j]);
+      }
+    __syncthreads();                                            // ④ tile 用完才能覆盖
+}
+```
+
+- **① 协作加载**：256 thread 平摊 `As` 的 `128×16=2048` 与 `Bs` 的 `16×128=2048` 个 half，每 thread 各搬 `LOAD_A=LOAD_B=8` 个（`leetgpu-gemm-solution.md:678` 起）。越界处填 `__float2half(0)`，使内层 `mma` 无需判边界。
+- **② `__syncthreads`**：保证所有 thread 装完本 tile，才能开始 `load_matrix_sync` 读 shared。
+- **③ `2×4=8` 次 `mma`**：每个 warp 用自己的 `acc[i][j]` 累加，8 个 warp 互不干扰地并行跑 Tensor Core。累加器常驻寄存器，K 循环里不落盘。
+- **④ `__syncthreads`**：本 tile 的 `As/Bs` 已读完，下一轮迭代才能覆盖写入，故再同步一次。
+
+> ⚠️ 两个 `__syncthreads` 缺一不可：② 防「没装完就读」，④ 防「没读完就覆盖」。少任何一个都会产生跨 tile 的数据竞争。
+
+#### 4.2.4 `load_matrix_sync` 的 leading dimension
+
+```cuda
+wmma::load_matrix_sync(a_frag, &As[warp_row + i*WMMA_M][0], BK);  // ld = BK
+wmma::load_matrix_sync(b_frag, &Bs[0][warp_col + j*WMMA_N], BN);  // ld = BN
+```
+
+第三个参数是 **leading dimension（每行 stride，按元素个数计）**，必须与 shared 数组的行宽一致：
+
+- `As[BM][BK]` 每行 `BK=16` 个 half → `a_frag` 用 `ld=BK`，从 `&As[row][0]` 起读一个 16×16 子块。
+- `Bs[BK][BN]` 每行 `BN=128` 个 half → `b_frag` 用 `ld=BN`，从 `&Bs[0][col]` 起读 16×16（行间 stride=128，跨到下一行同一列）。
+
+两个 fragment 都声明为 `wmma::row_major`，与 C 行主序矩阵及 shared 的 C 风格二维数组布局一致，无需转置。若把 `ld` 写反（如 `b_frag` 误用 `BK`），WMMA 会按错误 stride 拼元素，结果完全错位。
+
+> 💡 判断 `ld` 的口诀：**「数组哪一维连续，`ld` 就等于那一维的大小」**。`As` 第二维 `BK` 连续 → `ld=BK`；`Bs` 第二维 `BN` 连续 → `ld=BN`。
+
+#### 4.2.5 `mma_sync`：D = A×B + C
+
+```cuda
+wmma::mma_sync(acc[i][j], a_frag, b_frag, acc[i][j]);
+```
+
+`mma_sync(D, A, B, C)` 语义为 `D = A×B + C`。这里 `D` 与 `C` 都传 `acc[i][j]`，即 **就地累加**：每个 K tile 的 `A·B` 直接加到上一步的累加器上。一次调用完成 `16×16×16 = 8192 FLOP` 乘加，由 32 lane 协作、Tensor Core 在约一个时钟周期内吞吐。
+
+- `a_frag`/`b_frag` 为 `half`、`acc` 为 `float` → 输入 FP16、累加 FP32，**天然满足题目「FP32 累加」要求**，无需额外代码。
+- `a_frag`/`b_frag` 声明在双循环内（`leetgpu-gemm-solution.md:697`），用完即弃、可复用寄存器；`acc` 声明在 K 循环外（`:664`），全程常驻。
+
+#### 4.2.6 Epilogue：staging → α·acc + β·C → half 写回
+
+K 循环结束后 `acc[i][j]` 里是纯 `Σ A·B`（不含 `α/β`）。epilogue 分三步：
+
+```cuda
+// 1) 累加器 → fp32 staging（shared）
+wmma::store_matrix_sync(&Cs[(warp_row+i*WMMA_M)*BN + (warp_col+j*WMMA_N)],
+                        acc[i][j], BN, wmma::mem_row_major);
+__syncthreads();
+// 2+3) 256 thread 协作：读 staging、套 α/β、读 C_initial、转 half 写回 global
+for (int i = 0; i < total/NUM_THREADS; ++i) {     // 16384 元素 / 256 = 64 / thread
+    ...
+    float acc_val = Cs[idx];
+    float c_init = (beta != 0.0f) ? __half2float(C[gr*N+gc]) : 0.0f;
+    C[gr*N+gc] = __float2half(alpha * acc_val + beta * c_init);
+}
+```
+
+- **为何要 staging**：`α·acc + β·C` 是逐元素标量运算，而 `acc` 元素分布在 fragment 寄存器里、lane→元素映射架构相关、不可移植地直接索引。用 `store_matrix_sync` 把 fp32 累加器先落到连续 shared `Cs`，再用普通 256-thread 协作循环做标量运算，清晰且可移植。
+- **`β=0` 短路**：仅 `beta != 0.0f` 时才读 `C_initial`，省掉无意义的 global 读。
+- **写回判边界**：`if (gr < M && gc < N)` 处理 `M/N` 非 tile 整数倍的尾块。
+
+> ⚠️ `store_matrix_sync` 后必须 `__syncthreads`：要等所有 warp 都把各自 fragment 写进 `Cs`，协作循环才能读到完整的 128×128。5.4 第 3 点提到「直接索引 `acc.x[]` 就地缩放」可省掉这 64KB staging 与一次同步，但牺牲可移植性。
+
+#### 4.2.7 实例：block(0,0) 的 warp 0 算哪些输出
+
+取 `M=N=K=1024`，看 `blockIdx=(0,0)`、`warp_id=0`：
+
+| 量 | 值 | 推导 |
+|----|----|------|
+| `bx, by` | 0, 0 | block 坐标 |
+| `warp_id` | 0 | `tid>>5`，tid∈[0,31] |
+| `warp_m` | 0 | `0 / WARPS_N(2) = 0` |
+| `warp_n` | 0 | `0 % 2 = 0` |
+| `warp_row` | 0 | `0 * WARP_TILE_M(32) = 0` |
+| `warp_col` | 0 | `0 * WARP_TILE_N(64) = 0` |
+
+所以 warp 0 负责 **输出 `C[0..31][0..63]`**（`32×64` 子块），由 `FRAGS_M×FRAGS_N = 2×4 = 8` 个 16×16 fragment 拼成，每个 fragment 对应一次 `mma_sync`：
+
+| fragment `(i,j)` | 行范围（block 内） | 列范围（block 内） | `a_frag` 来源 | `b_frag` 来源 |
+|------------------|--------------------|--------------------|---------------|---------------|
+| (0,0) | 0–15 | 0–15 | `As` 行 0–15, 列 0–15 | `Bs` 行 0–15, 列 0–15 |
+| (0,1) | 0–15 | 16–31 | `As` 行 0–15, 列 0–15 | `Bs` 行 0–15, 列 16–31 |
+| (0,2) | 0–15 | 32–47 | `As` 行 0–15, 列 0–15 | `Bs` 行 0–15, 列 32–47 |
+| (0,3) | 0–15 | 48–63 | `As` 行 0–15, 列 0–15 | `Bs` 行 0–15, 列 48–63 |
+| (1,0) | 16–31 | 0–15 | `As` 行 16–31, 列 0–15 | `Bs` 行 0–15, 列 0–15 |
+| (1,1) | 16–31 | 16–31 | `As` 行 16–31, 列 0–15 | `Bs` 行 0–15, 列 16–31 |
+| (1,2) | 16–31 | 32–47 | `As` 行 16–31, 列 0–15 | `Bs` 行 0–15, 列 32–47 |
+| (1,3) | 16–31 | 48–63 | `As` 行 16–31, 列 0–15 | `Bs` 行 0–15, 列 48–63 |
+
+关键复用：同一行 fragment（`i` 固定）共享同一个 `a_frag`（同一 `A` 行块），同一列 fragment（`j` 固定）共享同一个 `b_frag`——这正是 warp tile 内 `FRAGS_M×FRAGS_N` 切分的算术强度来源。沿 K 滑动时这 8 个 fragment 的累加器常驻寄存器，每个 K tile 只需重装 `As/Bs` 一次、做 8 次 `mma`。
+
+> 💡 换 `warp_id=1`：`warp_m=0, warp_n=1` → `warp_col=64`，warp 1 负责 `C[0..31][64..127]`，与 warp 0 拼成 block(0,0) 的前两行 warp tile。8 个 warp 如此拼满整个 `128×128` block tile。
+
+#### 4.2.8 分块层级总览
+
+| 层级 | 输出尺寸 | 数量 | 执行者 | 复用对象 |
+|------|----------|------|--------|----------|
+| **Block tile** | `128×128` | 1 / block | 1 block = 256 thread / 8 warp | shared `As[128×16]`、`Bs[16×128]`，block 内 8 warp 复用同一 `A/B` tile |
+| **Warp tile** | `32×64` | 8 / block（`4×2`） | 1 warp = 32 lane | warp 内 8 fragment 复用同一组 `a_frag`/`b_frag` 行列块 |
+| **Fragment** | `16×16` | 8 / warp（`2×4`） | 1 warp 协作 | 累加器 `acc[i][j]` 常驻寄存器，沿 K 全程累加 |
+| **`mma` 指令** | `16×16×16`（8192 FLOP）| 8 / warp / K-step | Tensor Core，~1 cycle | — |
+
+三级 tiling 把「全局矩阵 → block tile → warp tile → fragment → mma」逐层缩小，每一层都把数据留在更近的存储里复用：global → shared（block 级）→ fragment 寄存器（warp 级）→ Tensor Core（指令级）。这是所有现代 GEMM（cuBLAS / CUTLASS / `wgmma`）的共同骨架，差别只在每一层换更高效的指令与布局。
 
 ## 5. 性能分析与优化
 

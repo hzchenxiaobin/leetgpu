@@ -22,12 +22,16 @@ GPT-2 Block 的前向流程：
 x → LayerNorm1 → Causal Attention → +x → LayerNorm2 → FFN(GELU) → +x → output
 ```
 
+![GPT-2 Transformer Block 数据流](../../images/gpt2_block_overview.svg)
+
 每个子算子的 IO 优化要点：
 - **LayerNorm**：3 趟→1 趟融合（Week3 Day2）
 - **Causal Attention**：FlashAttention + causal mask（Week4 核心）
 - **FFN GEMM**：cuBLAS + Tensor Core（Week2 Day2）
 - **GELU**：element-wise，与 LayerNorm 融合
 - **Residual**：element-wise add，与前一个算子融合
+
+![GPT-2 Block 各子算子优化策略](../../images/gpt2_block_optimization_strategies.svg)
 
 ## 3. 复杂度分析
 
@@ -295,3 +299,44 @@ extern "C" void solve(const float* x, float* output, const float* weights, int s
     cleanup();
 }
 ```
+
+### 4.2 代码详解
+
+#### 4.2.1 `solve` 编排：8 次内核启动
+
+`solve` 串行启动 8 个 kernel，每次启动都伴随一次 HBM 中间缓冲的写出与读入：
+
+| # | Kernel 启动 | 作用 |
+|---|------------|------|
+| 1 | `layerNorm<<<seq_len, 1>>>` | 对输入 `x` 做 LayerNorm1，写入 `ln1` |
+| 2 | `qkv<<<seq_len, 256>>>` | `ln1` 投影成 Q/K/V，写入 `qkv_buf` |
+| 3 | `attn<<<dim3(seq_len, 12), 64>>>` | 逐 (row, head) 计算注意力，拼接后写入 `attn_concat` |
+| 4 | `linear_bias<<<...>>>` | 注意力输出投影，写入 `attn_proj` |
+| 5 | `add_residual<<<...>>>` | `x + attn_proj`，写入 `residual1` |
+| 6 | `layerNorm2<<<seq_len, 1>>>` | 对 `residual1` 做 LayerNorm2，写入 `ln2` |
+| 7 | `ffn<<<seq_len, 256>>>` | 两层 GEMM + GELU，写入 `ff2` |
+| 8 | `add_residual<<<...>>>` | `residual1 + ff2`，写入 `output` |
+
+#### 4.2.2 各子 kernel 解析
+
+- **`layerNorm` / `layerNorm2`**：3 趟扫描（mean → var → normalize），每行只用 1 个线程（`threadIdx.x == 0`），是"正确但低效"的简化实现。优化方向：用 warp/block 归约把 3 趟融合为 1 趟，并与下游 QKV/FFN 融合。
+- **`qkv`**：带偏置的 GEMM，每个 block 处理一行，线程以 grid-stride 遍历 `kDModel*3` 个输出列。权重布局为行主 `[in_dim, out_dim]`，内层循环串行累加 `kDModel` 个乘加。
+- **`attn`**：grid 维度为 `(seq_len, n_heads)`，每个 block 处理一个 (row, head)。`lane==0` 串行计算该行对所有 key 的 score、在线 softmax（max → exp → sum → 归一），结果存入 `__shared__ scores[]`；所有 lane 再并行做 PV 加权求和。**注意：本实现未加 causal mask**，仅做了 `scale + softmax + PV`。优化方向：FlashAttention 分块 + causal。
+- **`linear_bias`**：通用带偏置 GEMM，用于注意力输出投影（`attn_concat → attn_proj`）。grid 为 `(ceil(out_dim/256), rows)`，每个线程算一个输出元素。
+- **`ffn`**：两层 GEMM（`d_model → ffn_dim → d_model`），中间 GELU 激活。第一层结果存入 `__shared__ up[kFfnDim]`，`__syncthreads()` 后第二层直接从 shared memory 读取，省去一次 HBM 往返。这是本实现中唯一的"算子内融合"。
+- **`add_residual`**：标准 element-wise 加法，1D grid 覆盖所有 token 元素。
+
+#### 4.2.3 HBM IO 与优化机会一览
+
+| Kernel | 输入 | 输出 | HBM 读/写 | 优化机会 |
+|--------|------|------|-----------|----------|
+| `layerNorm` | `x` | `ln1` | 读 `Nd` / 写 `Nd` | 3 趟→1 趟；与 QKV 融合 |
+| `qkv` | `ln1` | `qkv_buf` | 读 `Nd` / 写 `3Nd` | cuBLAS/Tensor Core；与 LN 融合 |
+| `attn` | `qkv_buf` | `attn_concat` | 读 `3Nd`（多次）/ 写 `Nd` | FlashAttention 分块 + causal |
+| `linear_bias` | `attn_concat` | `attn_proj` | 读 `Nd` / 写 `Nd` | 与 attn 融合（fused projection） |
+| `add_residual` | `x, attn_proj` | `residual1` | 读 `2Nd` / 写 `Nd` | 与前一个算子融合 |
+| `layerNorm2` | `residual1` | `ln2` | 读 `Nd` / 写 `Nd` | 3 趟→1 趟；与 FFN 融合 |
+| `ffn` | `ln2` | `ff2` | 读 `Nd` / 写 `Nd` | GELU 已在片内；可与 LN2 融合 |
+| `add_residual` | `residual1, ff2` | `output` | 读 `2Nd` / 写 `Nd` | 与 FFN 融合 |
+
+> 💡 **关键洞察**：本实现是 "naive but correct"——8 个子 kernel 各自独立启动，中间结果（`ln1`、`qkv_buf`、`attn_concat`、`attn_proj`、`residual1`、`ln2`、`ff2`）全部经过 HBM 往返。优化路径不是单点提速某个 kernel，而是**算子融合**：把 LN→QKV、attn→projection、residual→LN2→FFN 等相邻算子合并为单个 kernel，把 HBM IO 从 `O(Nd)` per stage 压缩到整层 `O(Nd)`。这正是 Week4 IO 优化方法论的核心结论，也是 [Week5 Day7 完整版题解](../week5/day7/leetgpu-gpt-2-transformer-block-solution.md) 的优化目标。

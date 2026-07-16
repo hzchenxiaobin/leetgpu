@@ -43,6 +43,8 @@ __global__ void naive_transpose(const float* src, float* dst, int M, int N) {
 
 **瓶颈**：读 `src[i*N+j]` 按 warp 内 j 连续 → coalesced ✓；写 `dst[j*M+i]` 按 warp 内 j 连续 → 但 stride=M → **非 coalesced** ✗。写端带宽利用率仅 1/32。
 
+![朴素转置：coalesced 读但 strided 写，写端带宽仅 1/32](../../images/transpose_naive_problem.svg)
+
 ## 3. GPU 设计
 
 ### 3.1 并行化策略：shared memory tiling
@@ -56,12 +58,16 @@ src[i*N+j] → smem[tid_y][tid_x]    // 按 row 写入 smem（coalesced）
 smem[tid_x][tid_y] → dst[j*M+i]    // 按 col 读出 smem（转置），按 row 写 dst（coalesced）
 ```
 
+![Shared Memory Tiling：按行 coalesced 读入 tile，按列 coalesced 写出转置](../../images/transpose_tiling.svg)
+
 ### 3.2 Bank Conflict 处理
 
 ```
 朴素 smem[TILE][TILE] → 按列读时 bank conflict（同一 bank 的多个地址串行化）
 解决：smem[TILE][TILE+1] → 加一列 padding，错开 bank
 ```
+
+![Bank Conflict 与 +1 Padding：加一列错开 bank，消除按列读冲突](../../images/transpose_bank_conflict.svg)
 
 ### 3.3 存储层次使用
 
@@ -193,6 +199,94 @@ int main(int argc, char** argv) {
     return 0;
 }
 ```
+
+### 4.3 索引计算详解
+
+`transpose_kernel` 的核心是**坐标变换**——同一个 thread 在"读阶段"和"写阶段"扮演不同的全局坐标角色，靠 shared memory 做中转完成转置。下面逐行拆解。
+
+**① shared memory 声明**
+
+```cuda
+__shared__ float smem[TILE][TILE + 1]; // +1 padding 避免 bank conflict
+```
+
+- 每个 block 分配一个 `TILE×(TILE+1)` 的 tile（TILE=32 时为 3328 B）。
+- **为什么 +1**：shared memory 分 32 个 bank，每 bank 宽 4 B。`smem[TILE][TILE]`（TILE=32）按 row-major 存储时，同一列元素 `smem[0..31][c]` 的线性地址为 `(row*32+c)*4`，bank = `(row*32+c) % 32 = c`——整列落在**同一个 bank**，按列读时 32 路冲突。加一列 padding 后地址变为 `(row*33+c)*4`，bank = `(row*33+c) % 32 = (row+c) % 32`（因 33 ≡ 1 mod 32），同一列的 32 个元素散布到 32 个 bank，**冲突消除**。
+
+**② 读阶段坐标：thread → src 全局坐标**
+
+```cuda
+int i = blockIdx.y * TILE + threadIdx.y;  // src 的行
+int j = blockIdx.x * TILE + threadIdx.x;  // src 的列
+```
+
+- block 网格按 `(N/TILE, M/TILE)` 划分：`blockIdx.x` 索引 src 的列 tile，`blockIdx.y` 索引 src 的行 tile。
+- warp 内 `threadIdx.x` 连续变化 → `j` 连续 → 读 `src[i*N+j]` 时同一 warp 的 32 个线程访问 `src[i*N+j .. j+31]`，**连续地址 → coalesced 读**。
+
+**③ coalesced 读 → smem**
+
+```cuda
+if (i < M && j < N)
+    smem[threadIdx.y][threadIdx.x] = src[i * N + j];
+```
+
+- 边界检查防越界（M、N 不一定是 TILE 的倍数）。
+- 写入 smem 用局部坐标 `[threadIdx.y][threadIdx.x]`——warp 内 `threadIdx.x` 连续 → 写 smem 同一行的相邻列，**无冲突**。
+
+**④ `__syncthreads()` 屏障**
+
+```cuda
+__syncthreads();
+```
+
+- 保证 block 内所有线程都把 src 数据写入 smem 后，再开始读。否则某个线程可能读到别的线程还没写好的 smem 槽位。这是**块内同步**的必需步骤——所有线程（含越界不写数据的线程）都必须命中此屏障。
+
+**⑤ 写阶段坐标：坐标交换**
+
+```cuda
+int j_out = blockIdx.x * TILE + threadIdx.y;  // dst 的行（原 src 的列方向）
+int i_out = blockIdx.y * TILE + threadIdx.x;  // dst 的列（原 src 的行方向）
+```
+
+- 关键变换：**`threadIdx.x` 与 `threadIdx.y` 在两个阶段互换角色**。
+- 读阶段 `(threadIdx.y, threadIdx.x) → (i, j)`；写阶段 `(threadIdx.x, threadIdx.y) → (i_out, j_out)`。
+- 直觉：src 的 tile `(blockIdx.y, blockIdx.x)` 转置后变成 dst 的 tile `(blockIdx.x, blockIdx.y)`，tile 内部也做行列互换。
+
+**⑥ coalesced 写 ← smem 按列读（转置）**
+
+```cuda
+if (j_out < N && i_out < M)
+    dst[j_out * M + i_out] = smem[threadIdx.x][threadIdx.y];
+```
+
+- dst 是 `N×M` row-major，`dst[j_out][i_out] = dst[j_out*M + i_out]`，故行索引 `j_out < N`、列索引 `i_out < M`。
+- warp 内 `threadIdx.x` 连续 → `i_out` 连续、`j_out` 相同 → 写 `dst[j_out*M + i_out .. i_out+31]`，**连续地址 → coalesced 写**。
+- 读 smem 时下标为 `[threadIdx.x][threadIdx.y]`——warp 内 `threadIdx.x` 连续 → 访问 smem 的**不同行同一列**，靠 `+1` padding 避免冲突。
+
+**⑦ 实例演算（TILE=32, blockIdx=(0,0), M=N=64）**
+
+以 block(0,0) 内两个线程为例，验证 `dst[j][i] = src[i][j]`：
+
+| 线程 `(tx,ty)` | 读阶段 `i,j` | 读 `src[i][j]` → smem | 写阶段 `j_out,i_out` | 读 smem → 写 `dst[j_out][i_out]` | 结果 |
+|---|---|---|---|---|---|
+| `(0,0)` | `i=0, j=0` | `smem[0][0] = src[0][0]` | `j_out=0, i_out=0` | `dst[0][0] = smem[0][0]` | `dst[0][0]=src[0][0]` ✓ |
+| `(1,0)` | `i=0, j=1` | `smem[0][1] = src[0][1]` | `j_out=0, i_out=1` | `dst[0][1] = smem[1][0]` | `dst[0][1]=src[1][0]` ✓ |
+
+> 注：thread `(1,0)` 写入 `dst[0][1]` 的值来自 `smem[1][0]`，而 `smem[1][0]` 由 thread `(0,1)` 读入的 `src[1][0]` 填充。两个线程 `(1,0)` 与 `(0,1)` 通过 smem **互换数据**——这正是转置的本质：对角线两侧的元素在 shared memory 中完成交换。
+
+**⑧ 索引公式汇总**
+
+| 阶段 | 变量 | 公式 | 含义 |
+|------|------|------|------|
+| 读 | `i` | `blockIdx.y * TILE + threadIdx.y` | src 的行 |
+| 读 | `j` | `blockIdx.x * TILE + threadIdx.x` | src 的列 |
+| 读 | smem 写 | `smem[threadIdx.y][threadIdx.x] = src[i*N+j]` | coalesced 读 src → smem（按行） |
+| 同步 | — | `__syncthreads()` | 等 tile 全部就绪 |
+| 写 | `j_out` | `blockIdx.x * TILE + threadIdx.y` | dst 的行（原列 tile） |
+| 写 | `i_out` | `blockIdx.y * TILE + threadIdx.x` | dst 的列（原行 tile） |
+| 写 | smem 读 | `dst[j_out*M+i_out] = smem[threadIdx.x][threadIdx.y]` | smem 按列读（转置）→ coalesced 写 dst |
+
+> 💡 一句话：**读阶段用 `(ty, tx) → (i, j)` 保证 coalesced 读；写阶段交换成 `(tx, ty) → (i_out, j_out)` 保证 coalesced 写；smem 中转 + `+1` padding 消除 bank conflict**——三件事一气呵成。
 
 ## 5. 性能分析
 
