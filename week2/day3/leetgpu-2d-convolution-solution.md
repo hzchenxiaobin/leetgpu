@@ -386,24 +386,186 @@ extern "C" void solve(const float* input, const float* kernel, float* output,
 
 > **说明**：LeetGPU 的 starter 注释说明 `input`、`kernel`、`output` 都是 device pointer，所以这里用 `cudaMemcpyDeviceToDevice` 把卷积核拷入常量内存。如果平台实际传入的是 host pointer，请把 `cudaMemcpyDeviceToDevice` 改成默认的 `cudaMemcpyHostToDevice`。
 
-### 4.2 索引计算图解
+### 4.2 索引计算详解
+
+卷积 kernel 的索引计算是本题最容易出错的地方。核心在于理解**三层坐标空间**的映射关系：线程坐标 `(tx, ty)` → shared memory 坐标 `(sy, sx)` → 全局坐标 `(gy, gx)` / 输出坐标 `(oy, ox)`。
+
+#### 4.2.1 三层坐标空间总览
+
+![三层坐标空间映射](../../images/conv2d_coord_mapping.svg)
+
+> **图：Global → Shared → Output 三层坐标空间映射。** 以 `block(1,1)`、`OT=4`、`K=3`、`H=W=10` 为例。左图是全局输入 `input[gy*W+gx]`，本 block 负责的 6×6 tile（含 halo）以橙/绿高亮；中图是 shared memory 中的 `smem[sy*tileW+sx]`，橙色为 halo、绿色为输出 tile，红框是 thread `(tx=1,ty=1)` 要读的 3×3 窗口；右图是全局输出 `output[oy*outW+ox]`，绿块是本 block 的 4×4 输出 tile。
+
+#### 4.2.2 坐标变量定义
+
+先明确所有坐标变量的含义，后续公式都围绕它们展开：
+
+| 变量 | 空间 | 含义 | 示例值 |
+|------|------|------|--------|
+| `blockIdx.x, blockIdx.y` | grid | 当前 block 在 grid 中的坐标 | `(1, 1)` |
+| `tx, ty` (`threadIdx.x/y`) | block | 线程在 block 内的 2D 坐标 | `(1, 1)` |
+| `tid = ty * OT + tx` | block（1D） | 线程展平编号，用于 strided 加载 | `1*4+1 = 5` |
+| `ox0 = blockIdx.x * OT` | global output | 本 block 输出 tile 左上角列 | `1*4 = 4` |
+| `oy0 = blockIdx.y * OT` | global output | 本 block 输出 tile 左上角行 | `1*4 = 4` |
+| `sx, sy` | shared memory | smem 中的 2D 坐标 | `(1, 1)` |
+| `gx, gy` | global input | 全局输入坐标 | `(5, 5)` |
+| `ox, oy` | global output | 全局输出坐标 | `(5, 5)` |
+| `tileW = OT + KW - 1` | shared memory | smem 的列数（含 halo） | `4+3-1 = 6` |
+| `tileH = OT + KH - 1` | shared memory | smem 的行数（含 halo） | `4+3-1 = 6` |
+
+> 💡 **关键洞察**：`tileW` 和 `tileH` 比 `OT` 多了 `K-1`，这多出来的部分就是 halo。`OT=4, K=3` 时 tile 是 `6×6=36` 个 cell，而输出只有 `4×4=16` 个，多出的 20 个全是 halo。
+
+#### 4.2.3 阶段一：协作加载——strided loop
+
+加载阶段的目标是把 `(tileH × tileW)` 个 input cell 载入 shared memory。线程数 `nTH = OT² = 16`，而 cell 数 `tileH * tileW = 36`，线程数不够一人一个，所以用 **strided loop**（跨步循环）均摊：
+
+```cuda
+for (int idx = tid; idx < tileH * tileW; idx += nTH) {
+    int sy = idx / tileW;     // 一维 idx → 二维行号
+    int sx = idx % tileW;     // 一维 idx → 二维列号
+    int gx = ox0 + sx;        // smem 列 → 全局列
+    int gy = oy0 + sy;        // smem 行 → 全局行
+    // clamp 防越界（仅 grid 过覆盖时触发，不影响有效输出）
+    gx = (gx < 0) ? 0 : (gx >= W ? W - 1 : gx);
+    gy = (gy < 0) ? 0 : (gy >= H ? H - 1 : gy);
+    smem[sy * tileW + sx] = input[gy * W + gx];
+}
+```
+
+**逐行解释**：
+
+1. **`for (idx = tid; idx < tileH*tileW; idx += nTH)`**：线程 `tid` 从自己的编号开始，每次跨 `nTH` 步。`tid=0` 处理 `idx=0, 16, 32`；`tid=1` 处理 `idx=1, 17, 33`……36 个 cell 被 16 个线程分摊，每线程加载 2~3 个。
+
+2. **`sy = idx / tileW`**：把一维线性索引 `idx` 转成 shared memory 的行号。`tileW=6` 时 `idx=7` → `sy=1`。这和行优先存储一致：`idx = sy * tileW + sx` 的逆运算。
+
+3. **`sx = idx % tileW`**：列号 = `idx` 对 `tileW` 取模。`idx=7` → `sx=1`。
+
+4. **`gx = ox0 + sx`**：shared memory 坐标偏移到全局坐标。`ox0=4, sx=1` → `gx=5`。这一步是"tile 内坐标"到"全局坐标"的核心桥梁。
+
+5. **`gy = oy0 + sy`**：同理，行方向偏移。
+
+6. **`smem[sy * tileW + sx] = input[gy * W + gx]`**：把全局 input 按 `gy*W+gx` 线性寻址读出，按 `sy*tileW+sx` 线性寻址写入 smem。注意 smem 用一维 `extern __shared__ float smem[]`，所以也是行优先线性地址。
+
+![Strided Loading 示意图](../../images/conv2d_strided_loading.svg)
+
+> **图：Strided Loading 协作加载模式。** 以 `OT=4, K=3` 为例，`tileH=tileW=6`，共 36 个 cell。左图第一轮 `idx=tid`（0~15），16 个线程各加载 1 个 cell（蓝色）；右图第二轮 `idx=tid+16`（16~31），同一批线程继续加载剩余 cell（紫色）。`tid=3` 的线程第一轮加载 `idx=3`（`sy=0, sx=3`），第二轮加载 `idx=19`（`sy=3, sx=1`），共 2 个 cell。
+
+**strided loop 的优势**：
+
+- 每个 thread 负载均衡（差最多 1 个 cell）
+- `idx` 连续递增 → 同一 warp 内 32 个 thread 访问连续地址 → **coalesced access**（合并访存）
+- 不需要手动判断"哪些线程加载 halo"——`idx` 自然覆盖整个 tile
+
+#### 4.2.4 阶段二：卷积计算——窗口读取
+
+计算阶段每个 thread 读 smem 中的 `K×K` 窗口，乘加常量内存中的 kernel 权重：
+
+```cuda
+const int ox = ox0 + tx;   // thread 对应的输出列
+const int oy = oy0 + ty;   // thread 对应的输出行
+if (ox < outW && oy < outH) {
+    float acc = 0.0f;
+    for (int ky = 0; ky < KH; ++ky) {
+        const float* srow = &smem[(ty + ky) * tileW + tx];
+        const float* krow = &c_kernel[ky * KW];
+        for (int kx = 0; kx < KW; ++kx) {
+            acc += srow[kx] * krow[kx];
+        }
+    }
+    output[oy * outW + ox] = acc;
+}
+```
+
+**逐行解释**：
+
+1. **`ox = ox0 + tx`，`oy = oy0 + ty`**：thread `(tx, ty)` 负责输出 tile 中第 `ty` 行、第 `tx` 列的像素。这是"线程坐标→输出坐标"的直接映射。
+
+2. **`if (ox < outW && oy < outH)`**：边界检查。当输出尺寸不是 `OT` 的整数倍时，最后一个 block 的部分线程会越界，需要跳过。
+
+3. **`srow = &smem[(ty + ky) * tileW + tx]`**：这是最关键的索引。thread 的输出像素对应 smem 中 `(ty, tx)` 位置，而卷积窗口从 `(ty, tx)` 开始向右下扩展 `K×K`。所以第 `ky` 行的起始地址是 `(ty+ky) * tileW + tx`。
+
+4. **`srow[kx]`**：等价于 `smem[(ty+ky)*tileW + tx + kx]`。用指针 `srow + kx` 避免每次重算乘法，编译器会优化为寄存器寻址。
+
+5. **`krow = &c_kernel[ky * KW]`**：kernel 权重按行存储，第 `ky` 行起始地址是 `ky * KW`。
+
+6. **`output[oy * outW + ox] = acc`**：结果按行优先写入全局 output。
+
+#### 4.2.5 索引计算图解
 
 ![2D 卷积索引计算示意图](../../images/conv2d_index_calculation.svg)
 
 > **图：2D 卷积 shared memory 索引计算示意。** 左侧是包含 halo 的输入 tile（`tileH × tileW`），绿色区域为输出 tile（`OT × OT`），橙色外圈为 halo；右侧是每个 thread 对应的输出 tile 坐标 `(tx, ty)`。以线程 `(tx=2, ty=1)` 为例，它负责计算输出像素 `(ox=ox0+2, oy=oy0+1)`，并从 shared memory 中读取从 `(sy=ty, sx=tx)` 开始的 `K×K` 窗口做卷积。
 
-图中的关键索引关系如下：
+#### 4.2.6 公式汇总表
 
-| 公式 | 含义 |
-|------|------|
-| `tid = ty * OT + tx` | 把二维 block 线程坐标展平为一维编号，用于协作加载 |
-| `idx = tid + k * nTH` | strided 遍历整个输入 tile，每个线程可能负责多个元素 |
-| `sy = idx / tileW`，`sx = idx % tileW` | 把一维 `idx` 还原为 shared memory 的二维 `(sy, sx)` 坐标 |
-| `gx = ox0 + sx`，`gy = oy0 + sy` | 由 shared memory 坐标得到对应的全局输入坐标 |
-| `ox = ox0 + tx`，`oy = oy0 + ty` | thread `(tx, ty)` 负责计算的输出像素坐标 |
-| `smem[(ty+ky)*tileW + (tx+kx)]` | 计算时从 shared memory 读取的 `K×K` 卷积窗口 |
+| 公式 | 阶段 | 含义 |
+|------|------|------|
+| `tid = ty * OT + tx` | 加载/计算 | 把二维 block 线程坐标展平为一维编号 |
+| `ox0 = blockIdx.x * OT` | 加载/计算 | 本 block 输出 tile 左上角的全局列 |
+| `oy0 = blockIdx.y * OT` | 加载/计算 | 本 block 输出 tile 左上角的全局行 |
+| `idx = tid + k * nTH` | 加载 | strided 遍历整个输入 tile，每个线程可能负责多个元素 |
+| `sy = idx / tileW` | 加载 | 一维 `idx` → smem 行号 |
+| `sx = idx % tileW` | 加载 | 一维 `idx` → smem 列号 |
+| `gx = ox0 + sx` | 加载 | smem 列 → 全局输入列 |
+| `gy = oy0 + sy` | 加载 | smem 行 → 全局输入行 |
+| `smem[sy * tileW + sx] = input[gy * W + gx]` | 加载 | 全局 → smem 的数据搬运 |
+| `ox = ox0 + tx` | 计算 | thread → 全局输出列 |
+| `oy = oy0 + ty` | 计算 | thread → 全局输出行 |
+| `smem[(ty+ky) * tileW + (tx+kx)]` | 计算 | 从 smem 读 `K×K` 窗口中的元素 |
+| `output[oy * outW + ox] = acc` | 计算 | 写回输出像素 |
 
-这样 `(tx, ty)` 同时确定了线程在输出 tile 中的位置，也确定了它在 shared memory 中卷积窗口的起点。
+#### 4.2.7 Worked Example
+
+以 `block(1,1)`、`thread(tx=1, ty=1)`、`OT=4`、`K=3`（`KH=KW=3`）、`H=W=10` 为例，走一遍完整流程：
+
+**步骤 1：确定 block 起点**
+
+```
+ox0 = blockIdx.x * OT = 1 * 4 = 4
+oy0 = blockIdx.y * OT = 1 * 4 = 4
+tileW = OT + KW - 1 = 4 + 3 - 1 = 6
+tileH = OT + KH - 1 = 4 + 3 - 1 = 6
+```
+
+**步骤 2：协作加载（以 `tid=5` 的线程为例）**
+
+```
+tid = ty * OT + tx = 1 * 4 + 1 = 5
+
+第一轮: idx = 5
+  sy = 5 / 6 = 0,  sx = 5 % 6 = 5
+  gx = 4 + 5 = 9,  gy = 4 + 0 = 4
+  smem[0*6 + 5] = input[4*10 + 9] = input[49]
+
+第二轮: idx = 5 + 16 = 21
+  sy = 21 / 6 = 3,  sx = 21 % 6 = 3
+  gx = 4 + 3 = 7,  gy = 4 + 3 = 7
+  smem[3*6 + 3] = input[7*10 + 7] = input[77]
+
+第三轮: idx = 5 + 32 = 37 ≥ 36 → 循环结束
+```
+
+该线程共加载 2 个 cell：`smem[5]` 和 `smem[21]`。
+
+**步骤 3：卷积计算**
+
+```
+ox = ox0 + tx = 4 + 1 = 5
+oy = oy0 + ty = 4 + 1 = 5
+
+窗口遍历 (ky, kx ∈ {0,1,2}):
+  ky=0: srow = &smem[(1+0)*6 + 1] = &smem[7]
+        读 smem[7], smem[8], smem[9]   → 对应 input[(4)*10+5], input[45], input[46]
+  ky=1: srow = &smem[(1+1)*6 + 1] = &smem[13]
+        读 smem[13], smem[14], smem[15] → 对应 input[55], input[56], input[57]
+  ky=2: srow = &smem[(1+2)*6 + 1] = &smem[19]
+        读 smem[19], smem[20], smem[21] → 对应 input[65], input[66], input[67]
+
+acc = Σ smem_val * c_kernel_val
+output[5*8 + 5] = output[45] = acc
+```
+
+> 💡 **验证**：输出像素 `(oy=5, ox=5)` 的卷积窗口在全局 input 中是 `input[5..7][5..7]`（3×3），即 `input[(5+ky)*10 + (5+kx)]`，与上面 `ky/kx` 遍历结果一致。这就是 valid 卷积的定义：`output[oy][ox] = Σ input[oy+ky][ox+kx] · kernel[ky][kx]`。
 
 ### 4.3 cudaMemcpyToSymbol 详解
 

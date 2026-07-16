@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="720" viewBox="0 0 1000 720">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#333"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="720" fill="#fafafa"/>
+
+  <!-- Title -->
+  <text x="500" y="40" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold" fill="#222">
+    2D 卷积索引计算示意图
+  </text>
+  <text x="500" y="66" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#666">
+    OT=4, K=3（tileH = tileW = OT+K-1 = 6）
+  </text>
+
+  <!-- ========== Left: Shared Memory / Input Tile ========== -->
+  <text x="210" y="95" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="bold" fill="#222">
+    shared memory / input tile
+  </text>
+  <text x="210" y="112" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#666">
+    smem[sy][sx] 或 smem[sy*tileW + sx]
+  </text>
+
+  <!-- Grid parameters -->
+  <!-- origin: 60,130 ; cell: 44 ; 6x6 grid -->
+  <g id="input-tile">
+    <!-- halo cells (outer ring) -->
+    <rect x="60"  y="130" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="104" y="130" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="148" y="130" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="192" y="130" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="236" y="130" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="280" y="130" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+
+    <rect x="60"  y="174" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="236" y="174" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="280" y="174" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+
+    <rect x="60"  y="218" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="236" y="218" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="280" y="218" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+
+    <rect x="60"  y="262" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="236" y="262" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="280" y="262" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+
+    <rect x="60"  y="306" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="236" y="306" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="280" y="306" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+
+    <rect x="60"  y="350" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="104" y="350" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="148" y="350" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="192" y="350" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="236" y="350" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+    <rect x="280" y="350" width="44" height="44" fill="#ffe0b2" stroke="#fff" stroke-width="2"/>
+
+    <!-- output tile area (inner 4x4) -->
+    <rect x="104" y="174" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="148" y="174" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="192" y="174" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="236" y="174" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+
+    <rect x="104" y="218" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="148" y="218" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="192" y="218" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="236" y="218" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+
+    <rect x="104" y="262" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="148" y="262" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="192" y="262" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="236" y="262" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+
+    <rect x="104" y="306" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="148" y="306" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="192" y="306" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="236" y="306" width="44" height="44" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+
+    <!-- KxK convolution window for thread (tx=2, ty=1) -->
+    <rect x="192" y="174" width="132" height="132" fill="none" stroke="#d32f2f" stroke-width="3" stroke-dasharray="6,4"/>
+
+    <!-- selected thread cell (tx=2, ty=1) -->
+    <rect x="192" y="174" width="44" height="44" fill="#81c784" stroke="#2e7d32" stroke-width="3"/>
+
+    <!-- coordinate labels inside cells -->
+    <!-- sy=0 row -->
+    <text x="82"  y="158" text-anchor="middle" font-size="10" fill="#555">(0,0)</text>
+    <text x="126" y="158" text-anchor="middle" font-size="10" fill="#555">(0,1)</text>
+    <text x="170" y="158" text-anchor="middle" font-size="10" fill="#555">(0,2)</text>
+    <text x="214" y="158" text-anchor="middle" font-size="10" fill="#555">(0,3)</text>
+    <text x="258" y="158" text-anchor="middle" font-size="10" fill="#555">(0,4)</text>
+    <text x="302" y="158" text-anchor="middle" font-size="10" fill="#555">(0,5)</text>
+    <!-- sy=1 row -->
+    <text x="82"  y="202" text-anchor="middle" font-size="10" fill="#555">(1,0)</text>
+    <text x="126" y="202" text-anchor="middle" font-size="10" fill="#555">(1,1)</text>
+    <text x="170" y="202" text-anchor="middle" font-size="10" fill="#555">(1,2)</text>
+    <text x="214" y="202" text-anchor="middle" font-size="11" font-weight="bold" fill="#d32f2f">(1,3)</text>
+    <text x="258" y="202" text-anchor="middle" font-size="10" fill="#555">(1,4)</text>
+    <text x="302" y="202" text-anchor="middle" font-size="10" fill="#555">(1,5)</text>
+    <!-- sy=2 row -->
+    <text x="82"  y="246" text-anchor="middle" font-size="10" fill="#555">(2,0)</text>
+    <text x="126" y="246" text-anchor="middle" font-size="10" fill="#555">(2,1)</text>
+    <text x="170" y="246" text-anchor="middle" font-size="10" fill="#555">(2,2)</text>
+    <text x="214" y="246" text-anchor="middle" font-size="10" fill="#555">(2,3)</text>
+    <text x="258" y="246" text-anchor="middle" font-size="10" fill="#555">(2,4)</text>
+    <text x="302" y="246" text-anchor="middle" font-size="10" fill="#555">(2,5)</text>
+    <!-- sy=3 row -->
+    <text x="82"  y="290" text-anchor="middle" font-size="10" fill="#555">(3,0)</text>
+    <text x="126" y="290" text-anchor="middle" font-size="10" fill="#555">(3,1)</text>
+    <text x="170" y="290" text-anchor="middle" font-size="10" fill="#555">(3,2)</text>
+    <text x="214" y="290" text-anchor="middle" font-size="10" fill="#555">(3,3)</text>
+    <text x="258" y="290" text-anchor="middle" font-size="10" fill="#555">(3,4)</text>
+    <text x="302" y="290" text-anchor="middle" font-size="10" fill="#555">(3,5)</text>
+    <!-- sy=4 row -->
+    <text x="82"  y="334" text-anchor="middle" font-size="10" fill="#555">(4,0)</text>
+    <text x="126" y="334" text-anchor="middle" font-size="10" fill="#555">(4,1)</text>
+    <text x="170" y="334" text-anchor="middle" font-size="10" fill="#555">(4,2)</text>
+    <text x="214" y="334" text-anchor="middle" font-size="10" fill="#555">(4,3)</text>
+    <text x="258" y="334" text-anchor="middle" font-size="10" fill="#555">(4,4)</text>
+    <text x="302" y="334" text-anchor="middle" font-size="10" fill="#555">(4,5)</text>
+    <!-- sy=5 row -->
+    <text x="82"  y="378" text-anchor="middle" font-size="10" fill="#555">(5,0)</text>
+    <text x="126" y="378" text-anchor="middle" font-size="10" fill="#555">(5,1)</text>
+    <text x="170" y="378" text-anchor="middle" font-size="10" fill="#555">(5,2)</text>
+    <text x="214" y="378" text-anchor="middle" font-size="10" fill="#555">(5,3)</text>
+    <text x="258" y="378" text-anchor="middle" font-size="10" fill="#555">(5,4)</text>
+    <text x="302" y="378" text-anchor="middle" font-size="10" fill="#555">(5,5)</text>
+
+    <!-- Axis labels for input tile -->
+    <text x="38" y="264" text-anchor="middle" font-size="13" fill="#444" transform="rotate(-90 38 264)">sy</text>
+    <text x="170" y="420" text-anchor="middle" font-size="13" fill="#444">sx</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(60, 440)">
+    <rect x="0" y="0" width="18" height="18" fill="#c8e6c9" stroke="#81c784" stroke-width="1"/>
+    <text x="26" y="14" font-family="sans-serif" font-size="12" fill="#333">输出 tile 区域 (OT×OT)</text>
+
+    <rect x="0" y="28" width="18" height="18" fill="#ffe0b2" stroke="#ffcc80" stroke-width="1"/>
+    <text x="26" y="42" font-family="sans-serif" font-size="12" fill="#333">halo (K-1 圈边界)</text>
+
+    <rect x="0" y="56" width="18" height="18" fill="#81c784" stroke="#2e7d32" stroke-width="2"/>
+    <text x="26" y="70" font-family="sans-serif" font-size="12" fill="#333">线程 (tx=2, ty=1) 负责的输出像素</text>
+
+    <rect x="0" y="84" width="18" height="18" fill="none" stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,3"/>
+    <text x="26" y="98" font-family="sans-serif" font-size="12" fill="#333">该线程要读的 K×K 卷积窗口</text>
+  </g>
+
+  <!-- ========== Right: Output Tile ========== -->
+  <text x="710" y="150" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="bold" fill="#222">
+    输出 tile (OT×OT)
+  </text>
+  <text x="710" y="168" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#666">
+    thread (tx, ty) 一一对应输出像素
+  </text>
+
+  <g id="output-tile" transform="translate(600, 190)">
+    <!-- 4x4 grid -->
+    <rect x="0"   y="0"  width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="55"  y="0"  width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="110" y="0"  width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="165" y="0"  width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+
+    <rect x="0"   y="55"  width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="55"  y="55"  width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="110" y="55"  width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="165" y="55"  width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+
+    <rect x="0"   y="110" width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="55"  y="110" width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="110" y="110" width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="165" y="110" width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+
+    <rect x="0"   y="165" width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="55"  y="165" width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="110" y="165" width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+    <rect x="165" y="165" width="55" height="55" fill="#c8e6c9" stroke="#fff" stroke-width="2"/>
+
+    <!-- selected thread -->
+    <rect x="110" y="55" width="55" height="55" fill="#81c784" stroke="#2e7d32" stroke-width="3"/>
+
+    <!-- labels -->
+    <text x="27"  y="32"  text-anchor="middle" font-size="11" fill="#555">(0,0)</text>
+    <text x="82"  y="32"  text-anchor="middle" font-size="11" fill="#555">(1,0)</text>
+    <text x="137" y="32"  text-anchor="middle" font-size="11" fill="#555">(2,0)</text>
+    <text x="192" y="32"  text-anchor="middle" font-size="11" fill="#555">(3,0)</text>
+
+    <text x="27"  y="87"  text-anchor="middle" font-size="11" fill="#555">(0,1)</text>
+    <text x="82"  y="87"  text-anchor="middle" font-size="11" fill="#555">(1,1)</text>
+    <text x="137" y="87"  text-anchor="middle" font-size="11" font-weight="bold" fill="#d32f2f">(2,1)</text>
+    <text x="192" y="87"  text-anchor="middle" font-size="11" fill="#555">(3,1)</text>
+
+    <text x="27"  y="142" text-anchor="middle" font-size="11" fill="#555">(0,2)</text>
+    <text x="82"  y="142" text-anchor="middle" font-size="11" fill="#555">(1,2)</text>
+    <text x="137" y="142" text-anchor="middle" font-size="11" fill="#555">(2,2)</text>
+    <text x="192" y="142" text-anchor="middle" font-size="11" fill="#555">(3,2)</text>
+
+    <text x="27"  y="197" text-anchor="middle" font-size="11" fill="#555">(0,3)</text>
+    <text x="82"  y="197" text-anchor="middle" font-size="11" fill="#555">(1,3)</text>
+    <text x="137" y="197" text-anchor="middle" font-size="11" fill="#555">(2,3)</text>
+    <text x="192" y="197" text-anchor="middle" font-size="11" fill="#555">(3,3)</text>
+  </g>
+
+  <!-- Arrow from output tile to shared memory window -->
+  <path d="M 655 300 L 420 260" stroke="#d32f2f" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="540" y="270" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#d32f2f">
+    输出 (tx,ty) 对应 smem 中
+  </text>
+  <text x="540" y="286" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#d32f2f">
+    从 (ty,tx) 开始的 K×K 窗口
+  </text>
+
+  <!-- ========== Bottom: Index formulas ========== -->
+  <rect x="50" y="520" width="900" height="170" rx="8" fill="#f5f5f5" stroke="#ddd" stroke-width="1"/>
+  <text x="500" y="548" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="bold" fill="#222">
+    核心索引公式
+  </text>
+
+  <!-- Column 1: block / thread coords -->
+  <text x="80" y="580" font-family="monospace" font-size="13" fill="#222">
+    ox0 = blockIdx.x * OT
+  </text>
+  <text x="80" y="602" font-family="monospace" font-size="13" fill="#222">
+    oy0 = blockIdx.y * OT
+  </text>
+  <text x="80" y="624" font-family="monospace" font-size="13" fill="#222">
+    tx  = threadIdx.x
+  </text>
+  <text x="80" y="646" font-family="monospace" font-size="13" fill="#222">
+    ty  = threadIdx.y
+  </text>
+  <text x="80" y="668" font-family="monospace" font-size="13" fill="#222">
+    tid = ty * OT + tx
+  </text>
+
+  <!-- Column 2: load input tile -->
+  <text x="340" y="580" font-family="monospace" font-size="13" fill="#222">
+    for (idx = tid; idx &lt; tileH*tileW; idx += nTH)
+  </text>
+  <text x="340" y="602" font-family="monospace" font-size="13" fill="#222">
+    sy = idx / tileW
+  </text>
+  <text x="340" y="624" font-family="monospace" font-size="13" fill="#222">
+    sx = idx % tileW
+  </text>
+  <text x="340" y="646" font-family="monospace" font-size="13" fill="#222">
+    gx = ox0 + sx,  gy = oy0 + sy
+  </text>
+  <text x="340" y="668" font-family="monospace" font-size="13" fill="#222">
+    smem[sy*tileW + sx] = input[gy*W + gx]
+  </text>
+
+  <!-- Column 3: compute output -->
+  <text x="720" y="580" font-family="monospace" font-size="13" fill="#222">
+    ox = ox0 + tx
+  </text>
+  <text x="720" y="602" font-family="monospace" font-size="13" fill="#222">
+    oy = oy0 + ty
+  </text>
+  <text x="720" y="624" font-family="monospace" font-size="13" fill="#222">
+    acc += smem[(ty+ky)*tileW + (tx+kx)]
+  </text>
+  <text x="720" y="646" font-family="monospace" font-size="13" fill="#222">
+         * c_kernel[ky*KW + kx]
+  </text>
+  <text x="720" y="668" font-family="monospace" font-size="13" fill="#222">
+    output[oy*outW + ox] = acc
+  </text>
+</svg>
