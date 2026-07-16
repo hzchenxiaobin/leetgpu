@@ -160,6 +160,29 @@ int main(int argc, char** argv) {
 }
 ```
 
+### 4.3 代码详解
+
+`naive_reverse_elements`（2.2 节）与 `reverse_elements_kernel`（4.1 节提交版）逻辑完全相同——一 thread 一元素，做 `output[i] = -input[i]` 的符号反转。区别仅在命名与是否有 host 包装。下面以提交版为例逐块拆解。
+
+**Kernel 结构概览**：与 Scalar Multiply / ReLU 完全同构的 1:1 element-wise 骨架，循环体是一条取负。共 3 行，无 shared memory、无同步。
+
+| # | 代码块 | 作用 | 说明 |
+|---|--------|------|------|
+| ① | `int i = blockIdx.x * blockDim.x + threadIdx.x;` | 全局线程下标 | warp 内连续 → 读写均 coalesced |
+| ② | `if (i < N)` | 越界保护 | 末 block 多余 thread 直接跳过 |
+| ③ | `output[i] = -input[i];` | 符号反转 | 读 `input[i]`（4B）→ 寄存器取负 → 写 `output[i]`（4B） |
+
+**关键索引/变量**：
+
+| 变量 | 含义 |
+|------|------|
+| `i` | 元素下标，范围 `[0, N)` |
+| `input[i]` | 只读一次，进寄存器后立即取负，不落 global |
+| `blockSize = 256` | 每 block 线程数 |
+| `gridSize = ceil(N / 256)` | block 数 |
+
+> 💡 **关键洞察**：取负 `-x` 编译为单条硬件取反指令（如 `VNEG.F32`），无分支、无 predicate。算术强度 `1 FLOP / 8B = 0.125 FLOP/B`，纯 memory-bound，与 Scalar Multiply 同构——区别仅在 ALU 操作是"取负"还是"乘标量"。它是最简单的 element-wise 变换，也是系统联调中"逐元素对比"精度验证的原子操作：`(custom - pytorch).abs().max() < threshold` 的基础就是逐元素变换 + 逐元素 diff。无需 shared memory，优化方向同前：`float4` 向量化。
+
 ## 5. 性能分析
 
 ### 5.1 编译与运行

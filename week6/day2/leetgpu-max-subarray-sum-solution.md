@@ -186,6 +186,36 @@ extern "C" void solve(const int* input, int* output, int N, int window_size) {
 }
 ```
 
+### 4.2 代码详解
+
+下面以 4.1 节 LeetGPU 提交版本的 `max_window_sum_kernel` 为例逐段拆解。每个 thread 用 grid-stride 处理若干窗口，对每个窗口串行累加 `W` 个元素得到窗口和，再用 warp shuffle + shared memory 两级归约求 block 内最大，最终 `atomicMax` 汇总到全局 `output`。
+
+**Kernel 结构概览**：四段——① grid-stride 遍历窗口 → ② 每窗口串行求和并更新 `local_max` → ③ warp 归约 → ④ block 归约 + `atomicMax`。教学版 `max_subarray_sum_kernel`（4 节）逻辑相同，只是无 grid-stride、一 thread 一窗口。
+
+| # | 代码块 | 作用 | 说明 |
+|---|--------|------|------|
+| ① | `int num_windows = N - W + 1;` | 窗口总数 | 长度 `N`、窗口 `W` 的合法起点数 |
+| ② | `for (int i = tid; i < num_windows; i += stride)` | grid-stride 主循环 | 每 thread 跨步处理多个窗口，少量 block 覆盖全部窗口 |
+| ③ | `for (int j = 0; j < W; ++j) sum += input[i+j];` | 串行窗口求和 | 从 `input[i]` 累加到 `input[i+W-1]`，`O(W)` 每窗口 |
+| ④ | `if (sum > local_max) local_max = sum;` | 更新线程局部最大 | `local_max` 寄存器变量，跨多个窗口累积 |
+| ⑤ | `local_max = warp_reduce_max(local_max);` | warp 归约 | `__shfl_down_sync` 5 步，lane 0 持有本 warp 最大值 |
+| ⑥ | `if (lane == 0) warp_max[warp_id] = local_max;` | 落盘 warp 结果 | 8 个 warp 的最大值写入 shared memory |
+| ⑦ | `__syncthreads();` | warp 间屏障 | 保证 8 个 warp 都写完，warp 0 才读 |
+| ⑧ | `warp 0 再归约 + atomicMax(output, ...)` | block 归约 + 全局汇总 | warp 0 取 `warp_max[0..7]` 再归约，lane 0 用 `atomicMax` 写入全局 `output` |
+
+**关键索引/变量**：
+
+| 变量 | 含义 |
+|------|------|
+| `tid` | 全局线程下标，同时是窗口起点候选 |
+| `num_windows` | `N - W + 1`，合法窗口数 |
+| `W` | 窗口大小，决定每窗口串行计算量 |
+| `local_max` | 线程局部最大窗口和，寄存器变量 |
+| `warp_max[8]` | shared memory，存放各 warp 的最大值 |
+| `output` | 全局结果，初始化为 `INT_MIN`，由 `atomicMax` 更新 |
+
+> 💡 **关键洞察**：本提交版是"暴力但并行"——每窗口仍 `O(W)` 串行求和，总工作量 `O(N·W)`，靠海量线程把 wall-time 压下来。性能测试 `N=50000, W=25000` 时每窗口加 25000 次，总计算量 `≈ 1.25e9` 次加法。真正的 `O(N)` 解法是 **prefix sum**：先算前缀和 `pref[i]`，则窗口和 `= pref[i+W-1] - pref[i-1]` 降为 `O(1)`，总工作量 `O(N)`（见 [Week2 Day7 题解](../week2/day7/leetgpu-max-subarray-sum-solution.md)）。两版是"算力换带宽" vs "带宽换算力"的权衡：暴力版无额外显存、compute-bound；prefix 版多一趟 `O(N)` 扫描和 `pref` 数组、转 memory-bound。归约部分（warp shuffle → shared → atomicMax）是 GPU 求最大值的通用骨架，与 Reduction 题完全复用。
+
 ## 5. 复杂度分析
 
 | 维度 | 暴力版 | prefix sum 优化版 |

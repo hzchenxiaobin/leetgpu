@@ -186,6 +186,49 @@ extern "C" void solve(const float* input, int* output, int N) {
 }
 ```
 
+### 3.2 代码详解
+
+下面以 3.1 节 LeetGPU 提交版本为例，逐段拆解两阶段 argmax。核心思路：argmax = 归约 + 下标追踪——把 `(val, idx)` 打包成 `ValIdx` 一起归约，归约时同时比较值与下标，平局取较小 idx。Stage 1 每个 block 算出局部最优写入 `block_results[blockIdx.x]`；Stage 2 单 block 把所有 `block_results` 归约出全局下标。
+
+#### `warp_reduce_argmax`：warp 内 32 lane 归约 `(val, idx)`
+
+```cuda
+for (int offset = 16; offset > 0; offset >>= 1) {
+    float other_val = __shfl_down_sync(0xffffffff, v.val, offset);
+    int  other_idx = __shfl_down_sync(0xffffffff, v.idx, offset);
+    if (other_val > v.val || (other_val == v.val && other_idx < v.idx)) {
+        v.val = other_val; v.idx = other_idx;
+    }
+}
+```
+
+`__shfl_down_sync` 让 lane `i` 取回 lane `i+offset` 的值（高位"下移"）。关键在于 **val 与 idx 必须成对 shuffle、成对比较**：先比 `other_val > v.val`（更大值赢），再用 `other_val == v.val && other_idx < v.idx` 处理平局（值相同取较小 idx）。5 步后 lane 0 持有整个 warp 的最优 `(val, idx)`。
+
+#### `argmax_kernel`（Stage 1）：每个 block 的局部 argmax
+
+1. **初始化哨兵**：`local = {-inf, INT_MAX}`——值端 `-inf` 保证任何真实元素都更大；下标端 `INT_MAX` 保证平局时真实下标必更小，哨兵永远输。
+2. **grid-stride 扫描**：`for (i = gid; i < N; i += stride)`——每 thread 跨步处理多个元素，用同样的 `val/idx` 成对比较更新 `local`。
+3. **warp 归约**：`local = warp_reduce_argmax(local)`——warp 内 32 个 `local` 归约到 lane 0。
+4. **block 归约**：lane 0 把各 warp 结果写入 `warp_results[32]`，`__syncthreads()` 后由 warp 0 再做一次 `warp_reduce_argmax`。
+5. **写回**：`block_results[blockIdx.x] = local`——每 block 留一个 `ValIdx`。
+
+#### `reduce_argmax_kernel`（Stage 2）：全局 argmax
+
+结构与 `argmax_kernel` 完全一致（grid-stride → warp 归约 → block 归约），区别只是输入是 `num_blocks` 个 `block_results`（而非原始 `N` 个元素），结果 `*output = local.idx`。用单 block（`<<<1, 256>>>`）启动，`num_blocks` 通常远小于 256，多数线程加载哨兵不参与有效比较。
+
+#### 关键变量速查
+
+| 变量 | 含义 |
+|------|------|
+| `ValIdx{val, idx}` | 值-下标打包体，归约的基本单元 |
+| `gid` | 全局线程下标，对应 `input` 数组位置 |
+| `local` | 每 thread 持有的当前最优 `(val, idx)`，寄存器变量 |
+| `warp_results[32]` | shared memory，存放各 warp 的部分最优 |
+| `block_results[blockIdx.x]` | Stage 1 输出，每 block 一个 `ValIdx` |
+| `offset` | `16→1`，`__shfl_down_sync` 下移距离 |
+
+> 💡 **关键洞察**：argmax 与普通 reduce 的唯一区别是"状态带下标"——把 `idx` 和 `val` 绑在一起 shuffle、一起比较，平局用 `other_idx < v.idx` 破解。教学版用 `atomicMax(output, local.idx)` 无法正确处理平局（`atomicMax` 只比下标不比值），故提交版改用两阶段 kernel：Stage 1 落盘 `ValIdx`，Stage 2 单 block 终约，彻底绕开 atomic 的平局缺陷。哨兵 `{-inf, INT_MAX}` 是双保险——值端保证不误选空哨兵，下标端保证平局时哨兵必输。
+
 ## 4. 复杂度分析
 
 | 维度 | 分析 |

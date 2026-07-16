@@ -179,6 +179,30 @@ int main(int argc, char** argv) {
 }
 ```
 
+### 4.3 代码详解
+
+`naive_scalar_multiply`（2.2 节）与 `scalar_multiply_kernel`（4.1 节提交版）逻辑完全相同——一 thread 一元素，做 `output[i] = input[i] * alpha`。区别仅在命名与是否有 host 包装。下面以提交版为例逐块拆解。
+
+**Kernel 结构概览**：与 Vector Addition / ReLU 完全同构的 1:1 element-wise 骨架，循环体是一条标量乘法。共 3 行，无 shared memory、无同步。
+
+| # | 代码块 | 作用 | 说明 |
+|---|--------|------|------|
+| ① | `int i = blockIdx.x * blockDim.x + threadIdx.x;` | 全局线程下标 | warp 内连续 → 读写均 coalesced |
+| ② | `if (i < N)` | 越界保护 | 末 block 多余 thread 直接跳过 |
+| ③ | `output[i] = input[i] * alpha;` | 标量乘 | 读 `input[i]`（4B）→ 寄存器乘 `alpha` → 写 `output[i]`（4B） |
+
+**关键索引/变量**：
+
+| 变量 | 含义 |
+|------|------|
+| `i` | 元素下标，范围 `[0, N)` |
+| `alpha` | 标量乘子，通过 kernel 参数传入，对所有 thread 广播，零额外带宽 |
+| `input[i]` | 只读一次，进寄存器后立即参与乘法，不落 global |
+| `blockSize = 256` | 每 block 线程数 |
+| `gridSize = ceil(N / 256)` | block 数 |
+
+> 💡 **关键洞察**：标量 `alpha` 通过 kernel 参数传入，存在常量寄存器中，对 warp 内 32 个 thread 广播——零额外访存带宽。算术强度 `1 FLOP / 8B = 0.125 FLOP/B`，纯 memory-bound，性能上限 = HBM 双向带宽。它就是 attention score scaling（`score /= sqrt(d_k)`）、softmax 温度缩放、LayerNorm 方差缩放的原子操作——这些大模型 decode 阶段的高频 element-wise 操作计算密度极低，GPU 算力闲置，正是 Speculative Decoding 能用 draft model 填补闲置算力的根因。优化方向同 Matrix Copy / Vector Reversal：`float4` 向量化减少事务数。
+
 ## 5. 性能分析
 
 ### 5.1 编译与运行

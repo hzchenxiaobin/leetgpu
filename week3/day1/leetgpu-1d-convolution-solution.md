@@ -79,6 +79,34 @@ extern "C" void solve(const float* input, const float* kernel, float* output, in
 }
 ```
 
+### 3.2 代码详解
+
+下面以 3.1 节 LeetGPU 提交版本的 `conv1d_kernel` 为例逐块拆解。每个 thread 负责一个输出元素 `output[i]`，内层串行累加 `K` 次乘加——这是"per-output 串行卷积"的最简形式，无 shared memory、无 tiling。
+
+**Kernel 结构概览**：单层 1:1 映射骨架（一 thread 一输出），循环体是长度为 `K` 的串行累加。共 3 段：索引计算 → 越界保护 → 累加写回。
+
+| # | 代码块 | 作用 | 说明 |
+|---|--------|------|------|
+| ① | `int i = blockIdx.x * blockDim.x + threadIdx.x;` | 输出元素下标 | 一 thread 算一个 `output[i]`，warp 内 `i` 连续 → 写端 coalesced |
+| ② | `if (i >= N) return;` | 越界保护 | `gridSize = ceil(N/256)`，末 block 多余 thread 直接返回 |
+| ③ | `float sum = 0.0f;` | 累加器初始化 | 寄存器变量，整个内层循环不落 global |
+| ④ | `for (int j = 0; j < K; j++)` | 卷积核遍历 | 串行扫 `K` 个抽头，每个抽头一次乘加 |
+| ⑤ | `int idx = i + j; if (idx < N)` | 输入下标 + 右边界裁剪 | 卷积会探出数组右端（`i+K-1` 可能 ≥ N），用 `if` 把越界抽头当 0 处理（zero-padding） |
+| ⑥ | `sum += input[idx] * kernel[j];` | 乘加累加 | `input[idx]` 是读端；`kernel[j]` 被 block 内所有 thread 复用 → 靠 L2/常量缓存自动命中 |
+| ⑦ | `output[i] = sum;` | 写回输出 | 写端 `i` 连续 → coalesced store |
+
+**关键索引/变量**：
+
+| 变量 | 含义 |
+|------|------|
+| `i` | 输出元素下标，同时也是输入窗口起点 |
+| `j` | 卷积核抽头下标，范围 `[0, K)` |
+| `idx = i + j` | 输入元素下标，范围 `[i, i+K-1]`，需裁剪到 `[0, N)` |
+| `K` | 卷积核长度，决定每个输出的串行计算量 |
+| `sum` | 寄存器累加器，存 `output[i]` 的部分和 |
+
+> 💡 **关键洞察**：每个输出 `output[i]` 读取输入的 `[i, i+K-1]` 窗口，相邻输出 `output[i]` 与 `output[i+1]` 的窗口重叠 `K-1` 个元素。本朴素版每次都从 global 重读这些重叠部分，读量为 `O(N·K)`。当 `K` 较大时，用 shared memory 缓存输入 tile（一个 block 的 `blockDim.x + K - 1` 长度窗口）可把 global 读量降到 `O(N)`——这就是 shared memory tiling 的收益来源。`kernel[j]` 体积小（`K ≤ 1024`）且被全 block 共享，适合放 constant memory 或靠 L2 缓存。算术强度 `2K FLOP / 4(K+1)B ≈ 0.5 FLOP/B`：`K` 小时 memory-bound，`K` 大时向 compute-bound 过渡。
+
 ## 4. 复杂度分析
 
 | 维度 | 分析 |

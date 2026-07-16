@@ -175,6 +175,29 @@ int main(int argc, char** argv) {
 }
 ```
 
+### 4.3 代码详解
+
+`naive_reverse`（2.2 节）与 `reverse_kernel`（4.1 节提交版）逻辑完全相同——一 thread 一元素，做 `output[i] = input[N-1-i]` 的逆序索引映射。区别仅在命名与是否有 host 包装。下面以提交版 `reverse_kernel` 为例逐块拆解。
+
+**Kernel 结构概览**：纯索引映射，无 shared memory、无计算。3 行：索引计算 → 越界保护 → 逆序读写。
+
+| # | 代码块 | 作用 | 说明 |
+|---|--------|------|------|
+| ① | `int i = blockIdx.x * blockDim.x + threadIdx.x;` | 输出位置下标 | 一 thread 写一个 `output[i]`，warp 内 `i` 连续 |
+| ② | `if (i < N)` | 越界保护 | `gridSize = ceil(N/256)`，末 block 可能多余 |
+| ③ | `output[i] = input[N - 1 - i];` | 逆序映射 | 读端 `input[N-1-i]` 随 `i` 递增而递减，写端 `output[i]` 递增 |
+
+**关键索引/变量**：
+
+| 变量 | 含义 |
+|------|------|
+| `i` | 输出下标，范围 `[0, N)` |
+| `N - 1 - i` | 输入下标，`i=0` 读 `input[N-1]`（末元素），`i=N-1` 读 `input[0]`（首元素） |
+| `blockSize = 256` | 每 block 线程数 |
+| `gridSize = ceil(N / 256)` | block 数 |
+
+> 💡 **关键洞察**：读地址 `N-1, N-2, ..., N-32`（递减）与写地址 `0, 1, ..., 31`（递增）在 warp 内都是**连续地址段**——GPU 的 coalesced access 只要求 warp 内 32 个 thread 访问同一段连续内存，方向（递增/递减）不影响事务效率，故读写两端均 coalesced。这是一道"零计算、纯搬运"题：算术强度 `0 FLOP/B`，性能上限完全由 HBM 双向带宽决定。无需 shared memory——任何暂存都只增加一次往返、零收益。优化方向是 `float4` 向量化（4 个 float 打包成 16B 事务，减少指令/事务数），与 Matrix Copy 同构。
+
 ## 5. 性能分析
 
 ### 5.1 编译与运行

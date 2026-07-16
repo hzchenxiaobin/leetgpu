@@ -174,6 +174,32 @@ int main(int argc, char** argv) {
 }
 ```
 
+### 4.3 代码详解
+
+`naive_add`（2.2 节）与 `matrix_add_kernel`（4.1 节提交版）逻辑完全相同——一 thread 一元素，做 `C[idx] = A[idx] + B[idx]`。两者都用 2D `(blockIdx.y/x, threadIdx.y/x)` 映射行/列。下面以提交版为例逐块拆解。
+
+**Kernel 结构概览**：2D grid + 2D block 映射 `M×N` 矩阵，一 thread 算一个 `C[i][j]`。共 4 行：2D 坐标计算 → 越界保护 → 1D 展平 → 加法写回。无 shared memory、无同步。
+
+| # | 代码块 | 作用 | 说明 |
+|---|--------|------|------|
+| ① | `int i = blockIdx.y * blockDim.y + threadIdx.y;` | 行下标 | `blockIdx.y` 索引行方向的 block |
+| ② | `int j = blockIdx.x * blockDim.x + threadIdx.x;` | 列下标 | `blockIdx.x` 索引列方向的 block；warp 内 `threadIdx.x` 连续 → 列方向 coalesced |
+| ③ | `if (i < M && j < N)` | 越界保护 | 末 block 在行/列两个方向都可能多余 |
+| ④ | `int idx = i * N + j;` | 1D 展平 | 行主序，`idx` 是 `A/B/C` 的连续下标 |
+| ⑤ | `C[idx] = A[idx] + B[idx];` | 逐元素加 | 读 `A[idx]`、`B[idx]`（各 4B）→ 寄存器加 → 写 `C[idx]`（4B） |
+
+**关键索引/变量**：
+
+| 变量 | 含义 |
+|------|------|
+| `i` | 行下标，范围 `[0, M)` |
+| `j` | 列下标，范围 `[0, N)` |
+| `idx = i * N + j` | 行主序 1D 下标，`A/B/C` 共用 |
+| `block(16, 16)` | 2D block，16×16 = 256 线程 |
+| `grid((N+15)/16, (M+15)/16)` | 2D grid，列方向 `(N+15)/16` 个 block、行方向 `(M+15)/16` 个 block |
+
+> 💡 **关键洞察**：2D block 的 coalesced 关键在"列方向 = `threadIdx.x`"——warp 内 32 个 thread 的 `threadIdx.x` 连续，故 `j` 连续、`idx = i*N+j` 连续，`A[idx]`/`B[idx]`/`C[idx]` 均合并访问。若误把行方向映射到 `threadIdx.x`，则 warp 内 `i` 连续、`j` 不变，`idx` 步长为 `N`（跨行），导致 32 个分散事务、带宽崩塌。算术强度 `1 FLOP / 12B ≈ 0.083 FLOP/B`，纯 memory-bound，受 HBM 三向带宽（读 A + 读 B + 写 C）限制。本 2D 版与 [Week3 Day5](../../week3/day5/leetgpu-matrix-addition-solution.md) 的 1D 展平版、[Week1 Day7](../../week1/day7/leetgpu-matrix-addition-solution.md) 的 float4 向量化版是同一题的三种映射策略：2D 直观、1D 简洁、float4 高带宽，本质都是 coalesced element-wise。
+
 ## 5. 性能分析
 
 ### 5.1 编译与运行
