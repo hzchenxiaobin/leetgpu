@@ -118,6 +118,31 @@ void attention_cpu(const float* Q, const float* K, const float* V, float* O, int
 
 > ⚠️ online softmax 的精髓：**它把"需要两次全行扫描（max + sum）的 softmax"变成"一次扫描即可完成"**，因此不需要物化 `S` 来回读。`m`、`l`、`o` 只需 `O(d)` 状态，对每个 query 都能放进寄存器。
 
+#### 3.3.1 Online softmax 逐步数值演算
+
+![Online Softmax 三公式逐步数值演算](../../images/attention_online_softmax_worked.svg)
+
+> **图：Online softmax 三公式的逐步数值演算。** 以 `N=3, d=2, scale=0.707` 为例，展示遍历 `k=0,1,2` 时 `m`（running max）、`l`（running sum）、`O`（running output）如何增量更新。Step 2 中 max 从 0.707 变为 0.778，触发 `α=0.931` 对旧状态的缩放；末尾一次除法 `O/l` 即得最终归一化输出。
+
+**变量对照**：
+
+| 变量 | 含义 | 初始值 |
+|------|------|--------|
+| `m` | running max（当前已见 score 的最大值） | `-INFINITY` |
+| `l` | running sum（未归一化的分母） | `0.0` |
+| `o_local` | running output（未归一化的输出向量，每 thread 一个分量） | `0.0` |
+| `s_k` | 当前 key 的 score = `Q·K[k]·scale` | — |
+| `α` (alpha) | 旧状态缩放因子 = `exp(m - m_new)` | — |
+| `p` | 新 key 的未归一化权重 = `exp(s_k - m_new)` | — |
+| `l_new` | 更新后的 sum = `l·α + p` | — |
+| `alpha_shm` | O 的缩放因子 = `l·α / l_new`（广播给全 block） | — |
+| `beta_shm` | 新 V 的权重 = `p / l_new`（广播给全 block） | — |
+
+**关键洞察**：
+- 当 `m_new > m`（新 score 更大）时，`α < 1`，旧 `l` 和 `O` 被缩小——因为分母的 max 变了，之前的 `exp` 值需要重新对齐
+- 当 `m_new == m`（新 score 不更大）时，`α = 1`，旧状态不变，直接累加新项
+- `alpha_shm` 和 `beta_shm` 满足 `alpha_shm + beta_shm = (l·α + p) / l_new = 1`——加权平均的权重和始终为 1，所以末尾无需再归一化（`O` 已是 `Σ p_j·V_j / Σ p_j` 的增量形式）
+
 ## 4. Kernel 实现
 
 完整可编译代码：**naive 版（物化 S/P，用于对比）+ fused 版（online softmax，不物化）**，含 `main()`、`cudaMalloc/Memcpy`、CPU 验证、`cudaFree`：
@@ -391,21 +416,28 @@ int main(int argc, char** argv) {
 
 ### 4.1 LeetGPU 提交版本
 
-下面给出适配 LeetGPU 官方 starter 签名的提交版本。它使用 **online softmax** 将 `QK^T → softmax → PV` 融合成一个 kernel，不物化中间矩阵。
+下面给出适配官方 starter 签名 `solve(Q, K, V, output, M, N, d)` 的提交版本。它使用 online softmax 把 `QK^T → softmax → PV` 融合在一个 kernel 内，不物化 `S/P`。
 
 ```cuda
-#include <cuda_runtime.h>
 #include <cmath>
+#include <cuda_runtime.h>
 
 #define BLOCK_SIZE 256
 #define WARP_SIZE 32
 #define NUM_WARPS (BLOCK_SIZE / WARP_SIZE)
-#define D_MAX 128
+#define D_MAX 128 // 假设 head_dim <= 128
 
 __inline__ __device__ float warp_reduce_sum(float v) {
     #pragma unroll
     for (int o = WARP_SIZE / 2; o > 0; o >>= 1)
         v += __shfl_down_sync(0xffffffff, v, o);
+    return v;
+}
+
+__inline__ __device__ float warp_reduce_max(float v) {
+    #pragma unroll
+    for (int o = WARP_SIZE / 2; o > 0; o >>= 1)
+        v = fmaxf(v, __shfl_down_sync(0xffffffff, v, o));
     return v;
 }
 
@@ -425,13 +457,29 @@ __inline__ __device__ float block_reduce_sum(float v, float* sh) {
     return sh[0];
 }
 
-__global__ void attention_fused_kernel(const float* __restrict__ Q,
-                                       const float* __restrict__ K,
-                                       const float* __restrict__ V,
-                                       float* __restrict__ O, int M, int N, int d) {
+__inline__ __device__ float block_reduce_max(float v, float* sh) {
+    int lane = threadIdx.x & 31, wid = threadIdx.x >> 5;
+    v = warp_reduce_max(v);
+    if (lane == 0)
+        sh[wid] = v;
+    __syncthreads();
+    if (wid == 0) {
+        v = (lane < NUM_WARPS) ? sh[lane] : -INFINITY;
+        v = warp_reduce_max(v);
+        if (lane == 0)
+            sh[0] = v;
+    }
+    __syncthreads();
+    return sh[0];
+}
+
+__global__ void attention_fused_kernel(const float* __restrict__ Q, const float* __restrict__ K,
+                                       const float* __restrict__ V, float* __restrict__ O,
+                                       int M, int N, int d) {
     __shared__ float q_shm[D_MAX];
     __shared__ float red[NUM_WARPS + 1];
     __shared__ float s_k_shm, alpha_shm, beta_shm;
+
     int i = blockIdx.x, tid = threadIdx.x;
     if (i >= M)
         return;
@@ -445,7 +493,9 @@ __global__ void attention_fused_kernel(const float* __restrict__ Q,
     const float scale = 1.0f / sqrtf((float)d);
 
     for (int k = 0; k < N; ++k) {
-        float part = (tid < d) ? q_shm[tid] * K[k * d + tid] : 0.f;
+        float part = 0.f;
+        for (int t = tid; t < d; t += BLOCK_SIZE)
+            part += q_shm[t] * K[k * d + t];
         float s_k = block_reduce_sum(part, red) * scale;
         if (tid == 0)
             s_k_shm = s_k;
@@ -473,12 +523,109 @@ __global__ void attention_fused_kernel(const float* __restrict__ Q,
 }
 
 // Q, K, V, output are device pointers
-extern "C" void solve(const float* Q, const float* K, const float* V, float* output,
-                      int M, int N, int d) {
+extern "C" void solve(const float* Q, const float* K, const float* V, float* output, int M, int N, int d) {
+    if (M <= 0 || N <= 0 || d <= 0) return;
     attention_fused_kernel<<<M, BLOCK_SIZE>>>(Q, K, V, output, M, N, d);
     cudaDeviceSynchronize();
 }
 ```
+
+### 4.2 Fused Kernel 循环数据流详解
+
+![Fused Kernel 循环内部数据流](../../images/attention_fused_kernel_flow.svg)
+
+> **图：Fused Attention Kernel 单次 k 循环的内部数据流。** 一个 block 处理一行 query，256 个 thread 协作。每次循环分三步：① 算点积 `s_k`（各 thread 算一维部分积 → block_reduce_sum 汇总 → 广播）；② online softmax 更新（仅 tid=0 执行，算出 α、β → 广播）；③ 累加输出（每个 thread 持有 `o_local` 的一个分量，用 α 缩放旧值 + β 乘新 V）。
+
+#### 4.2.1 初始化阶段
+
+```cuda
+// Q 行加载到 shared memory，供全 block 复用做点积
+for (int t = tid; t < d; t += BLOCK_SIZE)
+    q_shm[t] = Q[i * d + t];
+__syncthreads();
+
+float m = -INFINITY, l = 0.f;  // running max / sum
+float o_local = 0.f;            // 每 thread 持有 O 的一个维度
+const float scale = 1.0f / sqrtf((float)d);
+```
+
+- **`q_shm[d]`**：把当前 query 行 `Q[i]` 载入 shared memory。后续 N 次循环都要用它做点积，载入一次复用 N 次，避免重复读 HBM。
+- **`o_local`**：每个 thread 持有输出向量 `O[i]` 的一个分量（`tid < d` 时有效）。`d=64` 时 256 个 thread 中只有前 64 个有效，其余 idle。这是本实现的简化——工业级 FlashAttention 会用 thread tiling 让所有 thread 都参与计算。
+- **`m`、`l`**：running max 和 running sum，初始为 `-∞` 和 `0`。注意这两个变量虽然每 thread 都声明了，但**只有 tid=0 的值是有效的**（在 ② 步只由 tid=0 更新）。
+
+#### 4.2.2 主循环三步骤
+
+```cuda
+for (int k = 0; k < N; ++k) {
+```
+
+**① 点积：`s_k = Q[i]·K[k]·scale`**
+
+```cuda
+float part = 0.f;
+for (int t = tid; t < d; t += BLOCK_SIZE)
+    part += q_shm[t] * K[k * d + t];
+float s_k = block_reduce_sum(part, red) * scale;
+if (tid == 0) s_k_shm = s_k;
+__syncthreads();
+s_k = s_k_shm;
+```
+
+- 每个 thread 算 `q_shm[tid] * K[k][tid]`（自己那维的部分积），`block_reduce_sum` 汇总为标量 `s_k`
+- tid=0 把结果写入 `s_k_shm`，`__syncthreads` 后全 block 读取——**所有 thread 需要同一个 `s_k` 值**来更新各自的 `m`
+- `K[k]` 直接从 global memory 读（本实现未缓存 K tile，见 5.3 优化方向）
+
+**② Online softmax 更新（仅 tid=0）**
+
+```cuda
+if (tid == 0) {
+    float m_new = fmaxf(m, s_k);
+    float alpha = expf(m - m_new);     // 旧状态缩放因子
+    float p = expf(s_k - m_new);       // 新 key 权重
+    float l_new = l * alpha + p;
+    alpha_shm = (l * alpha) / l_new;   // O 的缩放因子
+    beta_shm = p / l_new;              // 新 V 的权重
+    m = m_new;
+    l = l_new;
+}
+__syncthreads();
+```
+
+- **为什么只有 tid=0？** `m`、`l` 是标量（不是向量），只需一个 thread 计算。如果所有 256 个 thread 都算，既浪费算力又需要额外归约。
+- **`alpha_shm` 和 `beta_shm`**：这两个是**广播给全 block 的共享标量**。每个 thread 的 `o_local` 都需要用它们更新，所以必须通过 shared memory 传递（tid=0 写 → `__syncthreads` → 全 block 读）。
+- **数值稳定**：所有 `expf` 都减去 `m_new`（当前 running max），保证指数 ≤ 0，永不溢出。
+
+**③ 累加输出：`o_local = o_local × α + β × V[k]`**
+
+```cuda
+if (tid < d)
+    o_local = o_local * alpha_shm + beta_shm * V[k * d + tid];
+__syncthreads();
+```
+
+- 每个 thread（`tid < d`）独立更新自己的 `o_local` 分量——**无数据竞争**，因为各 thread 写不同的维度
+- `o_local * alpha_shm`：缩放旧的累积值（对应 online softmax 公式中的 `O·α`）
+- `beta_shm * V[k * d + tid]`：加上新 key 的贡献（对应 `p·V`）
+- 末尾的 `__syncthreads` 保证全 block 都完成本轮累加后才进入 `k+1`
+
+#### 4.2.3 写回输出
+
+```cuda
+if (tid < d)
+    O[i * d + tid] = o_local;
+```
+
+循环结束后，`o_local` 已包含所有 N 个 key 的贡献，且 `alpha_shm` / `beta_shm` 在每步更新中已用 `l_new` 做了归一化——**末尾无需再除以 `l`**。这是 online softmax 的精妙之处：归一化被"摊"进了每步的增量更新。
+
+#### 4.2.4 三次 `__syncthreads` 的作用
+
+| 位置 | 同步对象 | 缺失后果 |
+|------|----------|----------|
+| ① 点积后 | tid=0 写 `s_k_shm` → 全 block 读 | 其他 thread 用到旧 `s_k`，max 更新错误 |
+| ② softmax 后 | tid=0 写 `alpha_shm`/`beta_shm` → 全 block 读 | 其他 thread 用旧 α/β 累加，输出错误 |
+| ③ 累加后 | 全 block 完成 `o_local` 更新 → 进入下一轮 | 下一轮的 ① 点积可能读到未完成的 V |
+
+> 💡 **与朴素三步的核心区别**：朴素版需要 `S`（N×N）写 HBM 再读回来算 softmax；fused 版的 `s_k` 是一个标量，算完立即用，**永不落 HBM**。这就是"不物化"的含义。
 
 ## 5. 性能分析与优化
 
