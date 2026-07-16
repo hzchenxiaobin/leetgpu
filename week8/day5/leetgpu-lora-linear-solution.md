@@ -318,6 +318,55 @@ extern "C" void solve(const float* x, const float* W, const float* A, const floa
 
 ---
 
+### 4.2 代码详解
+
+`lora_linear_kernel` 采用 **1 block 协作算完整向量** 的策略，分三阶段：① 协作加载 x 到 shared memory ② 并行算低秩中间向量 `h = A·x / r` 存 shared ③ 每 thread 算一个输出 `y[i] = W[i,:]·x + B[i,:]·h`。base 线性层与 LoRA 适配在同一 kernel 融合，不物化 ΔW。
+
+**逐段解析**：
+
+1. **shared memory 划分**
+   ```
+   extern __shared__ float sbuf[];
+   float* s_x = sbuf;        // x[n]
+   float* s_h = sbuf + n;    // h[r]
+   ```
+   动态 shared memory 前半缓存输入 x（n 个 float），后半缓存低秩中间向量 h（r 个 float）。两份缓冲供全 block 复用。
+
+2. **阶段① 协作加载 x**
+   ```
+   for (int k = tid; k < n; k += blockDim.x) s_x[k] = x[k];
+   __syncthreads();
+   ```
+   全 block 线程协作把 x 从 global 搬到 shared。后续 `W·x` 和 `A·x` 都复用 s_x，**x 只读一次 HBM**。
+
+3. **阶段② 并行算 h = A·x / r**
+   ```
+   for (int j = tid; j < r; j += blockDim.x) {
+       s = Σ A[j*n+k] * s_x[k];
+       s_h[j] = s / r;
+   }
+   __syncthreads();
+   ```
+   r 很小（4~64），少量 thread 即可覆盖。每 thread 算若干 `h[j]`，从 s_x 读 x（已在 shared），结果写 s_h 供阶段③ 复用。除以 r 是 LoRA 的缩放。
+
+4. **阶段③ 算输出 y[i] = W·x + B·h**
+   ```
+   for (int i = blockIdx.x*blockDim.x + tid; i < m; i += blockDim.x*gridDim.x) {
+       y0 = Σ W[i*n+k] * s_x[k];       // base 线性层
+       delta = Σ B[i*r+j] * s_h[j];    // LoRA 适配
+       y[i] = y0 + delta;
+   }
+   ```
+   grid-stride 覆盖 m 个输出。每 thread 算两路：base 路径 `W[i,:]·s_x`（读 shared 的 x）和 LoRA 路径 `B[i,:]·s_h`（读 shared 的 h），相加写回。
+
+**关键变量**：
+- `s_x` / `s_h`：shared memory 缓存的输入与低秩中间向量
+- `tid`：block 内线程号，用于协作加载与任务分发
+- `y0` / `delta`：base 输出与 LoRA 增量，寄存器累加
+- `r`：低秩维度，很小，决定阶段② 工作量
+
+> **关键洞察**：LoRA 的精髓是"不物化 ΔW = B·A"，而是先降维（A·x，O(r·n)）再升维（B·h，O(m·r)），把额外计算从 O(m·n) 降到 O(r·(m+n))。shared memory 缓存 x 和 h 是关键——让 base 和 LoRA 两条路径复用同一份输入，只读一次 HBM。
+
 ## 5. 性能分析与优化
 
 ```bash

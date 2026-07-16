@@ -361,6 +361,63 @@ extern "C" void solve(const float* Q, const float* K, const float* V, float* out
 
 ---
 
+### 4.2 代码详解
+
+`sliding_window_attention_kernel` 采用 **1 thread 处理 1 个 query** 的策略：每个 thread 负责输出行 `O[i]`，独立完成"窗口内求 max → 求 sum → 加权 V"三遍遍历。Q[i] 缓存到寄存器数组复用，K/V 按需从 global 读取，用 online softmax 思想避免物化 score 矩阵。
+
+**逐段解析**：
+
+1. **线程映射** `int i = blockIdx.x * blockDim.x + threadIdx.x`、`if (i >= N) return`
+   每 thread 专责一个 query 位置 i（同时也是窗口右端）。越界直接返回。
+
+2. **缩放因子** `float scale = 1.0f / sqrtf((float)d)`
+   标准 attention 的 `1/√d` 缩放，防止点积过大导致 softmax 饱和。
+
+3. **窗口边界** `int win_start = max(0, i - W + 1)`
+   左侧窗口起点。位置 i 只 attend 到 `[win_start, i]` 共 `i - win_start + 1` 个 key；i < W-1 时窗口被 clamp 到 0。
+
+4. **缓存 Q[i] 到寄存器** `float q[64]; for (k) q[k] = Q[i*d+k]`
+   把当前 query 向量读进寄存器数组，后续三遍遍历都复用，避免重复从 global 读 Q。`d ≤ 64` 时寄存器足够。
+
+5. **第一遍：求窗口内 max score**
+   ```
+   float m = -1e30f;
+   for (j = win_start; j <= i; j++) {
+       s = Σ q[k] * K[j*d+k];   // 点积
+       m = fmaxf(m, s * scale);
+   }
+   ```
+   遍历窗口内每个 key 算点积，维护最大值 `m`。用于 softmax 减 max 的数值稳定。
+
+6. **第二遍：求 softmax 分母**
+   ```
+   float l = 0.0f;
+   for (j = win_start; j <= i; j++) {
+       s = Σ q[k] * K[j*d+k];
+       l += expf(s * scale - m);   // 减 max 后 exp
+   }
+   ```
+   同样遍历窗口，累加 `exp(s - m)` 得分母 `l`。
+
+7. **第三遍：加权 V 得输出**
+   ```
+   for (k) O[i*d+k] = 0.0f;
+   for (j = win_start; j <= i; j++) {
+       s = Σ q[k] * K[j*d+k];
+       p = expf(s * scale - m) / l;   // softmax 概率
+       for (k) O[i*d+k] += p * V[j*d+k];
+   }
+   ```
+   初始化 O[i]=0，再用 softmax 概率 p 加权对应的 V 行累加。
+
+**关键变量**：
+- `i`：query 行索引（也是窗口右端）；`win_start`：窗口左端 `max(0, i-W+1)`
+- `q[64]`：寄存器缓存的 query 向量，三遍复用
+- `m` / `l`：online softmax 的 max 与 sum 状态
+- `s`：当前 (query, key) 点积；`p`：softmax 概率
+
+> **关键洞察**：三遍遍历都从同一窗口读 K，而 Q 只读一次缓存到寄存器——这是"用计算换访存"的典型。online softmax（先 max 再 sum）避免物化 N×W 的 score 矩阵，把注意力显存从 O(N²) 降到 O(N·d)，这是 sliding window 能处理长序列的根本原因。
+
 ## 5. 性能分析与优化
 
 ```bash

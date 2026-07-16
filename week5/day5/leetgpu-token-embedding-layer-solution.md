@@ -399,6 +399,32 @@ extern "C" void solve(const int* token_ids, const int* position_ids, const float
 }
 ```
 
+### 4.2 代码详解
+
+`token_embedding_layernorm_kernel` 采用"一个 block 处理一个 `(b,t)` 位置"的映射，grid = `B·T`。block 内 256 线程跨 D 维 strided 协作，一次完成 gather→相加→LayerNorm，中间 `s[D]` 只活在 shared memory。
+
+**主要代码块**：
+
+| 步骤 | 代码段 | 作用 |
+|------|--------|------|
+| 索引分解 | `b = idx/T; t = idx%T` | 扁平 blockIdx.x 拆成 (batch, time) |
+| gather id | `tok_id = token_ids[b*T+t]; pos_id = position_ids[t]` | 查两张 id 表，pos_id 同 time 跨 batch 共享 |
+| ① gather+相加 | `s_shm[d] = token_emb[tok_id*D+d] + position_emb[pos_id*D+d]` | 两表 gather 后相加存 shared，**不落 HBM** |
+| ② 求 μ | `block_reduce_sum(local_sum)/D` | 第一趟块归约求均值，广播 `s_mu` |
+| ③ 求 σ² | `block_reduce_sum(local_sq)/D` | 第二趟块归约求方差（基于 μ），广播 `s_var` |
+| ④ 归一化+写回 | `output = gamma[d]*(s_shm[d]-mu)*inv_std + beta[d]` | 仿射变换写回 global |
+
+**关键索引/变量**：
+- `idx = blockIdx.x`：扁平 (b,t) 编号，grid = `B·T`。
+- `b = idx / T`、`t = idx % T`：batch 号 / time 步。
+- `tok_id = token_ids[b*T+t]`：token id → `token_emb` 表的行号（**随机 gather**，大表 92MB）。
+- `pos_id = position_ids[t]`：位置 id → `position_emb` 表行号（同 t 跨 batch 共享，小表 6MB 易被 L2 缓存）。
+- `d = tid, tid+BLOCK_SIZE, ...`：embedding 维索引，线程跨 D 维 strided。
+- `s_shm[D_MAX]`：相加结果缓冲，供后续两趟归约复用，避免重读 HBM。
+- `inv_std = 1/sqrt(var+eps)`：归一化的倒数标准差。
+
+> 💡 **关键洞察**：四步（gather token / gather pos / 加 / LayerNorm）融成一个 kernel，`s[D]` 只活在 shared——消除了朴素 4-kernel 方案的 3 趟 `B·T·D·4B` 中间往返。LayerNorm 需要两趟块归约（μ 然后 σ²），每趟一次 `__syncthreads`。性能瓶颈在 `token_emb` 的随机 gather：同一 block 内所有线程读同一行（行内 D 维连续、coalesced），不同 block 读不同行靠 L2 缓解。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

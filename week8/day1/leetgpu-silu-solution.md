@@ -181,6 +181,36 @@ extern "C" void solve(const float* input, float* output, int N) {
 }
 ```
 
+### 4.2 代码详解
+
+`silu_kernel` 是一个标准的 **grid-stride elementwise kernel**：每个 thread 从全局线程号出发，按 stride 步长循环处理多个元素，把 SiLU 公式 `x / (1 + exp(-x))` 逐元素作用到输入上。结构极简——无 shared memory、无 reduction、无分支。
+
+**逐段解析**：
+
+1. **线程索引** `int tid = blockIdx.x * blockDim.x + threadIdx.x`
+   全局线程 ID，同时作为本 thread 负责的起始元素下标。`threadIdx.x` 在 warp 内连续，因此相邻 thread 处理相邻元素。
+
+2. **步长** `int stride = gridDim.x * blockDim.x`
+   整个 grid 的线程总数。作为循环步长，保证 thread 0 处理 `{0, stride, 2*stride, ...}`，thread 1 处理 `{1, stride+1, ...}`，互不重叠且覆盖全 N。
+
+3. **grid-stride 循环** `for (int i = tid; i < N; i += stride)`
+   无论 N 多大、grid 多小，都能在一次 launch 内覆盖所有元素。当 N > grid 容量时无需多次 launch。
+
+4. **读取输入** `float x = input[i]`
+   从 global memory 读一个 float 到寄存器。warp 内 32 个 thread 的 `i` 连续 → 访问 `input[i..i+31]` 连续地址 → 合并成一次 128-byte coalesced 事务。
+
+5. **SiLU 计算** `x / (1.0f + __expf(-x))`
+   `__expf` 是 CUDA 硬件近似 intrinsics，比标准库 `expf` 快约 10x，精度足够 `atol=1e-5`。整个表达式在寄存器内完成，无额外访存。
+
+6. **写回输出** `output[i] = ...`
+   连续 thread 写连续地址，同样 coalesced。
+
+**关键变量**：
+- `tid`：起始元素下标；`stride`：grid-stride 步长 = grid 总线程数
+- `x`：寄存器中的输入值，每元素只读一次 HBM
+
+> **关键洞察**：grid-stride loop 是 elementwise kernel 的万能模板——无论 N 多大、grid 多小都能一次 launch 覆盖，且天然 coalesced。对 memory-bound kernel，`__expf` 把唯一的重计算降到最低，剩下纯粹拼带宽利用率。
+
 ## 5. 性能分析与优化
 
 ```bash

@@ -388,6 +388,32 @@ extern "C" void solve(const float* Q, const float* K, const float* V, float* out
 }
 ```
 
+### 4.2 代码详解
+
+`causal_self_attention_kernel` 采用"一个 block 处理一行 query"的映射，grid = `(M,)`。block 内用 online softmax 串行扫描 key `0..i`——causal 约束直接体现为内层循环上界 `j <= i`，无需任何显式 mask 步骤。
+
+**主要代码块**：
+
+| 步骤 | 代码段 | 作用 |
+|------|--------|------|
+| ① 载入 Q | `q_shm[t] = Q[i*d+t]` | 本行 Q 载入 shared，整遍 key 扫描复用 |
+| ② 遍历 key | `for (j=0; j<=i; ++j)` | **causal 截断**：只扫 j≤i，天然不遍历未来 key，省 50% 计算 |
+| ②a 点积 | `part += q_shm[t] * Kj[t]` | Q[i]·K[j]，Kj = K+j*d |
+| ②b 块归约 | `block_reduce_sum(part)*scale` | 归约成标量 `s_k`，scale=1/√d |
+| ②c online softmax | thread 0 更新 `m/l`，写 `alpha_shm/beta_shm` | 三公式增量更新，`S`/`P` 永不落 HBM |
+| ②d 加权 V | `o_local = o_local*alpha_shm + beta_shm*Vj[t]` | 每 thread 持有输出若干 d 维 |
+| ③ 写回 | `output[i*d+t] = o_local` | 每行 query 写 d 维 |
+
+**关键索引/变量**：
+- `i = blockIdx.x`：query 行号（grid = M 个 block，一行一块）。
+- `j`：key 行号，循环范围 `0..i`——causal 的全部实现就是这一个上界。
+- `t = tid, tid+BLOCK_SIZE, ...`：head_dim 维索引，线程跨 d 维 strided。
+- `Kj = K + j*d`、`Vj = V + j*d`：第 j 个 key/value 向量首地址。
+- `m / l`：online softmax 的 running max / sum（thread 0 维护）。
+- `alpha_shm / beta_shm`：旧输出缩放因子 / 新 V 权重，thread 0 算完广播。
+
+> 💡 **关键洞察（worked example）**：取 `M=2, d=4`，`Q=K=[[1,0,0,0],[0,1,0,0]]`，`V=[[1,2,3,4],[5,6,7,8]]`。**i=0** 时内层循环只跑 `j=0`（causal 截断）：score=`Q[0]·K[0]/2=0.5`，softmax 单元素=`[1.0]`，输出=`1.0·V[0]=[1,2,3,4]`。**i=1** 时跑 `j=0,1`：两个 score=`[0, 0.5]` 经 online softmax 归一，输出是 `V[0]`/`V[1]` 的加权混合——注意 i=0 看不到 j=1（未来），i=1 看不到 j>1。causal 的全部实现就是循环上界 `j<=i`：平均每行只扫 `(i+1)` 个 key ≈ M/2，比 full attention 省 50% 计算，且全程无 mask 步骤、无 M×M 物化。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

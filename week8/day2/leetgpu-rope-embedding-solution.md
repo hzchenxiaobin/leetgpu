@@ -233,6 +233,43 @@ extern "C" void solve(float* Q, float* cos, float* sin, float* output, int M, in
 }
 ```
 
+### 4.2 代码详解
+
+`rope_kernel` 采用 **2D grid-stride** 结构：外层循环遍历行（M 维，对应 batch/seq），内层循环遍历列（D 维，对应特征）。每个 thread 处理一个元素，在读取 Q 的同时用条件表达式算出 rotate_half 的配对元素，最后套用 RoPE 公式 `q*cos + rotated*sin`。
+
+**逐段解析**：
+
+1. **半维计算** `int half = D / 2`
+   rotate_half 的分界点，前半 `[0, half)` 与后半 `[half, D)` 配对。
+
+2. **外层行循环** `for (int row = blockIdx.y * blockDim.y + threadIdx.y; row < M; row += gridDim.y * blockDim.y)`
+   row 对应 M 维，grid-stride 覆盖所有行。
+
+3. **内层列循环** `for (int col = blockIdx.x * blockDim.x + threadIdx.x; col < D; col += gridDim.x * blockDim.x)`
+   col 对应 D 维。blockDim.x 映射到连续的 D 维，warp 内 thread 的 col 连续 → 访问连续地址 → coalesced。用 `(row, col)` 二维坐标而非 1D idx，**避免 `idx/D`、`idx%D` 整数除法**（省 20+ cycle）。
+
+4. **线性索引** `int idx = row * D + col`
+   row-major 一维化，用于访问 Q/cos/sin/output。
+
+5. **读取 Q** `float q = Q[idx]`
+   当前元素的 query 值，存寄存器。
+
+6. **rotate_half 索引** `float rotated = (col < half) ? -Q[idx + half] : Q[idx - half]`
+   - 前半（`col < half`）：取后半对应位置 `idx + half` 的 Q 并取反
+   - 后半（`col >= half`）：取前半对应位置 `idx - half` 的 Q
+
+   这里会额外读一个 Q 元素，导致 RoPE 的访存比纯 elementwise 多。条件分支在 warp 内引起 divergence（前半/后半 thread 走不同路径），但本质不可消除。
+
+7. **RoPE 公式** `output[idx] = q * cos[idx] + rotated * sin[idx]`
+   旋转位置编码的核心：Q 乘 cos 保留原方向，rotate_half(Q) 乘 sin 注入旋转分量。
+
+**关键变量**：
+- `row`/`col`：2D 坐标，替代 1D idx 的除法
+- `half`：D/2，rotate_half 分界
+- `idx + half` / `idx - half`：配对元素地址
+
+> **关键洞察**：2D 映射是消除整数除法的关键——用 `(blockIdx.y, blockIdx.x)` 直接表达 `(row, col)`，比 1D idx 再除 D 节省 20+ cycle。rotate_half 的条件分支虽导致 warp divergence，但前半/后半必须走不同索引，本质不可消除；优化重点仍在打满带宽。
+
 ## 5. 性能分析与优化
 
 ```bash

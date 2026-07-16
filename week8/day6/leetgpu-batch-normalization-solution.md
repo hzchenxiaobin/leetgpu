@@ -393,6 +393,71 @@ extern "C" void solve(const float* input, const float* gamma, const float* beta,
 
 ---
 
+### 4.2 代码详解
+
+`batchnormForward` 采用 **一个 block 处理一个通道 c** 的策略：block 内所有线程协作对 `(N, H, W)` 个元素做两轮 reduce（mean → var），再融合 normalize 写回。整个前向融合在单个 kernel，IO 从三遍降到一遍。reduce 用 warp shuffle + shared memory 两级完成。
+
+**辅助函数**：
+
+- `warpReduceSum(val)`：用 `__shfl_down_sync` 做 5 步树形归约（offset 16→8→4→2→1），warp 内 32 lane 求和，无需 shared memory。
+- `blockReduceSum(val, s_partial, tid)`：先 warp reduce，每 warp 的 lane 0 把部分和写 `s_partial[warp_id]`；`__syncthreads` 后由 warp 0 把 `s_partial` 再做一次 warp reduce 得 block 总和。多 warp 结果通过 shared memory 汇总。
+
+**主 kernel 逐段解析**：
+
+1. **通道映射** `int c = blockIdx.y`
+   grid 的 y 维对应通道数 C，每 block 专责一个通道。`spatial = N*H*W` 是每通道元素数。
+
+2. **NCHW 索引常量** `int hw = H*W; int chw = C*hw`
+   NCHW 布局下通道 c 的元素地址 = `n*chw + c*hw + rem`，其中 `rem` 是 (h,w) 平面内偏移。`chw` 是跨 n 的步长。
+
+3. **shared memory 声明** `s_partial[32]`（warp 部分和）、`s_mean`、`s_inv_std`（广播标量）
+   `s_mean`/`s_inv_std` 让 block 内所有 thread 共享 reduce 结果。
+
+4. **阶段① 求 mean**
+   ```
+   local_sum = 0;
+   for (idx = tid; idx < spatial; idx += num_threads) {
+       n = idx / hw; rem = idx % hw;
+       local_sum += x[n*chw + c*hw + rem];
+   }
+   mean = blockReduceSum(local_sum, ...) / spatial;
+   if (tid == 0) s_mean = mean;
+   __syncthreads(); mean = s_mean;
+   ```
+   每 thread grid-stride 遍历本通道元素累加 `local_sum`，block 归约后除以 spatial 得 mean，写 s_mean 广播。
+
+5. **阶段② 求 var = E[(x-μ)²]**
+   ```
+   local_sqsum = 0;
+   for (idx ...) {
+       d = x[...] - mean;
+       local_sqsum += d * d;
+   }
+   var = blockReduceSum(local_sqsum, ...) / spatial;
+   inv_std = 1 / sqrtf(var + eps);
+   if (tid == 0) s_inv_std = inv_std;
+   __syncthreads(); inv_std = s_inv_std;
+   ```
+   用 `E[(x-μ)²]` 而非 `E[x²]-E[x]²`（后者数值不稳定可能为负）。归约得 var，算 `inv_std` 广播。
+
+6. **阶段③ 融合 normalize 写回**
+   ```
+   g = gamma[c]; b = beta[c];
+   for (idx ...) {
+       gidx = n*chw + c*hw + rem;
+       y[gidx] = g * (x[gidx] - mean) * inv_std + b;
+   }
+   ```
+   读仿射参数 `gamma[c]`/`beta[c]`（每通道常数），grid-stride 写回归一化结果。融合后省掉了跨 kernel 的 HBM 往返。
+
+**关键变量**：
+- `c`：通道索引（blockIdx.y）；`spatial`/`hw`/`chw`：NCHW 索引常量
+- `local_sum` / `local_sqsum`：每 thread 部分和，寄存器
+- `s_mean` / `s_inv_std`：block 广播标量，shared
+- `g` / `b`：仿射参数，每通道常数
+
+> **关键洞察**：BatchNorm 与 LayerNorm 的区别全在"block 映射哪个维度"——BatchNorm 一个 block 算一个通道（reduce 跨 batch/spatial），LayerNorm 一个 block 算一个样本（reduce 跨 feature）。reduce 机制（warp shuffle + shared）完全复用。融合三阶段到一个 kernel 把 IO 从 3 遍降到 1 遍，是 memory-bound kernel 最直接的加速。
+
 ## 5. 性能分析与优化
 
 ```bash

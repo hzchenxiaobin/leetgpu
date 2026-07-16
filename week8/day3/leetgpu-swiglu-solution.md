@@ -208,6 +208,33 @@ extern "C" void solve(const float* input, float* output, int N) {
 }
 ```
 
+### 4.2 代码详解
+
+`swiglu_kernel` 是 **grid-stride + kernel fusion** 的典型：每个 thread 处理一个输出元素，把 SiLU 激活与逐元素乘法融合在同一个 kernel 的寄存器内完成。关键在于中间结果 `silu` 不写回 HBM——这正是 fusion 的收益所在。
+
+**逐段解析**：
+
+1. **线程索引与步长** `tid = blockIdx.x * blockDim.x + threadIdx.x`、`stride = gridDim.x * blockDim.x`
+   标准 grid-stride 起点与步长，循环覆盖 `halfN` 个输出元素。
+
+2. **读取两半输入** `float x1 = input[i]`、`float x2 = input[i + halfN]`
+   输入长度为 N=2·halfN，前半 `input[0..halfN)` 是 gate 分支（过 SiLU），后半 `input[halfN..N)` 是 up 分支（直接乘）。两个地址相距 halfN，来自同一 input 数组。连续 thread 的 `i` 连续 → `x1` coalesced；`x2` 同样 coalesced（偏移 halfN 的连续段）。
+
+3. **SiLU 计算（寄存器内）** `float silu = x1 / (1.0f + __expf(-x1))`
+   `__expf` 快速数学，结果 `silu` 留在寄存器，**不写回 HBM**。这是与"不融合版"的根本区别——不融合时 `silu` 要写 tmp 再读回，多 2 次 HBM 往返。
+
+4. **融合乘法（寄存器内）** `output[i] = silu * x2`
+   gate 分支经 SiLU 后与 up 分支相乘，结果直接写 output。每元素仅 1 次写 HBM。
+
+**关键变量**：
+- `halfN = N/2`：输出长度，也是前后半分界
+- `i` 与 `i + halfN`：配对读取 gate / up 两个分支
+- `silu`：寄存器中间量，fusion 的核心——不落 HBM
+
+**访存核算**：每元素读 2 个 float（x1+x2）+ 写 1 个 float = 12 bytes；不融合版需 5×halfN floats（20 bytes/元素）。融合省 40% HBM 访问。
+
+> **关键洞察**：kernel fusion 的收益不在"少算"，而在"少搬"——SiLU 中间结果留在寄存器，省掉一次 HBM 写+读。对 memory-bound kernel，每省一次 HBM 往返都直接转化为加速；这正是 LLaMA 把 SwiGLU 融在 MLP 里的原因。
+
 ## 5. 性能分析与优化
 
 ```bash

@@ -224,6 +224,31 @@ extern "C" void solve(const float* X, const float* S, float* Y, int M, int N, in
 }
 ```
 
+### 4.2 代码详解
+
+`weight_dequant_kernel` 是一个极简的 element-wise kernel：grid-stride loop 让每个线程处理若干元素，每元素读 X、查对应 tile 的 scale、相乘写 Y。无 shared memory（element-wise 无数据复用）。
+
+**主要代码块**：
+
+| 步骤 | 代码段 | 作用 |
+|------|--------|------|
+| 预算 scale 维度 | `s_cols = (N+T-1)/T` | scale 矩阵列数，用于一维索引 |
+| grid-stride loop | `for (idx=tid; idx<M*N; idx+=stride)` | 让 grid 覆盖任意 M·N，block 数适配 SM 数 |
+| 二维分解 | `i = idx/N; j = idx%N` | 一维 idx 拆回 (行, 列) |
+| tile 索引 | `sr = i/T; sc = j/T` | 算出该元素属于哪个 T×T tile |
+| 查 scale | `scale = S[sr*s_cols + sc]` | 同一 tile 内所有元素共用一个 scale |
+| 反量化写回 | `Y[idx] = X[idx] * scale` | 1 次乘法，写回 global |
+
+**关键索引/变量**：
+- `tid = blockIdx.x*blockDim.x + threadIdx.x`：全局线程 id。
+- `stride = gridDim.x*blockDim.x`：grid-stride 步长。
+- `idx`：扁平元素编号（0..M·N-1），grid-stride 循环变量。
+- `i = idx/N`、`j = idx%N`：元素在矩阵中的 (行, 列)——相邻线程 idx 连续 → j 连续 → X/Y 读写 **coalesced**。
+- `sr = i/T`、`sc = j/T`：tile 行/列号，每 T×T 个元素映射到同一个 `S[sr,sc]`。
+- `S[sr*s_cols + sc]`：该 tile 的 scale，S 总大小仅 `(M/T)×(N/T)`（8192/128 → 64×64 = 16KB），几乎全在 L2 cache。
+
+> 💡 **关键洞察（worked example）**：取 `M=N=4, T=2`，元素 `(i=0,j=2)` → `sr=0, sc=1` → `scale=S[0*2+1]=2.0`，`Y[0,2]=X[0,2]*2.0=3*2=6.0`。同 tile 内 4 个元素共用一个 scale，scale 查找开销被 T² 个元素摊薄到可忽略。每元素仅 1 次乘法（2 FLOP）却要读 X(4B)+写 Y(4B)≈8B，`AI≈0.17 FLOP/Byte ≪ Ridge(12.6)`——这就是 ncu 测出 `dram__throughput` 接近峰值、`sm__throughput` 极低的根因：瓶颈纯粹在搬运数据，不在计算。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

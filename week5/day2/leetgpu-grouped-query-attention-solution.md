@@ -423,6 +423,34 @@ extern "C" void solve(const float* Q, const float* K, const float* V, float* out
 }
 ```
 
+### 4.2 代码详解
+
+`gqa_kernel` 采用"一个 block 处理一个 `(q_head, seq_row)`"的映射，grid = `num_q_heads × seq_len`，block 内用 online softmax 串行扫描 `seq_len` 个 key。与标准 MHA 的唯一区别是 KV head 索引 `kv_h = h / group`。
+
+**主要代码块**：
+
+| 步骤 | 代码段 | 作用 |
+|------|--------|------|
+| 索引分解 | `h = idx/seq_len; s = idx%seq_len` | 把扁平 blockIdx.x 拆成 (q_head, query 行) |
+| GQA 核心 | `group = nq/nkv; kv_h = h/group` | **一行定乾坤**：算出该 Q head 共享哪个 KV head，直接索引原始 nkv 份 K/V |
+| ① 载入 Q | `q_shm[t] = Q[(h*seq_len+s)*head_dim+t]` | 本 block 的 Q 行载入 shared，全扫描复用 |
+| ② 遍历 key | `for (k=0; k<seq_len; ++k)` | 主循环：点积→online softmax→加权 V |
+| ②a 点积 | `part += q_shm[t] * Kk[t]` | Kk 指向共享的 `K[kv_h, k, :]`，不 expand |
+| ②b 块归约 | `block_reduce_sum(part)*scale` | 归约成标量 `s_k` |
+| ②c online softmax | thread 0 更新 `m/l`，写 `alpha_shm/beta_shm` | 三公式增量更新，`S`/`P` 不落 HBM |
+| ②d 加权 V | `o_local = o_local*alpha_shm + beta_shm*Vk[t]` | Vk 同样指向共享的 `V[kv_h, k, :]` |
+| ③ 写回 | `output[(h*seq_len+s)*head_dim+t] = o_local` | 每个 (q_head, seq_row) 写一行 head_dim |
+
+**关键索引/变量**：
+- `idx = blockIdx.x`：扁平的 (q_head, seq_row) 编号，grid = `nq × seq_len`。
+- `h = idx / seq_len`：query head 号；`s = idx % seq_len`：query 行号。
+- `group = num_q_heads / num_kv_heads`：每组多少个 Q head 共享一个 KV head（LLaMA-3 = 4）。
+- `kv_h = h / group`：**GQA 的全部精髓**——MHA 这里是 `kv_h = h`，GQA 改成整除 group。
+- `Kk = K + (kv_h*seq_len + k)*head_dim`：读共享 KV head 的第 k 行，多个同 group 的 block 读同一块（靠 L2 复用）。
+- `m / l / alpha_shm / beta_shm`：online softmax 状态，与 Week4 Softmax Attention 完全一致。
+
+> 💡 **关键洞察**：GQA 与 MHA 的 kernel 差异**仅一行**（`kv_h = h/group` vs `kv_h = h`），attention 逻辑完全相同。同 group 的 `group` 个 Q head 读同一份 KV——本实现靠 L2 cache 自然复用，不显式缓存；显式 shared KV tile 可进一步提升（见 5.3）。这就是 GQA 几乎零成本换来 4× cache 缩减的原因。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

@@ -445,6 +445,34 @@ extern "C" void solve(const float* Q, const int8_t* K_int8, const int8_t* V_int8
 }
 ```
 
+### 4.2 代码详解
+
+`int8_kv_attention_kernel` 采用"一个 block 处理一个 head"的映射，block 内 256 个线程协作串行扫描 `L` 个 KV token，用 online softmax 把"点积→反量化→加权"融成一遍扫描，fp32 K/V 永不落 HBM。
+
+**主要代码块**（对应 `## 4` 主代码块中带 ①②③ 注释的段落）：
+
+| 步骤 | 代码段 | 作用 |
+|------|--------|------|
+| 共享内存声明 | `q_shm[D_MAX]`、`red[NUM_WARPS+1]`、`s_k_shm/alpha_shm/beta_shm` | Q 缓存、块归约缓冲、标量广播通道 |
+| ① 载入 Q | `for (t=tid; t<d; t+=BLOCK) q_shm[t]=Q[h*d+t]` | 本 head 的 Q 整行载入 shared，全 block 复用，避免每个 token 重读 global |
+| ② 遍历 L token | `for (s=0; s<L; ++s)` | 主循环：每个 token 做点积→online softmax→加权 V |
+| ②a 点积+反量化 | `part += q_shm[t] * (Ks[t]*ks)` | **int8 反量化融在点积里**：读 1 byte→乘 scale 成 fp32→立即累加，不物化 |
+| ②b 块归约 | `block_reduce_sum(part, red)*scale` | 256 线程的 partial sum 归约成标量 `s_k`，再乘 `1/√d` |
+| ②c online softmax | thread 0 算 `m_new/alpha/p/l_new`，写 `alpha_shm/beta_shm` | 三公式增量更新 m/l/o，`S`/`P` 永不落 HBM |
+| ②d 加权 V+反量化 | `o_local = o_local*alpha_shm + beta_shm*(Vs[t]*vs)` | V 反量化融在加权里，每 thread 持有输出的若干 d 维 |
+| ③ 写回 | `output[h*d+t] = o_local` | 散回 global，每 head 一行 d 维 |
+
+**关键索引/变量**：
+- `h = blockIdx.x`：head 号（grid = H 个 block，一头一块）。
+- `s`：KV cache 的 token 序号（0..L-1），外层循环变量。
+- `t = tid, tid+BLOCK_SIZE, ...`：head_dim 维索引，线程跨 d 维 strided。
+- `Ks = K_int8 + (h*L+s)*d`：token `s` 的 K 向量首地址（int8）。
+- `ks = k_scale[h*L+s]`：该 token 的 per-token 反量化 scale（标量，乘到 d 维上）。
+- `m / l`：online softmax 的 running max / running sum，由 thread 0 维护。
+- `alpha_shm / beta_shm`：旧输出的缩放因子 / 新 V 的权重，thread 0 算完后广播给全 block。
+
+> 💡 **关键洞察**：int8 反量化被拆进**两处**——点积里 `Ks[t]*ks` 和加权里 `Vs[t]*vs`。fp32 的 K/V 只在寄存器里存活一个 token 的生命周期，扫描完即丢弃，从不写回 HBM。这就是"int8 把 KV 带宽砍到 1/4"的落地方式：不是先反量化成 fp32 再算，而是**边读边乘边丢**。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

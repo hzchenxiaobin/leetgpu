@@ -606,6 +606,34 @@ extern "C" void solve(const int* draft_tokens, const float* draft_probs, const f
 
 > ⚠️ **验证说明**：投机解码的 resample 涉及 CDF searchsorted，浮点累加顺序不同可能导致 token 索引差 1（边界情况）。平台容差 `atol=rtol=1e-5` 针对概率张量；token 索引的精确匹配依赖 CDF 计算的一致性。sparse 概率分布（官方测试用）可消除此问题。
 
+### 4.2 代码详解
+
+`spec_decode_verify_kernel` 采用"一个 block 处理一个序列"的映射。序列内 T 个位置**串行** accept/reject（T≤16，首次 reject 即 break），reject/bonus 时调用 `cdf_searchsorted` 让全 block 协作流式扫 V 维做重采样。
+
+**主要代码块**：
+
+| 步骤 | 代码段 | 作用 |
+|------|--------|------|
+| 设备函数 `cdf_searchsorted` | 两趟流式扫 V | reject/bonus 的重采样核心 |
+| ↳ Pass 1 | `block_reduce_sum(local_sum)` | 求 `total = Σ max(probs-sub, 0)`，用于归一化（total=0 退化均匀分布） |
+| ↳ Pass 2 | 分 chunk 做 warp+block 前缀和 | 流式维护 running CDF，找随机数 `r` 落在哪个 token，`atomicMin` 取最小命中 |
+| 主循环 | `for (i=0; i<T; ++i)` | 串行遍历 draft 位置 |
+| ↳ gather | thread 0 读 `s_tok/s_p/s_q`，算 `s_alpha=min(1,q/p)` | 只 gather 2 个标量（draft/target 对该 token 的概率），广播 |
+| ↳ accept | `if (u < alpha)` | 接受：thread 0 写 `output[b*(T+1)+i] = tok` |
+| ↳ reject | `else { cdf_searchsorted(...); break; }` | 拒绝：从 `max(target-draft,0)` 重采样，写新 token，**停止**后续位置 |
+| bonus | `if (!rejected)` | 全接受：用 `target_probs[b,T-1]` 的 CDF 采一个 bonus token 写入 `output[b*(T+1)+T]` |
+
+**关键索引/变量**：
+- `b = blockIdx.x`：序列号（grid = B 个 block，一块一序列）。
+- `i`：draft 位置（0..T-1），串行循环变量。
+- `draft_tokens[b*T+i]`：draft 在位置 i 提议的 token id。
+- `s_p = draft_probs[(b*T+i)*V + s_tok]`、`s_q = target_probs[(b*T+i)*V + s_tok]`：draft/target 给该 token 的概率（gather 单个标量）。
+- `s_alpha = min(1, q/p)`：接受概率。p=q 必接受，p>q（draft 高估）可能拒绝。
+- `uniform_samples[b*(T+1)+i]`：位置 i 的 accept/reject 随机数；`uniform_samples[b*(T+1)+T]`：resample/bonus 共用的随机数。
+- `cdf_searchsorted` 的 `sub` 参数：reject 时传 `draft_probs`（算 `max(target-draft,0)`），bonus 时传 `nullptr`（直接用 target_probs）。
+
+> 💡 **关键洞察**：accept/reject 逻辑天然串行（T≤16 极小，early exit），难点在 reject 时的 V 维 CDF——`V` 可达 131072 放不进 shared，故用**流式分 chunk**：Pass 1 块归约求 total，Pass 2 每 chunk 做块内前缀和 + 跨 chunk 累加 running CDF，命中区间用 `atomicMin` 汇总。accept 率越高，越多序列走 O(T) 快速路径，这正是投机解码用小 draft 模型"投机"的收益来源。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行
