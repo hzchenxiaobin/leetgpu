@@ -233,6 +233,32 @@ extern "C" void solve(const float* A, const float* B, float* C, int N) {
 }
 ```
 
+### 4.2 代码详解
+
+下面以 4.1 节 LeetGPU 提交版本的 `vector_add` kernel 为例，逐块拆解 grid-stride loop 的实现（完整版 `main()` 中的 kernel 逻辑完全一致）。
+
+**Kernel 结构概览**：单层 `for` 循环 + 4 行代码，是 elementwise kernel 的最小骨架。无 shared memory、无同步、无分支——所有复杂度都集中在"线程如何映射到元素"这一行。
+
+| # | 代码块 | 作用 | 说明 |
+|---|--------|------|------|
+| ① | `int tid = blockIdx.x * blockDim.x + threadIdx.x;` | 计算全局线程 ID | `blockIdx.x` 是 block 编号，`blockDim.x` 是每 block 线程数（256），`threadIdx.x` 是块内编号。三者乘加得到**全 grid 唯一**的线程序号，范围 `[0, blocks×threads)` |
+| ② | `int stride = gridDim.x * blockDim.x;` | 计算跨步 | `gridDim.x` 是 block 总数。`stride = 总线程数`，即每"跳一次"跨越的元素数。这是 grid-stride 的核心参数 |
+| ③ | `for (int i = tid; i < N; i += stride)` | grid-stride 主循环 | 从 `tid` 出发，每次加 `stride`，直到越界。**循环条件 `i < N` 兼任越界保护**——无需单独 `if (i < N)` |
+| ④ | `C[i] = A[i] + B[i];` | 核心计算 | 逐元素加法。一次循环体执行 = 读 A + 读 B + 写 C |
+
+**关键索引/变量**：
+
+- `tid`：线程的"身份证号"。同一 warp 内 `threadIdx.x` 连续（0..31），所以 warp 内 `tid` 也连续 → 保证合并访存。
+- `stride`：让少量线程"扫"完整个数组。当 `N=25M`、`blocks×threads=110592` 时，每个 thread 只需循环 `ceil(25M/110592) ≈ 226` 次。
+- `i`：当前 thread 本次循环负责的元素下标。**每个 `i` 恰好被一个 thread 处理一次**（grid-stride 的不变式）。
+
+**关键洞察**：grid-stride loop 把"线程数"与"问题规模 `N`"彻底解耦——
+
+- 朴素写法：`blocks = (N+255)/256`，线程数随 `N` 线性增长，`N=1e8` 时要开 ~39 万个 block。
+- grid-stride：`blocks = num_sm × 4`（如 432），线程数固定 ~11 万，**不论 `N` 多大都不变**。每个 thread 多循环几次即可，既填满 SM 又避免 grid 爆炸。
+
+> 💡 **worked example**：设 `N=10, blocks=2, threads=4`，则 `stride=8`。8 个 thread 的 `tid` 为 0..7，第一轮处理 `i = 0..7`；`tid=0,1` 的 thread 还会进入第二轮处理 `i=8,9`，其余 thread 的 `i=8..14` 已 ≥10 退出。最终 10 个元素被全覆盖、无重复——这就是 grid-stride 的正确性保证。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

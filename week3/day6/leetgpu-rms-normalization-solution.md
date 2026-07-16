@@ -321,6 +321,39 @@ extern "C" void solve(const float* input, float gamma, float beta, float* output
 }
 ```
 
+### 4.2 代码详解
+
+`rmsnorm_kernel` 采用 **"一个 block 负责一行"** 的映射，内部两阶段：Pass 1 块归约求 `sum of squares`，Pass 2 用归约结果做归一化写回。核心复用 `warp_reduce_sum` + `block_reduce_sum` 两级归约模板，只需 **一次** 块归约（LayerNorm 需两次）。
+
+**辅助函数**：
+
+- `warp_reduce_sum(val)`：用 `__shfl_down_sync` 做 warp 内树形归约，5 步折半累加到 lane 0，全程在寄存器完成，零 bank conflict。
+- `block_reduce_sum(val, shared)`：两级归约——先每 warp 各自 `warp_reduce_sum`，lane 0 写 `shared[warpId]`；再由 warp 0 把 8 个 warp 的结果做第二次 `warp_reduce_sum`，写 `shared[0]` 广播给全 block。
+
+**kernel 逐段解析**：
+
+1. **行映射与指针偏移**
+   - `int r = blockIdx.x`：一个 block 处理一行，`blockIdx.x` 即行号。
+   - `const float* xr = x + r * D`：指向本行起点，后续所有访问基于 `xr`。
+   - `__shared__ float shared[NUM_WARPS + 1]`：block 归约的 shared memory 缓冲（8 个 warp + 1 个广播 slot）。
+
+2. **Pass 1：求 sum of squares**
+   - `float local_sq = 0.0f`：每线程的局部累加器。
+   - `for (int i = threadIdx.x; i < D; i += BLOCK_SIZE)`：block 内 grid-stride 扫描该行 D 个元素，每 thread 处理 `D/256` 个。
+   - `local_sq += v * v`：累加平方。
+   - `float row_sq = block_reduce_sum(local_sq, shared)`：全 block 归约得到整行的 `sum_sq`，广播到所有 thread。
+
+3. **计算 RMS 的倒数**
+   - `float rrms = rsqrtf(row_sq / D + eps)`：`rrms = 1/sqrt(mean(x²) + eps)`。用 `rsqrtf`（单条硬件指令）而非 `sqrtf` + 除法，更快且精度足够。`eps` 防止全零输入除零。
+
+4. **Pass 2：归一化 + affine**
+   - `for (int i = threadIdx.x; i < D; i += BLOCK_SIZE)`：再扫一遍该行。
+   - `yr[i] = xr[i] * rrms * gamma[i]`：`y = x · (1/RMS) · γ`，逐元素归一化并乘以可学习权重。此时 `rrms` 已广播到所有 thread，无需再次归约。
+
+**错误对比 `rmsnorm_wrong`**：每 thread 独立 `for (int j = 0; j < D; ++j)` 扫整行求 `sq`，导致 `O(D²)` 重复读——256 个 thread 各读 8192 次，HBM 读量爆炸。正确做法是一个 block 协作求一次 `sq` 再共享。
+
+> **关键洞察**：RMSNorm 比 LayerNorm 快的根因是"一次归约"——LayerNorm 需先归约求 mean，再用 mean 归约求 variance（两次 HBM 读）；RMSNorm 直接对 `x²` 求和，省掉 mean，只需一次归约。归约次数直接决定 global memory 读取遍数，这是 Llama 选 RMSNorm 的性能原因。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

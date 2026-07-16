@@ -248,6 +248,53 @@ extern "C" void solve(const float* input, float* output, int N, int k) {
 }
 ```
 
+### 4.2 代码详解
+
+本文件包含教学版的 `bitonic_sort_kernel`（global memory，简化演示）和 `bitonic_sort_block`（shared memory，单 block），以及提交版的 `bitonic_step` + `copy_topk_desc`。核心是 bitonic sort 的 **compare-swap 网络**：`tid ^ j` 配对、`(tid & k) == 0` 定方向。
+
+**`bitonic_sort_block`（教学版）逐段解析**：
+
+1. **加载数据到 shared memory**
+   - `__shared__ int sdata[2 * BLOCK]`：排序缓冲区。
+   - `sdata[tid] = (tid < N) ? data[tid] : INT_MIN`：加载，越界补 `INT_MIN`（排序后沉底，不干扰 top-k）。
+   - `__syncthreads`。
+
+2. **bitonic sort 双重循环**
+   - `for (int k = 2; k <= 2*BLOCK; k *= 2)`：外层阶段，子序列长度从 2 倍增到 `2*BLOCK`。每个阶段把两个长度 `k/2` 的有序子序列 merge 成一个长度 `k` 的 bitonic 序列再排序。
+   - `for (int j = k/2; j > 0; j /= 2)`：内层比较距离，从 `k/2` 折半到 1，做 bitonic merge。
+   - `int i = tid ^ j`：配对索引——XOR 运算保证每对 thread 恰好比较距离 `j` 的两个元素，无冲突无遗漏。
+   - `if (i > tid)`：只有低 id 的 thread 执行交换，避免重复。
+   - `bool up = ((tid & k) == 0)`：方向控制——`(tid & k) == 0` 的 thread 做升序比较，否则降序，形成 bitonic 序列。
+   - `if ((up && a > b) || (!up && a < b))`：compare-swap，升序时大值下沉、降序时小值下沉。
+   - `__syncthreads`：每步 compare-swap 后同步，确保 shared memory 一致。
+
+3. **写回**
+   - `data[tid] = sdata[tid]`：排序完成后写回 global memory。取后 k 个即 top-k（升序排列）。
+
+**`bitonic_step`（提交版）逐段解析**：
+
+- 与 `bitonic_sort_block` 的内层逻辑相同，但拆成单步 kernel，由 host 端双重循环 `for (kk...) for (j...)` 逐步 launch。
+- `int ixj = i ^ j`：配对索引。
+- `if (ixj > i && ixj < N)`：低 id 执行 + 越界保护。
+- `bool up = ((i & k) == 0)`：方向控制。
+- compare-swap 直接在 global memory 上操作（无 shared memory 中转）。
+- 补齐到 2 的幂次 `P`，空位填 `-1e30f`（`fill_neg_inf`），排序后沉底。
+
+**`copy_topk_desc`**：
+- `output[i] = data[P - 1 - i]`：从排序数组末尾逆序取 k 个（最大的 k 个），降序输出。
+
+**关键变量说明**：
+
+| 变量 | 含义 |
+|------|------|
+| `k` | bitonic 阶段参数，子序列长度，从 2 倍增 |
+| `j` | 比较距离，从 `k/2` 折半到 1 |
+| `i = tid ^ j` | 配对索引，XOR 保证无冲突配对 |
+| `up` | 方向标志 `(tid & k) == 0`，升序/降序 |
+| `P` | 补齐到 2 的幂次的数组长度 |
+
+> **关键洞察**：bitonic sort 适合 GPU 的原因是 compare-swap 网络的 **数据无关性**——每步的比较对由 `tid ^ j` 固定决定，不依赖数据值，所有 thread 可并行执行无分支发散。`O(log²N)` 步、每步 `O(N)` 并行比较，虽总工作量比串行排序大，但 GPU 的大规模并行把常数摊平。
+
 ## 5. 性能分析与优化
 
 ```bash

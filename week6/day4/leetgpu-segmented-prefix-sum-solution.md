@@ -351,6 +351,63 @@ extern "C" void solve(const float* values, const int* flags, float* output, int 
 }
 ```
 
+### 4.2 代码详解
+
+本文件包含教学版 `segmented_excl_scan_kernel`（假设每段不跨 block）和提交版的三个 kernel（`block_seg_scan_kernel` + `block_carry_scan` + `add_carry_kernel`，支持跨 block 长段）。核心思路：在 warp scan 中检测段首标记，段首元素的前缀强制归零（不 carry 跨段和）。
+
+**辅助函数 `warp_excl_scan`（教学版）/ `warp_seg_incl_scan`（提交版）**：
+- 教学版：标准 Hillis-Steele exclusive scan，`__shfl_up_sync` 倍增累加。
+- 提交版 `warp_seg_incl_scan`：用 `__ballot_sync` 收集段首标记位图，累加时检查路径上是否有段首——`if ((ballot & mask) == 0) sum += v`，若累加路径跨越段首则不 carry。
+
+**`segmented_excl_scan_kernel`（教学版）逐段解析**：
+
+1. **读取值与段首标记**
+   - `int val = (tid < N) ? input[tid] : 0`：元素值。
+   - `int seg_flag = (tid < N) ? is_seg_start[tid] : 0`：段首标记（1 = 新段开始）。
+   - `int scan_val = seg_flag ? 0 : val`：段首元素的 scan 输入设为 0（它的前缀是 0，不累加自己的值到前缀）。
+
+2. **warp 内 segmented scan**
+   - `int warp_excl = warp_excl_scan(scan_val)`：标准 warp scan，但由于段首已置 0，前缀自然不 carry 跨段。
+   - `int warp_total = warp_excl + scan_val`：warp 的 inclusive 总和。
+
+3. **跨 warp carry + 段首归零**
+   - 第一个 warp 对 `warp_sums` 做 scan，得到各 warp 前缀偏移。
+   - `int block_excl = warp_excl + warp_sums[warp_id]`：block 内 exclusive prefix sum。
+   - `if (seg_flag) block_excl = 0`：段首元素强制前缀为 0（清除前序段 carry 过来的和）。
+   - `output[tid] = block_excl`。
+
+**`block_seg_scan_kernel`（提交版）逐段解析**：
+
+1. **加载到 shared memory**：`sval[threadIdx.x]`、`sflag[threadIdx.x]` 缓存值和段首标记。
+
+2. **warp 内 segmented inclusive scan**
+   - `float incl = warp_seg_incl_scan(val, flag, lane)`：用 `__ballot_sync` 检测段首，段内 carry、跨段不 carry。
+   - `float excl = incl - val`：inclusive 转 exclusive。
+
+3. **跨 warp carry 传播**
+   - `warp_last_sum[warp_id] = incl`：记录每 warp 的 inclusive 总和。
+   - `warp_first_start[warp_id]`：记录每 warp 内第一个段首的位置。
+   - thread 0 串行计算各 warp 的 carry：`carry += warp_last_sum[w-1]`，若 `warp_first_flag[w]` 则 `carry = 0`（段首归零）。
+   - `if (!flag && lane < warp_first_start[warp_id]) excl += warp_carry[warp_id]`：段首前的元素加上前序 warp 的 carry。
+
+4. **block 间 carry（`block_carry_scan` + `add_carry_kernel`）**
+   - `block_seg_scan_kernel` 记录每 block 的最后一个段的和（`block_sum`）和首段信息。
+   - `block_carry_scan`：串行扫描各 block 的 `block_sum`，若 block 首元素是段首则 carry 归零。
+   - `add_carry_kernel`：把前序 block 的 carry 加到本 block 段首之前的元素上。
+
+**关键变量说明**：
+
+| 变量 | 含义 |
+|------|------|
+| `seg_flag` / `flag` | 段首标记，1 = 新段开始 |
+| `scan_val` | 段首置 0 后的 scan 输入值 |
+| `warp_sums[]` | 各 warp 的 inclusive 总和 |
+| `warp_carry[]` | 前序 warp 的段和 carry |
+| `block_sum[]` | 每 block 最后一个段的和 |
+| `block_carry[]` | 跨 block 的段和 carry |
+
+> **关键洞察**：segmented scan 的核心是"段首归零"——在并行 scan 的累加路径上检测段首标记，遇段首则截断 carry。这把"逐段独立扫描"统一成一个全局 scan kernel，避免了"每段一 block"的 launch 开销和负载失衡。`__ballot_sync` 收集段首位图是高效检测段边界的技巧。
+
 ## 5. 性能分析与优化
 
 ```bash

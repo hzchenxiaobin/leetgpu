@@ -284,6 +284,37 @@ extern "C" void solve(const float* A, const float* B, float* C, int N) {
 }
 ```
 
+### 4.2 代码详解
+
+下面以 4.1 节 LeetGPU 提交版本的 `matrix_add` kernel 为例，逐块拆解 `float4` 向量化 + grid-stride 的实现细节。
+
+**Kernel 结构概览**：两大循环——① `float4` 向量化主循环（处理 `total/4` 个向量元素）+ ② 尾部标量兜底循环（处理 `total%4` 个剩余元素）。把 `M×N` 矩阵按行主序展平为 1D 数组后套用 grid-stride。
+
+| # | 代码块 | 作用 | 说明 |
+|---|--------|------|------|
+| ① | `int total = N * N;` | 1D 展平总元素数 | 方阵 `M=N`，行主序连续存储，可当作一维 `float` 数组处理 |
+| ② | `int vec_count = total / 4;` | float4 元素数 | 每 4 个 float 打包成 1 个 `float4`，作为主循环上界 |
+| ③ | `const float4* A4 = reinterpret_cast<const float4*>(A);` | 类型重解释 | 把 `float*` 当 `float4*`，使后续 `A4[i]` 一次读 16B。要求源地址 16-byte 对齐（`cudaMalloc` 天然满足） |
+| ④ | `for (int i = tid; i < vec_count; i += stride)` | float4 主循环 | grid-stride，每 thread 处理多个 `float4`。`i` 是 float4 索引，对应 float 索引 `4i..4i+3` |
+| ⑤ | `float4 a = A4[i]; float4 b = B4[i];` | 向量化加载 | 各 1 条 16B load 事务，替代朴素版的 4 条 4B load，事务数减 4× |
+| ⑥ | `c.x=a.x+b.x; ... c.w=a.w+b.w;` | 逐分量加法 | 4 次标量加法，结果暂存寄存器中的 `float4 c` |
+| ⑦ | `C4[i] = c;` | 向量化存储 | 1 条 16B store |
+| ⑧ | `int tail_start = vec_count * 4; for (...i < total...)` | 尾部兜底 | 处理 `total%4` 个无法凑成 float4 的剩余元素，逐元素加法。本题 `N=4096` 时 `total%4=0`，此循环不执行 |
+
+**关键索引/变量**：
+
+- `tid` / `stride`：grid-stride 标准参数，含义同 Vector Addition。
+- `vec_count = total / 4`：注意是整数除法，自动丢弃尾部。主循环只负责对齐部分。
+- `tail_start = vec_count * 4`：尾部起点，保证主循环与尾循环边界衔接、不漏不重。
+- `i`（主循环）：`float4` 索引；同一 warp 内 `i` 连续 → 32 个 thread 读 `A4[tid..tid+31]`，地址连续 512B，合并为 4 条 128B 事务，coalesced 满足。
+
+**关键洞察**：`float4` 的收益不在"少读数据"（总字节数不变），而在"少发事务"——
+
+- 朴素版：每 thread 发 1 条 4B load，warp 32 thread 共 32 条请求 → 硬件合并为 1 条 128B 事务（已 coalesced）。但每 thread 仍要发独立地址计算与 load 指令。
+- float4 版：每 thread 发 1 条 16B load，warp 32 thread 共 32 条 16B 请求 → 合并为 4 条 128B 事务。**指令数与地址计算减 4×**，对 memory-bound kernel 这是直接提升带宽利用率的关键。
+
+> 💡 **worked example**：`N=4096`，`total=16M`，`vec_count=4M`。设 `blocks=4096, threads=256`，`stride=1M`。每个 thread 循环 `ceil(4M/1M)=4` 次，每次处理 1 个 `float4`（4 个 float）。`tail_start=16M`，尾循环条件 `i<16M` 对所有 thread 都不满足 → 不执行。最终 16M 元素被 4M 次 `float4` 加法覆盖，事务数相比朴素版减少 4×。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

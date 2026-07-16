@@ -181,7 +181,7 @@ int main() {
 
 ### 4.1 LeetGPU 提交版本
 
-下面给出适配 LeetGPU 官方 starter 签名的提交版本。`blockIdx.z` 索引 batch，`stride` 寻址每个 batch 的矩阵，tiled shared memory 沿 K 方向累加。
+下面给出适配 LeetGPU 官方 starter 签名的提交版本。它使用 `blockIdx.z` 索引 batch，并用 shared memory tiling 完成每个 batch 的 GEMM。
 
 ```cuda
 #include <cuda_runtime.h>
@@ -196,9 +196,9 @@ __global__ void batched_matmul_kernel(const float* A, const float* B, float* C,
     if (b >= batch || row >= M || col >= N)
         return;
 
-    const float* A_b = A + (size_t)b * M * K;
-    const float* B_b = B + (size_t)b * K * N;
-    float* C_b = C + (size_t)b * M * N;
+    const float* A_b = A + b * M * K;
+    const float* B_b = B + b * K * N;
+    float* C_b = C + b * M * N;
 
     __shared__ float sA[TILE][TILE];
     __shared__ float sB[TILE][TILE];
@@ -207,8 +207,8 @@ __global__ void batched_matmul_kernel(const float* A, const float* B, float* C,
     for (int t = 0; t < (K + TILE - 1) / TILE; t++) {
         int a_col = t * TILE + threadIdx.x;
         int b_row = t * TILE + threadIdx.y;
-        sA[threadIdx.y][threadIdx.x] = (row < M && a_col < K) ? A_b[(size_t)row * K + a_col] : 0.0f;
-        sB[threadIdx.y][threadIdx.x] = (b_row < K && col < N) ? B_b[(size_t)b_row * N + col] : 0.0f;
+        sA[threadIdx.y][threadIdx.x] = (row < M && a_col < K) ? A_b[row * K + a_col] : 0.0f;
+        sB[threadIdx.y][threadIdx.x] = (b_row < K && col < N) ? B_b[b_row * N + col] : 0.0f;
         __syncthreads();
 
         #pragma unroll
@@ -216,18 +216,56 @@ __global__ void batched_matmul_kernel(const float* A, const float* B, float* C,
             sum += sA[threadIdx.y][k] * sB[k][threadIdx.x];
         __syncthreads();
     }
-    C_b[(size_t)row * N + col] = sum;
+    C_b[row * N + col] = sum;
 }
 
 // A, B, C are device pointers
-extern "C" void solve(const float* A, const float* B, float* C, int BATCH, int M, int N, int K) {
-    if (BATCH <= 0 || M <= 0 || N <= 0 || K <= 0) return;
+extern "C" void solve(const float* A, const float* B, float* C,
+                      int BATCH, int M, int N, int K) {
     dim3 grid((N + TILE - 1) / TILE, (M + TILE - 1) / TILE, BATCH);
     dim3 block(TILE, TILE);
     batched_matmul_kernel<<<grid, block>>>(A, B, C, BATCH, M, N, K);
     cudaDeviceSynchronize();
 }
 ```
+
+### 4.2 代码详解
+
+`batched_matmul_kernel` 采用 **"batch 维 + tiled matmul"** 三维并行结构：`blockIdx.z` 索引 batch，`blockIdx.x/y` 索引输出 tile，沿 K 方向分块用 shared memory 缓存。每个 batch 元素独立计算，共享同一次 kernel launch。
+
+**kernel 逐段解析**：
+
+1. **三维索引与 batch stride 寻址**
+   - `int b = blockIdx.z`：batch 维，grid 第三维天然映射 batch，各 batch 独立。
+   - `int row = blockIdx.y * TILE + threadIdx.y`：M 维（输出行），`blockIdx.y` 定位 tile，`threadIdx.y` 定位 tile 内行。
+   - `int col = blockIdx.x * TILE + threadIdx.x`：N 维（输出列），x 维连续保证写 C 时 coalesced。
+   - `const float* A_b = A + b * M * K`：batch stride 寻址，`A[b]` 的起点偏移 `b * M * K` 个 float。`B_b`、`C_b` 同理。
+   - 越界保护 `if (b >= batch || row >= M || col >= N) return`。
+
+2. **shared memory tile 声明**
+   - `__shared__ float sA[TILE][TILE]`、`sB[TILE][TILE]`：缓存 A 的一行 tile 和 B 的一列 tile（`TILE=16`），block 内 256 个 thread 共享复用。
+
+3. **沿 K 方向分 tile 累加**
+   - `for (int t = 0; t < (K + TILE - 1) / TILE; t++)`：外层循环遍历 K 方向的 tile。
+   - **加载 tile**：`sA[threadIdx.y][threadIdx.x]` ← `A_b[row * K + a_col]`，每 thread 加载一个元素；越界补 0（`(row < M && a_col < K) ? ... : 0.0f`）。`sB` 同理加载 B tile。
+   - `__syncthreads`：确保 tile 完全加载后再计算。
+   - **tile 内累加**：`#pragma unroll for (int k = 0; k < TILE; k++) sum += sA[threadIdx.y][k] * sB[k][threadIdx.x]`——经典的 `C[i][j] = Σ A[i][k] * B[k][j]`，从 shared memory 读取，复用 `TILE` 次。
+   - `__syncthreads`：确保累加完成后再加载下一 tile（覆写 shared memory）。
+
+4. **写回输出**
+   - `C_b[row * N + col] = sum`：累加完所有 K tile 后写入最终结果。
+
+**关键索引说明**：
+
+| 变量 | 含义 |
+|------|------|
+| `b` | batch 索引（`blockIdx.z`），决定 `A_b/B_b/C_b` 的偏移 |
+| `row` / `col` | 输出矩阵 `C[b]` 的行列号 |
+| `A_b` / `B_b` / `C_b` | 当前 batch 的 A/B/C 子矩阵起点指针 |
+| `sA` / `sB` | shared memory tile，缓存当前 K-tile 的 A 行块和 B 列块 |
+| `t` | K 方向的 tile 编号 |
+
+> **关键洞察**：batched matmul 的核心是 `blockIdx.z` 索引 batch + stride 寻址——各 batch 间零通信、零同步，天然并行。tiled 部分与单矩阵 matmul 完全一致：shared memory 让一个 tile 的 A 行被 `TILE` 个输出列复用，B 列被 `TILE` 个输出行复用，把 global 读量降低 `TILE` 倍。
 
 ## 5. 性能分析与优化
 

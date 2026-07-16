@@ -296,6 +296,43 @@ extern "C" void solve(const float* A, const float* B, float* C, int M, int N, in
 }
 ```
 
+### 4.2 代码详解
+
+下面以 4.1 节 LeetGPU 提交版本的 `matrix_multiplication_kernel` 为例，逐块拆解 shared memory tiling 的实现。本 kernel 用 `TILE=32`（starter 默认 16，可调大提升吞吐），每 thread 计算 1 个输出元素 `C[row][col]`。
+
+**Kernel 结构概览**：三层结构——① 声明 shared memory tile → ② 沿 `N` 维滑动的 `for (t)` 外循环（每轮加载一个 `TILE×TILE` 子块并乘加）→ ③ 循环结束后写回 `C`。外循环体内严格遵循"加载 → `__syncthreads` → 计算 → `__syncthreads`"四步节奏。
+
+| # | 代码块 | 作用 | 说明 |
+|---|--------|------|------|
+| ① | `__shared__ float A_tile[TILE][TILE];` `__shared__ float B_tile[TILE][TILE];` | shared memory tile | block 内共享的 `A`、`B` 子块，各 `32×32×4B=4KB`，共 8KB/block。延迟 ~20 cycle（global ~400 cycle） |
+| ② | `int row = blockIdx.y * TILE + threadIdx.y;` `int col = blockIdx.x * TILE + threadIdx.x;` | 输出元素坐标 | `blockIdx.y/x` 定位 block 在输出矩阵中的 tile 起点，`threadIdx.y/x` 定位 tile 内位置。每 thread 负责一个 `C[row][col]` |
+| ③ | `float sum = 0.0f;` | 累加器 | 寄存器变量，跨所有 tile 累加部分和，循环结束才写 global |
+| ④ | `int num_tiles = (N + TILE - 1) / TILE;` | tile 数 | 缩减维（本题是 N 维）被切成多少段 |
+| ⑤ | `for (int t = 0; t < num_tiles; ++t)` | K 维滑动窗口 | 每轮处理 `A` 的第 `t` 个列块 + `B` 的第 `t` 个行块 |
+| ⑥ | `int a_col = t * TILE + threadIdx.x;` `int b_row = t * TILE + threadIdx.y;` | 加载坐标 | `threadIdx.x` 负责 `A` 的列方向、`threadIdx.y` 负责 `B` 的行方向，block 内 1024 个 thread 协作加载 1024 个元素（合并访存） |
+| ⑦ | `A_tile[ty][tx] = (row<M && a_col<N) ? A[row*N+a_col] : 0.0f;` | 加载 A_tile | 越界填 0（保证乘加结果不变）。三元式同时兼任越界保护 |
+| ⑧ | `__syncthreads();`（第一次） | 同步屏障 | 确保 tile 全部加载完才开始计算，避免读到未初始化数据 |
+| ⑨ | `for (int k=0; k<TILE; ++k) sum += A_tile[ty][k]*B_tile[k][tx];` | 乘加核心 | 从 shared 读 2 个值做 1 次乘加，累加到 `sum`。`#pragma unroll` 展开减少循环开销 |
+| ⑩ | `__syncthreads();`（第二次） | 同步屏障 | 确保本 tile 的 shared 数据被所有 thread 用完，再进入下一轮覆盖 tile |
+| ⑪ | `if (row < M && col < K) C[row*K+col] = sum;` | 写回结果 | 越界保护后写 global。只写一次，在循环外 |
+
+**关键索引/变量**：
+
+- `row` / `col`：输出矩阵 `C` 的全局行列号，决定本 thread 算哪个元素。
+- `threadIdx.y` / `threadIdx.x`：双重身份——既定位输出在 tile 内的位置，又分工加载 tile 数据（`x` 管 `A` 列、`y` 管 `B` 行）。
+- `t`：缩减维（K 维）的 tile 编号，滑动窗口的进度。
+- `A_tile[threadIdx.y][k]`：本 thread 所在行（`row` 对应 `A` 的行）的第 `k` 个元素——**被同一 tile 行的 32 个 thread 复用**。
+- `B_tile[k][threadIdx.x]`：本 thread 所在列的第 `k` 个元素——**被同一 tile 列的 32 个 thread 复用**。
+
+**关键洞察**：两次 `__syncthreads` 缺一不可，作用时机截然不同——
+
+| 同步 | 位置 | 作用 | 若缺失的后果 |
+|------|------|------|-------------|
+| 第一次 | 加载后、计算前 | 保证 tile 数据就绪 | 部分 thread 读到旧/未初始化数据，结果错误 |
+| 第二次 | 计算后、下一轮加载前 | 保证 tile 被用完才覆盖 | 部分 thread 还在读旧 tile，已被其他 thread 覆盖，结果错误 |
+
+> 💡 **worked example**：设 `TILE=32, M=8192, N=6144, K=4096`，`num_tiles = ceil(6144/32) = 192`。block `(bx=0, by=0)` 的 1024 个 thread 计算 `C[0..31][0..31]`。第 `t=0` 轮：加载 `A[0..31][0..31]` 和 `B[0..31][0..31]`，每 thread `sum += A_tile[ty][k]*B_tile[k][tx]`（k=0..31）。第 `t=1` 轮加载 `A[0..31][32..63]` 和 `B[32..63][0..31]`，继续累加……192 轮后 `sum` 即为完整的 `C[row][col] = Σ_{k=0}^{6143} A[row][k]*B[k][col]`。`A[0][0]` 被 32 个 thread（同一行）复用，而非朴素版的 4096 次——访存量降低 `TILE=32` 倍，这正是 tiling 把 GEMM 从 memory-bound 推向 compute-bound 的根本原因。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

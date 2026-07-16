@@ -216,6 +216,49 @@ extern "C" void solve(const float* A, const float* B, float* result, int N) {
 }
 ```
 
+### 4.2 代码详解
+
+`dot_product_kernel` 采用 **"乘法与归约融合 + 两级归约"** 结构：每 thread 先用 grid-stride 算自己负责元素的乘积和，再 warp 内 `__shfl_down_sync` 树形归约，最后 block 间用 `atomicAdd` 汇总。乘法在归约前完成，避免中间数组。
+
+**辅助函数 `warp_reduce`**：
+- `for (int offset = WARP/2; offset > 0; offset /= 2)`：5 步折半，`__shfl_down_sync` 把高半 lane 的值加到低半，最终 lane 0 持有 warp 内总和。全程寄存器，零 bank conflict。
+
+**kernel 逐段解析**：
+
+1. **索引计算**
+   - `int tid = blockIdx.x * blockDim.x + threadIdx.x`：全局线程下标，用于定位数据。
+   - `int lane = threadIdx.x & (WARP - 1)`：warp 内 lane 号（`0..31`），用于判断是否为 lane 0。
+   - `int warp_id = threadIdx.x / WARP`：block 内 warp 编号（`0..7`），用于索引 `warp_sums`。
+
+2. **grid-stride 乘积累加**
+   - `__shared__ float warp_sums[WARP]`：存放每 warp 的归约结果（8 个 warp 用 8 个 slot）。
+   - `for (int i = tid; i < N; i += gridDim.x * blockDim.x)`：grid-stride loop，每 thread 处理多个元素，覆盖全部 N。
+   - `sum += a[i] * b[i]`：乘法与累加融合，不写中间数组到 HBM。
+
+3. **warp 内归约**
+   - `sum = warp_reduce(sum)`：warp 内 32 个值树形归约到 lane 0。
+   - `if (lane == 0) warp_sums[warp_id] = sum`：每 warp 的 lane 0 把结果写入 shared memory。
+   - `__syncthreads`：确保所有 warp 写完后再读取。
+
+4. **block 内终约 + 跨 block 归约**
+   - `if (warp_id == 0)`：只用第一个 warp 做 warp 间归约（block 内 8 个 warp 的结果）。
+   - `sum = (lane < blockDim.x / WARP) ? warp_sums[lane] : 0.0f`：前 8 个 lane 读各自的 warp_sum，其余补 0。
+   - `sum = warp_reduce(sum)`：再次树形归约，lane 0 得到 block 总和。
+   - `if (lane == 0) atomicAdd(result, sum)`：block 的 lane 0 用 `atomicAdd` 把 block 总和累加到全局 `result`，完成跨 block 归约。
+
+**关键变量说明**：
+
+| 变量 | 含义 |
+|------|------|
+| `tid` | 全局线程下标，定位 `a[tid]`、`b[tid]` |
+| `lane` | warp 内 lane 号，用于归约后判断 lane 0 |
+| `warp_id` | block 内 warp 编号，索引 `warp_sums` |
+| `sum` | thread 局部乘积和 → warp 和 → block 和 |
+| `warp_sums[]` | shared memory，暂存 8 个 warp 的部分和 |
+| `result` | 全局输出，跨 block 用 atomicAdd 汇总 |
+
+> **关键洞察**：两级归约（warp shuffle → shared → warp 0 终约）是 GPU 归约的通用骨架。乘法与归约融合（kernel fusion）避免了中间乘积数组落 HBM，是"读一遍算一遍写一遍"的高效模式。跨 block 用 `atomicAdd` 虽有竞争，但写者数 = block 数（远小于 N），竞争可接受。
+
 ## 5. 性能分析与优化
 
 ```bash

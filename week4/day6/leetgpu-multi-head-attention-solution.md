@@ -718,6 +718,58 @@ extern "C" void solve(const float* Q, const float* K, const float* V, float* out
 }
 ```
 
+### 4.2 代码详解
+
+本文件包含两个 kernel：`mha_standard_kernel`（朴素版，物化 S/P 到 HBM，用于对比）和 `mha_flash_kernel`（Flash 版，online softmax + tiling，不物化 S/P）。两者共享 **batched launch** 结构（`blockIdx.z=batch, blockIdx.y=head`），区别在于 block 内是否物化中间矩阵。
+
+**`mha_standard_kernel` 逐段解析**（4 步串行，每步过 HBM）：
+
+1. **加载 Q 行到 shared**：`q_shm[t] = Q[bhQ + i*d + t]`，block 协作加载第 `i` 行 query。
+2. **算 S = QK^T / √d → 写 HBM**：`for (k...)` 遍历所有 key，`s += q_shm[t] * K[...]`，结果写 `S[bhS + i*N + k]`。
+3. **算 P = softmax(S) → 写 HBM**：先 `block_reduce_max` 求 row max，再 `expf(S - rmax)` 写 `P`，`block_reduce_sum` 求 row sum。
+4. **算 O = P · V**：`for (t...) for (k...) acc += P[...] * V[...]`，最后 `O = acc / rsum`。
+- 致命问题：S/P 各占 `B·H·N²×4B`，大规模下 OOM。
+
+**`mha_flash_kernel` 逐段解析**（online softmax + tiling，S/P 不落 HBM）：
+
+1. **shared memory tile 声明**
+   - `s_Q[Br][D_MAX]`、`s_K[Bc][D_MAX]`、`s_V[Bc][D_MAX]`：Q tile（`Br=8` 行）、K/V tile（`Bc=32` 行），head 维 `D_MAX=128`。
+   - `lane = threadIdx.x`（`0..31`，拆分 d 维）、`wid = threadIdx.y`（`0..7`，1 warp = 1 Q row）、`qRow = qTileBase + wid`。
+
+2. **协作加载 Q tile**
+   - `for (int idx = wid*32+lane; idx < Br*d; idx += BLOCK_SIZE)`：block 内 256 thread 协作把 Br 行 Q 载入 `s_Q`。
+
+3. **初始化 running state**
+   - `float m = -INFINITY, l = 0.f`：每 warp 维护 running max 和 running sum（online softmax 状态）。
+   - `float o_reg[D_PER_THREAD]`：输出累加器，d 维拆分到 32 lane，每 lane 持有 4 个元素。
+   - `q_reg[dd] = s_Q[wid][d_idx]`：把 Q 行缓存到寄存器，后续复用。
+
+4. **外层循环：遍历 K/V tile**
+   - `for (int kvStart = 0; kvStart < N; kvStart += Bc)`：每次加载 `Bc=32` 行 K/V 到 shared，供 `Br=8` 个 warp 复用。
+   - 协作加载 `s_K`、`s_V`，`__syncthreads`。
+
+5. **内层循环：逐行处理 K/V（online softmax 三公式）**
+   - **① 算 score**：`partial += q_reg[dd] * s_K[k][d_idx]`，warp 内 partial sum → `warp_reduce_sum` → `__shfl_sync` 广播到所有 lane。`s_k = sum * scale`。
+   - **② online softmax 更新**：`m_new = max(m, s_k)`，`alpha = exp(m - m_new)`，`p = exp(s_k - m_new)`，`l_new = l*alpha + p`。所有 exp 减 running max，数值稳定。
+   - **③ 累加输出**：`o_reg[dd] = o_reg[dd] * o_scale + v_scale * s_V[k][d_idx]`，其中 `o_scale = l*alpha/l_new`，`v_scale = p/l_new`。
+   - 更新 `m = m_new, l = l_new`，进入下一行 K/V。
+
+6. **写回输出**
+   - `if (qRow < N)`：有效行才写。`O[bhOff + qRow*d + d_idx] = o_reg[dd]`，各 lane 写自己负责的 d 维元素。
+
+**关键索引说明**：
+
+| 变量 | 含义 |
+|------|------|
+| `batch` / `head` | `blockIdx.z` / `blockIdx.y`，定位 (batch, head) 组 |
+| `qTileBase` | `blockIdx.x * Br`，本 block 处理的 Q 行起点 |
+| `bhOff` | `(batch*H + head) * N * d`，该 (batch,head) 的数据偏移 |
+| `lane` / `wid` | d 维 lane 号 / Q 行 warp 号 |
+| `m` / `l` / `o_reg` | online softmax 的 running max / sum / output |
+| `alpha` / `p` | rescale 因子 / 新 score 的 exp 值 |
+
+> **关键洞察**：FlashAttention 的核心是"一遍扫描 + 增量更新"——用 running max `m` 和 running sum `l` 把 softmax 的两遍扫描（max + exp+sum）压缩成一遍，`S/P` 永远不落 HBM。叠加 K/V tiling（Br 个 warp 复用同一 K/V tile）把 HBM IO 从 `O(B·H·N²)` 降到趋近 `O(B·H·N·d)`。batched launch 让 `B·H` 组零开销并行启动。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

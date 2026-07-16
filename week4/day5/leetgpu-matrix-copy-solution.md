@@ -285,6 +285,45 @@ extern "C" void solve(const float* A, float* B, int N) {
 }
 ```
 
+### 4.2 代码详解
+
+两个 kernel 共用 **1D grid-stride** 框架，区别在于每 thread 搬运的粒度：标量版每次 1 个 float（4B），向量化版每次 1 个 float4（16B）。矩阵在显存中行主序连续，1D 映射天然 coalesced。
+
+**`matrix_copy_kernel`（标量版）逐段解析**：
+
+1. **索引计算**
+   - `int tid = blockIdx.x * blockDim.x + threadIdx.x`：全局线程下标。
+   - `int stride = gridDim.x * blockDim.x`：grid-stride 步长。
+2. **grid-stride 拷贝**
+   - `for (int i = tid; i < N; i += stride)`：每 thread 跨步搬运多个元素，少量 block 覆盖全部 N。
+   - `out[i] = in[i]`：warp 内 32 个 thread 的 `i` 连续（`tid` 连续），合并成 1 次 128B load + 1 次 128B store。但每事务只搬 4B，指令/事务开销偏高。
+
+**`matrix_copy_vectorized`（float4 版）逐段解析**：
+
+1. **float4 转型**
+   - `int vec_n = N / 4`：float4 元素数（每 4 个 float 一组）。
+   - `const float4* in4 = reinterpret_cast<const float4*>(in)`：把 `float*` 当 `float4*`，一次访问 16B。要求源地址 16-byte 对齐（`cudaMalloc` 天然满足）。
+
+2. **主循环：16B 搬运**
+   - `for (int i = tid; i < vec_n; i += stride)`：grid-stride，但下标按 float4 计数。
+   - `out4[i] = in4[i]`：1 条 16B load + 1 条 16B store，把标量版的 4 条 4B 事务合并为 1 条。LSU 指令数减少 4×，带宽利用率从 ~70% 升到 ~88%。
+
+3. **尾部处理**
+   - `int tail_start = vec_n * 4`：float4 主循环覆盖的元素数。
+   - `for (int i = tail_start + tid; i < N; i += stride) out[i] = in[i]`：处理 `N % 4` 个剩余元素（本题 `N=4096²` 可被 4 整除，此循环不执行）。
+
+**关键变量说明**：
+
+| 变量 | 含义 |
+|------|------|
+| `tid` | 全局线程下标 |
+| `stride` | grid-stride 步长 |
+| `N` | 总元素数 `M × N` |
+| `vec_n` | float4 元素数 `N / 4` |
+| `in4` / `out4` | float4 视图指针，每次访问 16B |
+
+> **关键洞察**：纯拷贝的算术强度为 0（`0 FLOP / 8B`），性能上限完全由 HBM 带宽决定。float4 向量化的作用不是"算更快"，而是"减少指令/事务数"——把 4 条 4B 事务合成 1 条 16B 事务，让内存控制器更高效地利用带宽。coalesced 是前提，float4 是锦上添花。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

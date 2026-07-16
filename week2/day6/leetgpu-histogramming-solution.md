@@ -298,6 +298,42 @@ extern "C" void solve(const int* input, int* histogram, int N, int num_bins) {
 }
 ```
 
+### 4.2 代码详解
+
+`histogram_privatized` kernel 采用经典的 **三段式 privatization 结构**：shared memory 清零 → grid-stride 累加到 shared histogram → 末尾合并到 global。一个 block 持有一份私有 `shared_hist[256]`，把"全 grid 抢 256 个 global 地址"降级为"单 block 内抢 256 个 shared 地址"。
+
+**代码块逐段解析**：
+
+1. **shared histogram 声明与清零**（kernel 开头）
+   - `__shared__ int shared_hist[NUM_BINS]`：每个 block 独立的一份 256-int 私有直方图，占 1KB shared memory。
+   - `for (int b = tid; b < B; b += blockDim.x)`：block 内 256 个 thread 协作清零（`B=256` 恰好每 thread 清 1 个 bin），随后 `__syncthreads` 保证全 block 可见。
+
+2. **grid-stride 读输入 + shared atomicAdd**
+   - `gid = blockIdx.x * blockDim.x + tid`：全局线程下标；`stride = gridDim.x * blockDim.x`：grid-stride 步长，让少量 block 覆盖全部 N 个元素。
+   - `for (int i = gid; i < N; i += stride)`：每个 thread 跨步读取多个元素，提高每 thread 的工作量。
+   - `int bin = input[i]`：当前元素的 bin 值（`0..B-1`）。
+   - `atomicAdd(&shared_hist[bin], 1)`：累加到 **block 私有** 的 shared histogram。shared atomic 延迟仅数十周期，且竞争者只有同 block 的 256 个 thread（远小于全 grid）。
+   - `__syncthreads`：确保所有 thread 完成累加后再进入合并阶段。
+
+3. **shared → global 合并**
+   - `for (int b = tid; b < B; b += blockDim.x)`：每 thread 负责若干 bin 的合并。
+   - `int v = shared_hist[b]`：该 bin 在本 block 的计数。
+   - `if (v > 0)`：跳过空 bin，减少无谓的 global atomic 事务（稀疏分布时收益显著）。
+   - `atomicAdd(&hist[b], v)`：把本 block 的 bin 计数累加到全局 histogram。global atomic 次数 = `B × blocks`（约 11 万次），远少于朴素版的 `N`（1000 万次）。
+
+**关键索引说明**：
+
+| 变量 | 含义 | 作用域 |
+|------|------|--------|
+| `tid` | `threadIdx.x`，block 内线程号 | block |
+| `gid` | 全局线程下标 `blockIdx.x * blockDim.x + tid` | grid |
+| `stride` | grid-stride 步长 `gridDim.x * blockDim.x` | grid |
+| `bin` | 当前输入元素值，作为 histogram 下标 | thread |
+| `shared_hist[b]` | 本 block 私有的 bin b 计数 | block（shared） |
+| `hist[b]` | 全局 histogram 的 bin b 计数 | grid（global） |
+
+> **关键洞察**：privatization 的本质是"用空间换竞争"——多花 `O(B × blocks)` 的 shared memory，把 `O(N)` 次昂贵的 global atomic 降级为 `O(N)` 次廉价的 shared atomic + `O(B × blocks)` 次低竞争的 global atomic。当写者数量（N）远大于写地址数量（B）时，"私有副本 + 末尾归并"是通用解法。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行

@@ -335,6 +335,52 @@ extern "C" void solve(const float* A, int N, float* out) {
 }
 ```
 
+### 4.2 代码详解
+
+Stream Compaction 由 **三个 kernel 串行** 组成：`predicate_kernel`（标记非零元素）→ `block_excl_scan_kernel`（两遍 exclusive scan 算紧凑下标）→ `scatter_kernel`（按下标写入）。核心是 `warp_excl_scan` 用 `__shfl_up_sync` 实现 Hillis-Steele scan。
+
+**辅助函数 `warp_excl_scan`**：
+- `for (int offset = 1; offset < WARP; offset *= 2)`：5 步倍增，`__shfl_up_sync` 从 `offset` 距离的 lane 取值累加。
+- `if (lane >= offset) sum += v`：只在前 `offset` 个 lane 之后累加（exclusive 语义）。
+- `return sum - orig`：inclusive 转 exclusive（减回自己的值）。
+
+**kernel 逐段解析**：
+
+1. **`predicate_kernel`：标记非零**
+   - `int i = blockIdx.x * blockDim.x + threadIdx.x`：全局下标。
+   - `pred[i] = (input[i] != 0) ? 1 : 0`：非零标记为 1，零标记为 0。后续 scan 对 `pred` 求前缀和。
+
+2. **`block_excl_scan_kernel`：block 内 exclusive scan**
+   - `int val = (tid < N) ? pred[tid] : 0`：读取 predicate，越界补 0。
+   - `int warp_excl = warp_excl_scan(val)`：warp 内 exclusive prefix sum。
+   - `int warp_total = warp_excl + val`：warp 的 inclusive 总和（最后一个 lane 持有）。
+   - `if (lane == WARP-1) warp_sums[warp_id] = warp_total`：每 warp 的总和写 shared。
+   - `__syncthreads` 后，warp 0 对 `warp_sums` 再做一次 `warp_excl_scan`，得到各 warp 的前缀偏移。
+   - `int block_excl = warp_excl + warp_sums[warp_id]`：warp 内前缀 + warp 间前缀 = block 内 exclusive prefix sum。
+   - `ps[tid] = block_excl`：写入全局 `ps` 数组（即每个非零元素在 output 中的下标）。
+   - `if (threadIdx.x == blockDim.x - 1) block_sums[blockIdx.x] = block_excl + val`：最后一个 thread 记录本 block 的总和，供第二级 scan 使用。
+
+3. **第二级 scan + `add_prev_blocks`：跨 block 修正**
+   - 对 `block_sums` 数组再做一遍 `block_excl_scan_kernel`，得到每个 block 的前序累加偏移 `block_sums_excl`。
+   - `add_prev_blocks`：`ps[tid] += block_sums_excl[blockIdx.x]`，把前序 block 的元素数加到每个 `ps` 上（block 0 不加）。
+
+4. **`scatter_kernel`：紧凑写入**
+   - `if (i < N && pred[i] == 1)`：只处理非零元素。
+   - `output[ps[i]] = input[i]`：用 `ps[i]` 作为目标下标。由于 `ps` 对非零元素是连续递增的（`0, 1, 2, ...`），写入地址 coalesced 且保序。
+   - `count = ps[N-1] + pred[N-1]`：总元素数 = 最后一个元素的前缀和 + 它自己的 predicate。
+
+**关键变量说明**：
+
+| 变量 | 含义 |
+|------|------|
+| `pred[i]` | predicate 标记，1 = 非零，0 = 零 |
+| `ps[i]` | exclusive prefix sum，即 `input[i]` 在 output 中的下标 |
+| `block_sums[]` | 每 block 的 predicate 总和 |
+| `block_sums_excl[]` | block 总和的 exclusive prefix sum（跨 block 偏移） |
+| `warp_sums[]` | block 内各 warp 的 inclusive 总和 |
+
+> **关键洞察**：stream compaction 的三段式（predicate → scan → scatter）把"顺序写入"的串行依赖转化为并行——prefix sum 让每个元素独立计算自己的目标地址，scatter 时无需 `atomicAdd` 竞争。`warp_excl_scan` 用 `__shfl_up_sync` 在寄存器内完成，零 bank conflict，是并行 scan 的基础积木。
+
 ## 5. 性能分析与优化
 
 ```bash

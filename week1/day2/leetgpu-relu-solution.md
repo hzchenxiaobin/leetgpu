@@ -232,6 +232,35 @@ extern "C" void solve(const float* input, float* output, int N) {
 }
 ```
 
+### 4.2 代码详解
+
+下面以 4.1 节 LeetGPU 提交版本的 `relu_kernel` 为例逐块拆解，并对比 2.2 节 `relu_naive` 的分支写法，说明 branchless 的实现要点。
+
+**Kernel 结构概览**：与 Vector Addition 完全同构的 grid-stride 骨架，唯一差异在循环体——把 `if-else` 分支替换为单条 `fmaxf` 调用。共 5 行，无 shared memory、无同步。
+
+| # | 代码块 | 作用 | 说明 |
+|---|--------|------|------|
+| ① | `int tid = blockIdx.x * blockDim.x + threadIdx.x;` | 全局线程 ID | 与 Vector Addition 相同，warp 内连续 → 合并访存 |
+| ② | `int stride = gridDim.x * blockDim.x;` | 跨步 | 总线程数，循环步长 |
+| ③ | `for (int i = tid; i < N; i += stride)` | grid-stride 主循环 | 循环条件兼任越界保护 |
+| ④ | `output[i] = fmaxf(0.0f, input[i]);` | **branchless ReLU** | `fmaxf` 映射到单条硬件取最大值指令（如 `VMNMX.F32`），无分支、无 predicate。对比 `relu_naive` 的 `if (x<0) o=0; else o=x;` 两个分支 |
+
+**关键索引/变量**：
+
+- `tid` / `stride` / `i`：含义与 Vector Addition 完全一致，elementwise 骨架可直接复用。
+- `input[i]`：只读一次，临时值进寄存器后立即参与 `fmaxf` 比较，不落 global。
+- `0.0f`：`fmaxf` 的第一个参数是常量，编译期确定，不占用访存带宽。
+
+**关键洞察**：三种写法的本质差异在"硬件如何执行符号判断"——
+
+| 写法 | 硬件行为 | divergence 风险 |
+|------|----------|----------------|
+| `if (x<0) o=0; else o=x;` | 可能生成真正的分支指令，warp 内符号不一致时两分支串行 | 有 |
+| `o = (x<0)?0:x;` | nvcc -O3 通常降为 predicate（条件执行），无跳转 | 通常无 |
+| `o = fmaxf(0.0f, x);` | 单条 `VMAX` 类指令，对所有 thread 统一执行 | 无 |
+
+> 💡 **worked example**：设 warp 内 32 个 thread 的 `input` 为 `[-1, 2, -3, 4, ...]` 正负交替。`relu_naive` 的 `if` 分支会让负数 thread 走 `o=0`、正数 thread 走 `o=x`，**两个分支都要执行一遍**（SIMT 串行），相当于 2× 指令开销。`fmaxf` 版对所有 thread 执行同一条 `VMAX`，正负数在一条指令内同时得到正确结果——这就是 branchless 消除 divergence 的原理。注意：本题 memory-bound，wall-time 差异有限，但 branchless 习惯在 compute-bound kernel 上价值巨大。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行
