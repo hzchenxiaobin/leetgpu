@@ -53,6 +53,8 @@ __global__ void naive_add(const float* A, const float* B, float* C, int M, int N
 - 写 C[i][j]：同上 → coalesced ✓
 - 计算量：1 次加法（几乎为零）
 
+![Matrix Addition 2D：block(16,16) 映射 + coalesced](../../images/matrix_addition_2d_overview.svg)
+
 ### 3.2 存储层次使用
 
 | 层次 | 是否使用 | 说明 |

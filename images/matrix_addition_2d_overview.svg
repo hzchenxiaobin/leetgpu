@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" viewBox="0 0 640 500" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="500" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">矩阵加法（2D）C[i][j] = A[i][j] + B[i][j]</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">2D grid/block 映射；warp 沿 x 轴读连续列 → coalesced</text>
+
+  <!-- ============ Panel A: matrix with TILE ============ -->
+  <text x="90" y="66" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">矩阵 C = A + B（M×N）</text>
+  <g filter="url(#rough2)">
+    <rect x="24" y="78" width="132" height="132" fill="none" stroke="#bbb" stroke-width="1"/>
+  </g>
+  <g stroke="#e2e2e2" stroke-width="1" filter="url(#rough2)">
+    <line x1="46"  y1="78" x2="46"  y2="210"/>
+    <line x1="68"  y1="78" x2="68"  y2="210"/>
+    <line x1="90"  y1="78" x2="90"  y2="210"/>
+    <line x1="112" y1="78" x2="112" y2="210"/>
+    <line x1="134" y1="78" x2="134" y2="210"/>
+    <line x1="24" y1="100" x2="156" y2="100"/>
+    <line x1="24" y1="122" x2="156" y2="122"/>
+    <line x1="24" y1="144" x2="156" y2="144"/>
+    <line x1="24" y1="166" x2="156" y2="166"/>
+    <line x1="24" y1="188" x2="156" y2="188"/>
+  </g>
+  <!-- highlighted TILE -->
+  <rect x="90" y="122" width="44" height="44" fill="#e8f0fe" stroke="#446688" stroke-width="2" rx="2" filter="url(#rough2)"/>
+  <text x="112" y="148" text-anchor="middle" font-size="9" fill="#446688" font-weight="bold">TILE</text>
+  <text x="90" y="226" text-anchor="middle" font-size="10" fill="#666">一个 block 处理一个 TILE</text>
+
+  <!-- arrow between panels A -> B -->
+  <path d="M 162 144 L 214 144" stroke="#666" stroke-width="1.3" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="188" y="138" text-anchor="middle" font-size="9" fill="#888">映射</text>
+
+  <!-- ============ Panel B: block(16,16) mapping ============ -->
+  <text x="286" y="66" text-anchor="middle" font-size="11" fill="#d6a040" font-weight="bold">dim3 block(16,16) 线程映射</text>
+  <g filter="url(#rough2)">
+    <rect x="220" y="78" width="132" height="132" fill="none" stroke="#bbb" stroke-width="1"/>
+  </g>
+  <g stroke="#e2e2e2" stroke-width="1" filter="url(#rough2)">
+    <line x1="242" y1="78" x2="242" y2="210"/>
+    <line x1="264" y1="78" x2="264" y2="210"/>
+    <line x1="286" y1="78" x2="286" y2="210"/>
+    <line x1="308" y1="78" x2="308" y2="210"/>
+    <line x1="330" y1="78" x2="330" y2="210"/>
+    <line x1="220" y1="100" x2="352" y2="100"/>
+    <line x1="220" y1="122" x2="352" y2="122"/>
+    <line x1="220" y1="144" x2="352" y2="144"/>
+    <line x1="220" y1="166" x2="352" y2="166"/>
+    <line x1="220" y1="188" x2="352" y2="188"/>
+  </g>
+  <!-- highlight warp = first 2 rows (32 threads for blockDim.x=16) -->
+  <rect x="220" y="78" width="132" height="44" fill="#fff8e1" stroke="#d6a040" stroke-width="1.6" rx="2" filter="url(#rough2)"/>
+  <text x="286" y="94" text-anchor="middle" font-size="9" fill="#a07a20" font-weight="bold">warp 0（32 threads）</text>
+  <text x="286" y="116" text-anchor="middle" font-size="8" fill="#a07a20">threadIdx.y = 0,1</text>
+  <!-- example thread -->
+  <rect x="286" y="122" width="22" height="22" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.4" filter="url(#rough2)"/>
+  <text x="297" y="137" text-anchor="middle" font-size="8" fill="#4a7a3a" font-weight="bold">th</text>
+  <!-- axes labels -->
+  <text x="286" y="226" text-anchor="middle" font-size="10" fill="#446688" font-weight="bold">threadIdx.x → col j</text>
+  <text x="286" y="238" text-anchor="middle" font-size="9" fill="#888">(连续 → 连续列)</text>
+  <text x="210" y="144" text-anchor="middle" font-size="10" fill="#446688" font-weight="bold" transform="rotate(-90 210 144)">threadIdx.y → row i</text>
+
+  <!-- arrow B -> C -->
+  <path d="M 356 144 L 438 144" stroke="#666" stroke-width="1.3" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="397" y="138" text-anchor="middle" font-size="9" fill="#888">warp 读</text>
+
+  <!-- ============ Panel C: coalesced warp read ============ -->
+  <text x="525" y="66" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">warp 沿 x：连续列</text>
+  <g filter="url(#rough2)">
+    <rect x="445" y="92"  width="20" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1.2"/>
+    <rect x="465" y="92"  width="20" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1.2"/>
+    <rect x="485" y="92"  width="20" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1.2"/>
+    <rect x="505" y="92"  width="20" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1.2"/>
+    <rect x="525" y="92"  width="20" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1.2"/>
+    <rect x="545" y="92"  width="20" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1.2"/>
+    <rect x="565" y="92"  width="20" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1.2"/>
+    <rect x="585" y="92"  width="20" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1.2"/>
+  </g>
+  <text x="525" y="105" text-anchor="middle" font-size="8" fill="#446688" font-weight="bold">A[row][col..col+31]</text>
+  <text x="525" y="134" text-anchor="middle" font-size="9" fill="#888">32 threads（示意 8）读连续列</text>
+  <!-- bracket -->
+  <path d="M 445 128 L 605 128 M 445 128 L 445 124 M 605 128 L 605 124" stroke="#4a7a3a" stroke-width="1.2" fill="none" filter="url(#rough2)"/>
+  <rect x="445" y="142" width="160" height="60" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3" rx="6" filter="url(#rough2)"/>
+  <text x="525" y="160" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">连续地址 → coalesced</text>
+  <text x="525" y="176" text-anchor="middle" font-size="9" fill="#555">合并为 1× 128B 事务</text>
+  <text x="525" y="192" text-anchor="middle" font-size="9" fill="#888">（非 coalesced 则 32 事务）</text>
+
+  <!-- ============ Key formulas ============ -->
+  <rect x="20" y="252" width="600" height="46" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="34" y="272" font-size="11" fill="#444" font-weight="bold">关键下标（行主序展开为一维）：</text>
+  <g font-family="monospace" font-size="11" fill="#333">
+    <text x="34" y="290">row = blockIdx.y * blockDim.y + threadIdx.y;   col = blockIdx.x * blockDim.x + threadIdx.x;</text>
+  </g>
+
+  <!-- ============ Code ============ -->
+  <rect x="20" y="308" width="600" height="138" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="34" y="328" font-size="11" fill="#444" font-weight="bold">Kernel 伪代码：</text>
+  <g font-family="monospace" font-size="11" fill="#333">
+    <text x="34" y="346">int row = blockIdx.y * blockDim.y + threadIdx.y;</text>
+    <text x="34" y="362">int col = blockIdx.x * blockDim.x + threadIdx.x;</text>
+    <text x="34" y="378">if (row &lt; M &amp;&amp; col &lt; N) {</text>
+    <text x="34" y="394">    int idx = row * N + col;                 // 行主序一维展开</text>
+    <text x="34" y="410">    C[idx] = A[idx] + B[idx];                 // A/B/C 同址同形</text>
+    <text x="34" y="426">}</text>
+  </g>
+
+  <!-- ============ Summary ============ -->
+  <rect x="20" y="456" width="600" height="32" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="320" y="472" text-anchor="middle" font-size="10" fill="#444" font-weight="bold">warp 内 threadIdx.x 连续 → col 连续 → 同行读连续地址 → coalesced</text>
+  <text x="320" y="484" text-anchor="middle" font-size="9" fill="#888">注：完整 32-thread warp 落在同一行需 blockDim.x ≥ 32；16×16 时一个 warp 跨 2 行，每行内仍连续</text>
+</svg>

@@ -24,6 +24,8 @@
    - `l_new = l_old * exp(m_old - m_new) + Σ exp(s_j - m_new)`
    - `P_new = P_old * (l_old * exp(m_old - m_new) / l_new) + exp(s_j - m_new) / l_new · V_j`
 
+![FlashAttention Kernel 数据流](../../images/attention_kernel_overview.svg)
+
 ### naive 版（对比用）
 
 ```cuda

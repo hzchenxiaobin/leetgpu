@@ -38,6 +38,8 @@ for (int i = 0; i <= N - window_size; i++) {
 
 ## 3. GPU 设计
 
+![Max Subarray Sum：前缀和+滑动窗口](../../images/max_subarray_sum_overview.svg)
+
 ### 3.1 优化思路：prefix sum + reduction
 
 1. 算 prefix sum `prefix[i] = input[0] + ... + input[i-1]`

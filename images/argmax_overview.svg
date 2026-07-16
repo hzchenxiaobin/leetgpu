@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" font-family="'Segoe UI', 'Kaiti SC', 楷体, sans-serif">
+  <rect width="640" height="480" fill="#fafafa"/>
+
+  <text x="320" y="28" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Argmax 两级归约：值 + 索引同时跟踪</text>
+  <text x="320" y="46" text-anchor="middle" font-size="11" fill="#888">block 级 argmax → final 级 argmax，tie-breaking 取首次出现</text>
+
+  <!-- ===== Input array ===== -->
+  <text x="30" y="76" font-size="12" fill="#446688" font-weight="bold">input[N]</text>
+  <g font-size="10" fill="#333">
+    <rect x="30"  y="84" width="50" height="28" fill="#e8f0fe" stroke="#446688" rx="3"/>
+    <text x="55"  y="102" text-anchor="middle">3</text>
+    <rect x="80"  y="84" width="50" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3"/>
+    <text x="105" y="102" text-anchor="middle" fill="#b85450" font-weight="bold">7</text>
+    <rect x="130" y="84" width="50" height="28" fill="#e8f0fe" stroke="#446688" rx="3"/>
+    <text x="155" y="102" text-anchor="middle">2</text>
+    <rect x="180" y="84" width="50" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3"/>
+    <text x="205" y="102" text-anchor="middle" fill="#b85450" font-weight="bold">7</text>
+    <rect x="230" y="84" width="50" height="28" fill="#e8f0fe" stroke="#446688" rx="3"/>
+    <text x="255" y="102" text-anchor="middle">5</text>
+    <text x="295" y="102" font-size="11" fill="#888">...</text>
+    <rect x="320" y="84" width="50" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2" rx="3"/>
+    <text x="345" y="102" text-anchor="middle" fill="#4a7a3a" font-weight="bold">8</text>
+    <text x="380" y="102" font-size="10" fill="#888">idx=6</text>
+    <text x="430" y="102" font-size="10" fill="#888">...</text>
+  </g>
+  <text x="30" y="120" font-size="9" fill="#888">block 0: [3,7,2,7,5]    block 1: [...,8,...]</text>
+
+  <!-- ===== Block-level argmax ===== -->
+  <line x1="20" y1="135" x2="620" y2="135" stroke="#eee" stroke-width="1"/>
+  <text x="30" y="158" font-size="12" fill="#b85450" font-weight="bold">① Block 级 argmax（每 block 独立）</text>
+
+  <g font-size="10" fill="#333">
+    <!-- Block 0 result -->
+    <rect x="40" y="168" width="120" height="40" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="4"/>
+    <text x="100" y="184" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">block 0 结果</text>
+    <text x="100" y="200" text-anchor="middle" font-size="9" fill="#555">val=7, idx=1</text>
+    <text x="100" y="212" text-anchor="middle" font-size="8" fill="#888">(tie: 取首次出现的 idx=1)</text>
+
+    <!-- Block 1 result -->
+    <rect x="320" y="168" width="120" height="40" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="4"/>
+    <text x="380" y="184" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">block 1 结果</text>
+    <text x="380" y="200" text-anchor="middle" font-size="9" fill="#555">val=8, idx=6</text>
+  </g>
+
+  <!-- Arrow down -->
+  <path d="M 100 210 L 100 240" stroke="#666" stroke-width="1" fill="none" marker-end="url(#a1)"/>
+  <path d="M 380 210 L 380 240" stroke="#666" stroke-width="1" fill="none" marker-end="url(#a1)"/>
+  <defs><marker id="a1" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/></marker></defs>
+
+  <!-- ===== Final argmax ===== -->
+  <line x1="20" y1="230" x2="620" y2="230" stroke="#eee" stroke-width="1"/>
+  <text x="30" y="258" font-size="12" fill="#d6a040" font-weight="bold">② Final 级 argmax（汇总所有 block 结果）</text>
+
+  <rect x="150" y="270" width="340" height="50" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="6"/>
+  <text x="320" y="290" text-anchor="middle" font-size="10" fill="#444" font-weight="bold">reduce_argmax_kernel</text>
+  <text x="320" y="308" text-anchor="middle" font-size="10" fill="#555">比较 (7,1) vs (8,6) → max val=8 → output = idx=6</text>
+
+  <!-- Arrow down -->
+  <path d="M 320 320 L 320 345" stroke="#666" stroke-width="1" fill="none" marker-end="url(#a1)"/>
+
+  <!-- ===== Output ===== -->
+  <rect x="260" y="350" width="120" height="32" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2" rx="4"/>
+  <text x="320" y="370" text-anchor="middle" font-size="12" fill="#4a7a3a" font-weight="bold">output[0] = 6</text>
+
+  <!-- ===== Key concept ===== -->
+  <line x1="20" y1="400" x2="620" y2="400" stroke="#eee" stroke-width="1"/>
+  <rect x="30" y="415" width="580" height="55" fill="#f6f6f6" stroke="#ccc" rx="6"/>
+  <text x="50" y="435" font-size="11" fill="#444" font-weight="bold">关键：ValIdx 结构体（值 + 索引打包）</text>
+  <text x="50" y="452" font-size="10" fill="#555">struct ValIdx { float val; int idx; };</text>
+  <text x="50" y="466" font-size="10" fill="#555">warp shuffle 比较时：val 大的赢；val 相同时 idx 小的赢（首次出现）</text>
+</svg>

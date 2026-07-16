@@ -19,6 +19,8 @@
 
 核心难点：平局处理——值相同时取较小下标。
 
+![Argmax 两级归约：值+索引同时跟踪](../../images/argmax_overview.svg)
+
 ## 3. Kernel 实现
 
 ```cuda

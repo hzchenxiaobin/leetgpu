@@ -52,6 +52,8 @@ __global__ void naive_scalar_multiply(const float* input, float* output, float a
 - **写端** `output[i]`：同上 → **coalesced**
 - 标量 `alpha` 通过常量内存或 kernel 参数广播，零额外带宽
 
+![Scalar Multiply：element-wise 缩放](../../images/scalar_multiply_overview.svg)
+
 ### 3.2 存储层次使用
 
 | 层次 | 是否使用 | 说明 |

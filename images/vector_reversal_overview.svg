@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" viewBox="0 0 640 520" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="520" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">向量反转 output[N-1-i] = input[i]</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">逐元素反转：thread i 读 input[i]、写 output[N-1-i]，读写均为 coalesced</text>
+
+  <!-- ===== Input array ===== -->
+  <text x="20" y="104" font-size="12" fill="#446688" font-weight="bold">输入 input</text>
+  <g filter="url(#rough2)">
+    <rect x="160" y="82"  width="64" height="36" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="4"/>
+    <rect x="224" y="82"  width="64" height="36" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="4"/>
+    <rect x="288" y="82"  width="64" height="36" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="4"/>
+    <rect x="352" y="82"  width="64" height="36" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="4"/>
+    <rect x="416" y="82"  width="64" height="36" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="4"/>
+  </g>
+  <g font-size="13" fill="#333" text-anchor="middle">
+    <text x="192" y="106">A</text>
+    <text x="256" y="106">B</text>
+    <text x="320" y="106">C</text>
+    <text x="384" y="106">D</text>
+    <text x="448" y="106">E</text>
+  </g>
+  <g font-size="10" fill="#888" text-anchor="middle">
+    <text x="192" y="132">[0]</text>
+    <text x="256" y="132">[1]</text>
+    <text x="320" y="132">[2]</text>
+    <text x="384" y="132">[3]</text>
+    <text x="448" y="132">[4]</text>
+  </g>
+
+  <!-- Thread ids at read position -->
+  <g font-size="10" fill="#d6a040" font-weight="bold" text-anchor="middle">
+    <text x="192" y="152">tid=0</text>
+    <text x="256" y="152">tid=1</text>
+    <text x="320" y="152">tid=2</text>
+    <text x="384" y="152">tid=3</text>
+    <text x="448" y="152">tid=4</text>
+  </g>
+
+  <!-- Crossing arrows: input[i] -> output[N-1-i] -->
+  <g stroke="#666" stroke-width="1.3" fill="none" marker-end="url(#arr)" filter="url(#rough2)">
+    <line x1="192" y1="160" x2="448" y2="262"/>
+    <line x1="256" y1="160" x2="384" y2="262"/>
+    <line x1="320" y1="160" x2="320" y2="262"/>
+    <line x1="384" y1="160" x2="256" y2="262"/>
+    <line x1="448" y1="160" x2="192" y2="262"/>
+  </g>
+  <text x="540" y="214" font-size="10" fill="#888">下标反向</text>
+  <text x="540" y="228" font-size="10" fill="#888">交叉映射</text>
+
+  <!-- ===== Output array ===== -->
+  <text x="20" y="294" font-size="12" fill="#4a7a3a" font-weight="bold">输出 output</text>
+  <g filter="url(#rough2)">
+    <rect x="160" y="270" width="64" height="36" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4"/>
+    <rect x="224" y="270" width="64" height="36" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4"/>
+    <rect x="288" y="270" width="64" height="36" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4"/>
+    <rect x="352" y="270" width="64" height="36" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4"/>
+    <rect x="416" y="270" width="64" height="36" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4"/>
+  </g>
+  <g font-size="13" fill="#333" text-anchor="middle">
+    <text x="192" y="294">E</text>
+    <text x="256" y="294">D</text>
+    <text x="320" y="294">C</text>
+    <text x="384" y="294">B</text>
+    <text x="448" y="294">A</text>
+  </g>
+  <g font-size="10" fill="#888" text-anchor="middle">
+    <text x="192" y="320">[0]</text>
+    <text x="256" y="320">[1]</text>
+    <text x="320" y="320">[2]</text>
+    <text x="384" y="320">[3]</text>
+    <text x="448" y="320">[4]</text>
+  </g>
+
+  <!-- Key formula + coalesced note -->
+  <rect x="20" y="336" width="600" height="50" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="34" y="356" font-size="11" fill="#444" font-weight="bold">关键下标：idx = N - 1 - tid</text>
+  <text x="34" y="374" font-size="10" fill="#666">读写虽方向相反，但 warp 内各 tid 访问的下标仍连续：读 input[tid] 升序连续、写 output[N-1-tid] 降序连续 → 两者均 coalesced</text>
+
+  <!-- Grid-stride loop code -->
+  <rect x="20" y="396" width="600" height="110" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="34" y="416" font-size="11" fill="#444" font-weight="bold">Grid-Stride Loop 伪代码：</text>
+  <g font-family="monospace" font-size="11" fill="#333">
+    <text x="34" y="434">int tid    = blockIdx.x * blockDim.x + threadIdx.x;</text>
+    <text x="34" y="450">int stride = gridDim.x  * blockDim.x;</text>
+    <text x="34" y="466">for (int i = tid; i &lt; N; i += stride) {</text>
+    <text x="34" y="482">    output[N - 1 - i] = input[i];   // tid 步进，下标反向映射</text>
+    <text x="34" y="498">}</text>
+  </g>
+</svg>

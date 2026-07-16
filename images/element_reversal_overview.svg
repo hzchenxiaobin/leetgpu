@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" font-family="'Segoe UI', 'Kaiti SC', 楷体, sans-serif">
+  <defs><marker id="a4" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/></marker></defs>
+  <rect width="640" height="420" fill="#fafafa"/>
+
+  <text x="320" y="28" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Element Reversal：2D 矩阵行内反转</text>
+  <text x="320" y="46" text-anchor="middle" font-size="11" fill="#888">每行独立反转：output[i][j] = input[i][N-1-j]</text>
+
+  <!-- ===== Input matrix ===== -->
+  <text x="30" y="76" font-size="11" fill="#446688" font-weight="bold">input[M][N] =</text>
+  <g font-size="10" fill="#333">
+    <!-- Row 0 -->
+    <rect x="110" y="62" width="44" height="24" fill="#e8f0fe" stroke="#446688" rx="2"/>
+    <text x="132" y="78" text-anchor="middle">A</text>
+    <rect x="154" y="62" width="44" height="24" fill="#e8f0fe" stroke="#446688" rx="2"/>
+    <text x="176" y="78" text-anchor="middle">B</text>
+    <rect x="198" y="62" width="44" height="24" fill="#e8f0fe" stroke="#446688" rx="2"/>
+    <text x="220" y="78" text-anchor="middle">C</text>
+    <rect x="242" y="62" width="44" height="24" fill="#e8f0fe" stroke="#446688" rx="2"/>
+    <text x="264" y="78" text-anchor="middle">D</text>
+    <text x="300" y="78" font-size="9" fill="#888">row 0</text>
+
+    <!-- Row 1 -->
+    <rect x="110" y="90" width="44" height="24" fill="#fce4ec" stroke="#b85450" rx="2"/>
+    <text x="132" y="106" text-anchor="middle">E</text>
+    <rect x="154" y="90" width="44" height="24" fill="#fce4ec" stroke="#b85450" rx="2"/>
+    <text x="176" y="106" text-anchor="middle">F</text>
+    <rect x="198" y="90" width="44" height="24" fill="#fce4ec" stroke="#b85450" rx="2"/>
+    <text x="220" y="106" text-anchor="middle">G</text>
+    <rect x="242" y="90" width="44" height="24" fill="#fce4ec" stroke="#b85450" rx="2"/>
+    <text x="264" y="106" text-anchor="middle">H</text>
+    <text x="300" y="106" font-size="9" fill="#888">row 1</text>
+  </g>
+
+  <!-- Arrows showing reversal -->
+  <text x="320" y="100" font-size="20" fill="#d6a040" font-weight="bold">→</text>
+  <text x="320" y="118" font-size="9" fill="#888">反转每行</text>
+
+  <!-- ===== Output matrix ===== -->
+  <text x="380" y="76" font-size="11" fill="#4a7a3a" font-weight="bold">output[M][N] =</text>
+  <g font-size="10" fill="#333">
+    <!-- Row 0 reversed -->
+    <rect x="460" y="62" width="44" height="24" fill="#e8f0fe" stroke="#446688" rx="2"/>
+    <text x="482" y="78" text-anchor="middle">D</text>
+    <rect x="504" y="62" width="44" height="24" fill="#e8f0fe" stroke="#446688" rx="2"/>
+    <text x="526" y="78" text-anchor="middle">C</text>
+    <rect x="548" y="62" width="44" height="24" fill="#e8f0fe" stroke="#446688" rx="2"/>
+    <text x="570" y="78" text-anchor="middle">B</text>
+    <rect x="592" y="62" width="44" height="24" fill="#e8f0fe" stroke="#446688" rx="2"/>
+    <text x="614" y="78" text-anchor="middle">A</text>
+
+    <!-- Row 1 reversed -->
+    <rect x="460" y="90" width="44" height="24" fill="#fce4ec" stroke="#b85450" rx="2"/>
+    <text x="482" y="106" text-anchor="middle">H</text>
+    <rect x="504" y="90" width="44" height="24" fill="#fce4ec" stroke="#b85450" rx="2"/>
+    <text x="526" y="106" text-anchor="middle">G</text>
+    <rect x="548" y="90" width="44" height="24" fill="#fce4ec" stroke="#b85450" rx="2"/>
+    <text x="570" y="106" text-anchor="middle">F</text>
+    <rect x="592" y="90" width="44" height="24" fill="#fce4ec" stroke="#b85450" rx="2"/>
+    <text x="614" y="106" text-anchor="middle">E</text>
+  </g>
+
+  <!-- ===== Index mapping ===== -->
+  <line x1="20" y1="140" x2="620" y2="140" stroke="#eee" stroke-width="1"/>
+  <text x="30" y="164" font-size="12" fill="#d6a040" font-weight="bold">索引映射：thread(i,j) 读 input[i][N-1-j] 写 output[i][j]</text>
+
+  <g font-size="10" fill="#333">
+    <rect x="30" y="174" width="580" height="28" fill="#fff8e1" stroke="#d6a040" rx="3"/>
+    <text x="50" y="192" font-family="monospace" fill="#555">row = blockIdx.y * blockDim.y + threadIdx.y</text>
+    <text x="380" y="192" font-family="monospace" fill="#555">col = blockIdx.x * blockDim.x + threadIdx.x</text>
+
+    <rect x="30" y="208" width="580" height="28" fill="#e6f4ea" stroke="#4a7a3a" rx="3"/>
+    <text x="50" y="226" font-family="monospace" fill="#555">src_col = N - 1 - col</text>
+    <text x="250" y="226" font-family="monospace" fill="#555">output[row * N + col] = input[row * N + src_col]</text>
+  </g>
+
+  <!-- ===== Coalesced access pattern ===== -->
+  <line x1="20" y1="255" x2="620" y2="255" stroke="#eee" stroke-width="1"/>
+  <text x="30" y="278" font-size="12" fill="#446688" font-weight="bold">访存模式分析</text>
+
+  <g font-size="10" fill="#333">
+    <rect x="30" y="288" width="280" height="48" fill="#e8f0fe" stroke="#446688" rx="4"/>
+    <text x="44" y="306" fill="#446688" font-weight="bold">读 input[row][N-1-col]</text>
+    <text x="44" y="322" fill="#555">warp 内 col 连续 → N-1-col 递减</text>
+    <text x="44" y="332" fill="#b85450">⚠️ 反向访问：非 coalesced！</text>
+
+    <rect x="330" y="288" width="280" height="48" fill="#e6f4ea" stroke="#4a7a3a" rx="4"/>
+    <text x="344" y="306" fill="#4a7a3a" font-weight="bold">写 output[row][col]</text>
+    <text x="344" y="322" fill="#555">warp 内 col 连续 → 正向写入</text>
+    <text x="344" y="332" fill="#4a7a3a">✓ coalesced write</text>
+  </g>
+
+  <!-- ===== Key insight ===== -->
+  <rect x="30" y="350" width="580" height="60" fill="#f6f6f6" stroke="#ccc" rx="6"/>
+  <text x="50" y="372" font-size="11" fill="#444" font-weight="bold">关键洞察</text>
+  <text x="50" y="390" font-size="10" fill="#555">读端反向（stride = -1）导致非 coalesced，写端正向 coalesced。</text>
+  <text x="50" y="404" font-size="10" fill="#555">优化思路：可先用正向 coalesced 读到 shared memory，再反向写出（类似 transpose tiling）。</text>
+</svg>

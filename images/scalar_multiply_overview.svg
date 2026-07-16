@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" viewBox="0 0 640 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+    <marker id="arro" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#d6a040"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="480" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">标量乘法 output[i] = alpha * input[i]</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">逐元素乘以广播标量 α；memory-bound：0 FLOP/B，每元素 1 读 + 1 写 = 8B</text>
+
+  <!-- ===== Input array ===== -->
+  <text x="320" y="72" text-anchor="middle" font-size="12" fill="#446688" font-weight="bold">输入 input[i]</text>
+  <g filter="url(#rough2)">
+    <rect x="160" y="82"  width="64" height="32" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="4"/>
+    <rect x="224" y="82"  width="64" height="32" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="4"/>
+    <rect x="288" y="82"  width="64" height="32" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="4"/>
+    <rect x="352" y="82"  width="64" height="32" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="4"/>
+    <rect x="416" y="82"  width="64" height="32" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="4"/>
+  </g>
+  <g font-size="12" fill="#333" text-anchor="middle">
+    <text x="192" y="103">x0</text>
+    <text x="256" y="103">x1</text>
+    <text x="320" y="103">x2</text>
+    <text x="384" y="103">x3</text>
+    <text x="448" y="103">x4</text>
+  </g>
+  <g font-size="10" fill="#888" text-anchor="middle">
+    <text x="192" y="126">[0]</text>
+    <text x="256" y="126">[1]</text>
+    <text x="320" y="126">[2]</text>
+    <text x="384" y="126">[3]</text>
+    <text x="448" y="126">[4]</text>
+  </g>
+
+  <!-- Input -> multiply node (gray) -->
+  <g stroke="#666" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#rough2)">
+    <line x1="192" y1="132" x2="192" y2="150"/>
+    <line x1="256" y1="132" x2="256" y2="150"/>
+    <line x1="320" y1="132" x2="320" y2="150"/>
+    <line x1="384" y1="132" x2="384" y2="150"/>
+    <line x1="448" y1="132" x2="448" y2="150"/>
+  </g>
+
+  <!-- Alpha broadcast: box on left + horizontal bus to all multiply nodes -->
+  <g filter="url(#rough2)">
+    <rect x="30" y="146" width="80" height="34" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6"/>
+  </g>
+  <text x="70" y="168" text-anchor="middle" font-size="16" fill="#d6a040" font-weight="bold">α</text>
+  <text x="70" y="180" text-anchor="middle" font-size="9" fill="#a07a20">alpha</text>
+  <text x="70" y="196" text-anchor="middle" font-size="9" fill="#a07a20">广播 broadcast</text>
+
+  <!-- broadcast bus (orange dashed) from alpha box to last node -->
+  <line x1="110" y1="163" x2="448" y2="163" stroke="#d6a040" stroke-width="1.4" stroke-dasharray="5,3" fill="none" filter="url(#rough2)"/>
+
+  <!-- multiply nodes (orange) sitting on the bus -->
+  <g filter="url(#rough2)">
+    <circle cx="192" cy="163" r="9" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+    <circle cx="256" cy="163" r="9" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+    <circle cx="320" cy="163" r="9" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+    <circle cx="384" cy="163" r="9" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+    <circle cx="448" cy="163" r="9" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+  </g>
+  <g font-size="11" fill="#d6a040" font-weight="bold" text-anchor="middle">
+    <text x="192" y="167">×</text>
+    <text x="256" y="167">×</text>
+    <text x="320" y="167">×</text>
+    <text x="384" y="167">×</text>
+    <text x="448" y="167">×</text>
+  </g>
+
+  <!-- multiply -> output (gray) -->
+  <g stroke="#666" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#rough2)">
+    <line x1="192" y1="172" x2="192" y2="206"/>
+    <line x1="256" y1="172" x2="256" y2="206"/>
+    <line x1="320" y1="172" x2="320" y2="206"/>
+    <line x1="384" y1="172" x2="384" y2="206"/>
+    <line x1="448" y1="172" x2="448" y2="206"/>
+  </g>
+
+  <!-- ===== Output array ===== -->
+  <text x="20" y="226" font-size="12" fill="#4a7a3a" font-weight="bold">输出 output</text>
+  <g filter="url(#rough2)">
+    <rect x="160" y="210" width="64" height="32" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4"/>
+    <rect x="224" y="210" width="64" height="32" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4"/>
+    <rect x="288" y="210" width="64" height="32" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4"/>
+    <rect x="352" y="210" width="64" height="32" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4"/>
+    <rect x="416" y="210" width="64" height="32" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4"/>
+  </g>
+  <g font-size="12" fill="#333" text-anchor="middle">
+    <text x="192" y="231">α·x0</text>
+    <text x="256" y="231">α·x1</text>
+    <text x="320" y="231">α·x2</text>
+    <text x="384" y="231">α·x3</text>
+    <text x="448" y="231">α·x4</text>
+  </g>
+  <g font-size="10" fill="#888" text-anchor="middle">
+    <text x="192" y="254">[0]</text>
+    <text x="256" y="254">[1]</text>
+    <text x="320" y="254">[2]</text>
+    <text x="384" y="254">[3]</text>
+    <text x="448" y="254">[4]</text>
+  </g>
+
+  <!-- Notes: memory-bound + coalesced -->
+  <rect x="20" y="268" width="600" height="50" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="34" y="288" font-size="11" fill="#444" font-weight="bold">memory-bound：每元素仅 1 次乘法，算术强度 ≈ 0 FLOP/B</text>
+  <text x="34" y="306" font-size="10" fill="#666">每元素 1 读 + 1 写 = 8B（float）；α 存寄存器/常量内存无额外访存；warp 内 tid 连续 → 读 input[i] 连续 → coalesced</text>
+
+  <!-- Grid-stride loop code -->
+  <rect x="20" y="328" width="600" height="138" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="34" y="348" font-size="11" fill="#444" font-weight="bold">Grid-Stride Loop 伪代码：</text>
+  <g font-family="monospace" font-size="11" fill="#333">
+    <text x="34" y="366">int tid    = blockIdx.x * blockDim.x + threadIdx.x;</text>
+    <text x="34" y="382">int stride = gridDim.x  * blockDim.x;</text>
+    <text x="34" y="398">for (int i = tid; i &lt; N; i += stride) {</text>
+    <text x="34" y="414">    output[i] = alpha * input[i];   // α 在寄存器，无额外访存</text>
+    <text x="34" y="430">}</text>
+    <text x="34" y="452" fill="#888">// 瓶颈纯粹在内存带宽：有效带宽 ≈ 2·N·4B / kernel_time</text>
+  </g>
+</svg>

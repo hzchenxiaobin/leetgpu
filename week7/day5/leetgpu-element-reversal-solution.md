@@ -51,6 +51,8 @@ __global__ void naive_reverse_elements(const float* input, float* output, int N)
 - 写 `output[i]`：同上 → coalesced ✓
 - 计算量：1 次取负（几乎为零）
 
+![Element Reversal：2D 矩阵行内反转](../../images/element_reversal_overview.svg)
+
 ### 3.2 存储层次使用
 
 | 层次 | 是否使用 | 说明 |

@@ -52,6 +52,8 @@ __global__ void naive_reverse(const float* input, float* output, int N) {
 - **写端** `output[i]`：warp 内 i 递增 → 写地址递增 → **coalesced**
 - 读和写都是合并访问，带宽利用率高
 
+![Vector Reversal：索引映射 i→N-1-i](../../images/vector_reversal_overview.svg)
+
 ### 3.2 存储层次使用
 
 | 层次 | 是否使用 | 说明 |

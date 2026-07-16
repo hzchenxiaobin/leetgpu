@@ -20,6 +20,8 @@
 - kernel 较小时直接从 global memory 读取（寄存器缓存 kernel）
 - kernel 较大时用 shared memory 缓存输入窗口
 
+![1D Convolution shared memory + halo 加载](../../images/conv1d_halo.svg)
+
 ## 3. Kernel 实现
 
 ```cuda
