@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 440" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="440" fill="#fafafa"/>
+
+  <text x="320" y="28" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">In-place Array Reversal：线程对交换</text>
+  <text x="320" y="46" text-anchor="middle" font-size="11" fill="#888">thread i 与 thread N-1-i 配对交换，只处理前半段避免双重交换</text>
+
+  <!-- ===== Array before swap ===== -->
+  <text x="30" y="76" font-size="12" fill="#446688" font-weight="bold">input[N]（inout，原地修改）</text>
+  <g font-size="10" fill="#333">
+    <rect x="60"  y="84" width="50" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="85"  y="102" text-anchor="middle">1.0</text>
+    <rect x="110" y="84" width="50" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="135" y="102" text-anchor="middle" fill="#b85450">2.0</text>
+    <rect x="160" y="84" width="50" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="185" y="102" text-anchor="middle" fill="#d6a040">3.0</text>
+    <rect x="210" y="84" width="50" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="235" y="102" text-anchor="middle" fill="#d6a040">4.0</text>
+    <rect x="260" y="84" width="50" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="285" y="102" text-anchor="middle" fill="#b85450">5.0</text>
+    <rect x="310" y="84" width="50" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="335" y="102" text-anchor="middle">6.0</text>
+  </g>
+  <text x="85"  y="120" text-anchor="middle" font-size="9" fill="#888">idx 0</text>
+  <text x="135" y="120" text-anchor="middle" font-size="9" fill="#888">idx 1</text>
+  <text x="185" y="120" text-anchor="middle" font-size="9" fill="#888">idx 2</text>
+  <text x="235" y="120" text-anchor="middle" font-size="9" fill="#888">idx 3</text>
+  <text x="285" y="120" text-anchor="middle" font-size="9" fill="#888">idx 4</text>
+  <text x="335" y="120" text-anchor="middle" font-size="9" fill="#888">idx 5</text>
+
+  <!-- Swap arrows -->
+  <text x="30" y="150" font-size="11" fill="#b85450" font-weight="bold">交换对：</text>
+  <path d="M 85 135 Q 185 155 335 135" stroke="#b85450" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="210" y="155" text-anchor="middle" font-size="9" fill="#b85450" font-weight="bold">thread 0 ↔ thread 5</text>
+
+  <path d="M 135 165 Q 185 180 285 165" stroke="#b85450" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="210" y="183" text-anchor="middle" font-size="9" fill="#b85450" font-weight="bold">thread 1 ↔ thread 4</text>
+
+  <text x="210" y="205" text-anchor="middle" font-size="9" fill="#d6a040" font-weight="bold">thread 2 / thread 3：中间对，自己交换自己（或跳过）</text>
+
+  <!-- ===== Array after swap ===== -->
+  <line x1="20" y1="225" x2="620" y2="225" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="250" font-size="12" fill="#4a7a3a" font-weight="bold">结果（原地反转）</text>
+  <g font-size="10" fill="#333">
+    <rect x="60"  y="258" width="50" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="85"  y="276" text-anchor="middle">6.0</text>
+    <rect x="110" y="258" width="50" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="135" y="276" text-anchor="middle" fill="#b85450">5.0</text>
+    <rect x="160" y="258" width="50" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="185" y="276" text-anchor="middle" fill="#d6a040">4.0</text>
+    <rect x="210" y="258" width="50" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="235" y="276" text-anchor="middle" fill="#d6a040">3.0</text>
+    <rect x="260" y="258" width="50" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="285" y="276" text-anchor="middle" fill="#b85450">2.0</text>
+    <rect x="310" y="258" width="50" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="335" y="276" text-anchor="middle">1.0</text>
+  </g>
+
+  <!-- ===== Key formula ===== -->
+  <line x1="20" y1="310" x2="620" y2="310" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <rect x="30" y="325" width="580" height="100" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="50" y="348" font-size="12" fill="#444" font-weight="bold">核心逻辑</text>
+  <text x="50" y="368" font-family="monospace" font-size="11" fill="#333">int i = blockIdx.x * blockDim.x + threadIdx.x;</text>
+  <text x="50" y="386" font-family="monospace" font-size="11" fill="#b85450">if (i &lt; N / 2) {   // 只处理前半段！</text>
+  <text x="50" y="404" font-family="monospace" font-size="11" fill="#333">    swap(input[i], input[N - 1 - i]);</text>
+  <text x="50" y="420" font-family="monospace" font-size="11" fill="#b85450">}</text>
+</svg>
