@@ -370,7 +370,7 @@ leetgpu/
 1. **题解根目录**：`leetgpu/`，不要写到其他位置。
 2. **按 weekN/dayM 组织**：题解 `.md` 放在 `leetgpu/weekN/dayM/` 下，**周/日编号与每日教程 `aiinfra/daily/weekN/dayM/` 对齐**（Day 1 → `week1/day1/`，Day 7 → `week1/day7/`）。一个 day 目录下通常只有一篇题解（即当日教程任务 4 对应的题）。
 3. **题解文件名**：`leetgpu-<slug>-solution.md`，其中 `<slug>` 是 LeetGPU 平台的题目 URL slug（如 `vector-addition`、`prefix-sum`）。文件名不随 week/day 变化，slug 即唯一标识。
-4. **图片目录**：`leetgpu/images/`，所有题解共享（不按 week/day/题分散）。图片在题解中用 `images/xxx.svg` 相对路径引用（`build.py` 递归扫描时统一重写为 `./images/xxx.svg`，输出页面扁平化到 `website/` 根）。
+4. **图片目录**：`leetgpu/images/`，所有题解共享（不按 week/day/题分散）。图片在题解中用 `../../images/xxx.svg` 相对路径引用（题解位于 `weekN/dayM/` 下，`../../` 回到 `leetgpu/`；`build.py` 递归扫描时统一重写为 `./images/xxx.svg`，输出页面扁平化到 `website/` 根）。
 5. **选题与每日教程对齐**：每道题对应 `aiinfra/daily/weekN/dayM/` 每日教程的「任务 4」LeetGPU 在线题目，按 **week/day 目录 + slug** 双重关联，保持主题一致。
 
 ## 3. 题解文档结构
@@ -413,8 +413,8 @@ leetgpu/
 - 代码块标注语言：` ```cuda` / ` ```cpp` / ` ```bash` / ` ```text`。
 - **Kernel 代码必须完整可编译**：包含 `#include`、`__global__` kernel、`main()`、host 端 `cudaMalloc`/`cudaMemcpy`、验证逻辑、`cudaFree`。
 - 代码块首行带注释：`// <filename>.cu —— <说明>` + `// 编译命令: nvcc ...`。
-- 图片引用用相对路径：`![<中文alt>](images/<filename>.svg)`（题解位于 `weekN/dayM/` 下，`images/` 解析到共享的 `leetgpu/images/`，由 `build.py` 统一重写为 `./images/`）。
-- 每篇题解引用 **2-4 张 SVG/PNG 插图**。
+- 图片引用用相对路径：`![<中文alt>](../../images/<filename>.svg)`（题解位于 `weekN/dayM/` 下，`../../images/` 解析到共享的 `leetgpu/images/`，由 `build.py` 统一重写为 `./images/`）。
+- 每篇题解引用 **2-4 张 SVG/PNG 插图**，并配 `### 4.2 代码详解` 子节（详见 §5）。
 
 ## 4. 图片风格：手绘 sketch 风（Excalidraw-like）
 
@@ -476,7 +476,132 @@ leetgpu/
 - `matmul_naive.svg`、`matmul_tiled.svg`（matrix multiplication 题）
 - `top-k-selection_bitonic.png`、`top-k-selection_heap_reduce.png`（top-k-selection 题）
 
-## 5. 网站构建集成
+## 5. 代码详解与 SVG 图解规范
+
+每篇题解除了 6 段基础结构外，还应包含 **代码详解** 子节和足够的 **SVG 图解**。这是题解质量的核心区分点——有图有详解的题解能让读者从"看懂代码"升级到"理解为什么这样写"。
+
+### 5.1 代码详解子节
+
+在 **§4 Kernel 实现** 的代码块之后（通常在 `### 4.1 LeetGPU 提交版本` 和 `## 5. 性能分析` 之间），添加 `### 4.2 代码详解` 子节。
+
+#### 结构模板
+
+```markdown
+### 4.2 代码详解
+
+<1-2 句话概括 kernel 的核心策略>
+
+| 步骤 | 代码 | 说明 |
+|------|------|------|
+| **坐标计算** | `i = blockIdx.x * blockDim.x + threadIdx.x` | thread 到全局索引的映射 |
+| **加载/计算** | `... = input[...]` | 核心访存或计算逻辑 |
+| **同步** | `__syncthreads()` | 屏障的作用与缺失后果 |
+| **写回** | `output[...] = ...` | 结果写回 |
+
+**关键索引关系**：
+- `<变量>` = `<公式>` — <含义>
+- ...
+
+> 💡 **关键洞察**：<一句话点出 kernel 设计的本质洞察>
+```
+
+#### 详解内容要求
+
+| 维度 | 要求 |
+|------|------|
+| **逐行覆盖** | kernel 中每一段关键代码都要在表格或列表中有对应解释 |
+| **索引计算** | 必须解释 `threadIdx` → `blockIdx` → 全局坐标的映射链 |
+| **同步语义** | 每次 `__syncthreads()` 要说明"等什么"和"不等会怎样" |
+| **Worked Example** | 对复杂 kernel（convolution、attention、scan 等）给出具体数值的逐步演算 |
+| **变量表** | 对多变量 kernel 给出"变量-含义-初始值"对照表 |
+| **关键洞察** | 用 `> 💡` blockquote 点出 kernel 设计的核心洞察（1-2 句） |
+
+#### 不同复杂度的详解深度
+
+| Kernel 类型 | 详解深度 | 示例文件 |
+|-------------|----------|----------|
+| **简单 element-wise**（vector-add、relu、scalar-multiply） | 3-5 行表格 + 索引公式 | `week1/day1` |
+| **Shared memory tiling**（transpose、matmul、convolution） | 完整索引映射表 + worked example + bank conflict 分析 | `week2/day3` |
+| **归约类**（reduction、softmax、dot-product） | warp shuffle 步骤分解 + block reduce 两阶段流程图 | `week2/day4` |
+| **融合 kernel**（flash attention、online softmax） | 三公式逐步数值演算 + k 循环数据流图 + `__syncthreads` 作用表 | `week2/day5` |
+| **多 kernel 流水线**（GPT-2 block、stream compaction） | kernel 链调用顺序表 + 每 kernel 一句话 + HBM IO 表 | `week4/day7` |
+
+### 5.2 SVG 图解规范
+
+#### 每篇题解的 SVG 数量要求
+
+| 题解类型 | SVG 数量 | 说明 |
+|----------|----------|------|
+| 简单题（element-wise） | 1-2 张 | 至少 1 张概念图（数据流或索引映射） |
+| 中等题（shared memory / reduction） | 2-3 张 | 概念图 + 存储层次图或索引详解图 |
+| 复杂题（attention / scan / 多 kernel） | 3-5 张 | 概念图 + 数据流图 + 逐步演算图 + 性能对比图 |
+
+> ⚠️ **最低要求**：每篇含 CUDA kernel 的题解**至少 1 张 SVG**。纯 stub（deferral 到其他文件）和 PyTorch 题解（无 CUDA kernel）无需 SVG。
+
+#### SVG 内容类型
+
+| 类型 | 用途 | 何时使用 | 命名模式 |
+|------|------|----------|----------|
+| **概念总览图** | 展示 kernel 整体数据流和并行策略 | 每篇必选 | `<slug>_overview.svg` |
+| **索引计算图** | 逐步展示坐标映射（thread→shared→global） | tiling / halo 类必选 | `<slug>_index_calculation.svg` |
+| **逐步演算图** | 具体数值的 step-by-step 推演 | attention / online softmax 类必选 | `<slug>_worked.svg` |
+| **数据流图** | 多阶段 kernel 的 pipeline 流程 | 多 kernel 或三遍扫描类必选 | `<slug>_dataflow.svg` |
+| **性能对比图** | naive vs optimized 的指标对比 | 有明确优化对比时可选 | `<slug>_roofline.svg` |
+| **block 映射图** | grid/block 到数据的映射关系 | 多 head / batched 类可选 | `<slug>_block_mapping.svg` |
+
+#### SVG 引用路径
+
+题解位于 `leetgpu/weekN/dayM/`，SVG 位于 `leetgpu/images/`，因此引用路径为：
+
+```markdown
+![<中文描述>](../../images/<filename>.svg)
+```
+
+`build.py` 会自动将 `../../images/` 重写为 `./images/`（网站输出扁平化）。
+
+#### SVG 创建要点
+
+1. **手绘 sketch 风**：使用 `feTurbulence` + `feDisplacementMap` 滤镜（详见 §4.2）
+2. **配色一致**：蓝（输入）、绿（输出）、橙（shared/中间）、红（关键操作/警告）
+3. **中文标注**：标题、图例、公式说明用中文；变量名和代码用 monospace 英文
+4. **具体数值**：worked example 类 SVG 必须用具体数字（如 `N=3, d=2, scale=0.707`），不能只有抽象符号
+5. **viewBox**：使用 `viewBox="0 0 W H"` 而非固定 width/height，保证响应式缩放
+
+### 5.3 重复 slug 文件同步
+
+LeetGPU 平台的同一道题可能在多个 week/day 出现（如 `softmax-attention` 在 `week2/day5` 和 `week4/day1` 都有）。由于 `build.py` 按 slug 扁平输出 HTML，**后构建的文件会覆盖先构建的**。
+
+**同步规则**：
+
+1. **主文件**：内容最完整的版本作为主文件（通常是首次出现的 week/day）
+2. **副本文件**：用 `cp` 从主文件同步，保持内容完全一致
+3. **stub 文件**：如果某 week/day 的题解只是指向其他文件的 deferral stub（如 `> 本题解与 ... 内容相同`），则**不需要同步**——stub 只保留标题和指引链接
+4. **同步检查**：修改主文件后，用 `diff` 检查所有同 slug 文件是否需要同步
+
+```bash
+# 检查同 slug 文件是否一致
+diff leetgpu/week2/day5/leetgpu-softmax-attention-solution.md \
+     leetgpu/week4/day1/leetgpu-softmax-attention-solution.md
+# 如不一致，同步
+cp leetgpu/week2/day5/leetgpu-softmax-attention-solution.md \
+   leetgpu/week4/day1/leetgpu-softmax-attention-solution.md
+```
+
+### 5.4 完成度检查清单
+
+为题解补充 SVG + 代码详解后，用以下清单自检：
+
+- [ ] 至少 1 张 SVG 引用（`![...](../../images/...svg)`）
+- [ ] SVG 文件存在于 `leetgpu/images/`
+- [ ] `### 4.2 代码详解` 子节存在（或等效的详解标题）
+- [ ] 详解覆盖 kernel 的关键代码段（索引计算、访存模式、同步屏障）
+- [ ] 复杂 kernel 有 worked example（具体数值逐步推演）
+- [ ] `> 💡 关键洞察` blockquote 存在
+- [ ] 同 slug 的重复文件已同步（`diff` 无差异）
+- [ ] `python3 leetgpu/website/build.py` 构建成功
+- [ ] 生成的 HTML 中 SVG 路径正确（`./images/...svg`）
+
+## 6. 网站构建集成
 
 题解写完后会被 `leetgpu/website/build.py` 自动读取并生成网页：
 
@@ -500,8 +625,11 @@ python3 build.py                     # 组合构建全站（含 leetgpu）
 - [ ] 一级标题 `# LeetGPU <题目名> 题解`
 - [ ] 含 6 段结构（题目概述/CPU基线/GPU设计/Kernel实现/性能分析/复杂度分析）
 - [ ] Kernel 代码完整可编译（含 main、cudaMalloc、验证、cudaFree）
-- [ ] 含 2-4 张 SVG/PNG 插图，引用格式 `![中文alt](images/xxx.svg)`
+- [ ] 含 2-4 张 SVG/PNG 插图，引用格式 `![中文alt](../../images/xxx.svg)`
+- [ ] 含 `### 4.2 代码详解` 子节（逐行解释 + 索引表 + 关键洞察）
 - [ ] SVG 为手绘 sketch 风（含 `feTurbulence` 抖动滤镜 + Comic Sans/Kaiti SC 字体）
+- [ ] 复杂 kernel 有 worked example（具体数值逐步推演）
+- [ ] 同 slug 重复文件已同步（`diff` 无差异）
 - [ ] 含 ncu profiling 命令与关键指标
 - [ ] `python3 build.py` 成功生成对应 `public/leetgpu/leetgpu-<slug>-solution.html`
 - [ ] `git push origin` 推送题解（commit + push 到远程）
