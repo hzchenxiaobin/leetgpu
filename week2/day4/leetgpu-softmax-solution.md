@@ -30,6 +30,13 @@ output= [0.0321, 0.0871, 0.2369, 0.6439]
 
 ### 1.1 Softmax 是什么：从 logits 到概率分布
 
+**logits 是什么？** 在机器学习中，**logits** 指模型最后一层线性变换输出的**未归一化分数**（raw scores），每个类别/位置对应一个 logit 值。它可以是任意实数（正、负、零都可能），没有上下界，也不能直接解释为概率。例如：
+
+- **分类任务**：全连接层输出 `D` 个 logits（`D` = 类别数），表示模型对每个类别的"裸偏好强度"。
+- **Attention**：`QK^T` 得到的相似度矩阵每行就是一组 logits，表示当前 query 对各 key 的"裸匹配强度"。
+
+> 💡 **词源**：logits 来自 **log-odds**（对数几率）。在 logistic 回归中，概率 `p` 和 logit `z` 的关系是 `z = log(p/(1-p))`。因此 logit 是概率的对数空间表达——取 `exp` 后变回"正比于概率"的值，再除以总和就归一化为概率。这就是 softmax 名字的由来：**soft**（连续可微）的 **max**（赢家通吃）。
+
 Softmax 把一组**任意实数**（logits，无约束）映射为一组**非负且和为 1**的值（可解释为概率分布）。它是分类输出层和注意力权值的标配算子。
 
 ![Softmax 数学原理：logits → 概率分布](../../images/softmax_math_overview.svg)
@@ -54,6 +61,19 @@ Softmax 有三个关键性质，直接决定了 GPU 实现的形态：
 
 - **分类输出层**：最后一层线性输出 `D` 个 logits → softmax → 类别概率，接交叉熵损失。这是机器学习入门最先碰到的 softmax。
 - **Attention 权重**：`QK^T` 得到 query 对每个 key 的相似度 score → row-wise softmax → 注意力分布。本题"每行独立做 softmax"正是 attention 的直接抽象，[Softmax Attention](../../leetgpu/week2/day5/leetgpu-softmax-attention-solution.md) 题就是在它前面加一次 matmul。
+
+**argmax 是什么？** 与 logits 直接相关的一个操作。**argmax** 是 "argument of the maximum" 的缩写，意为「使函数取最大值的那个**自变量**（索引）」，而不是最大值本身。对一组 logits `x = [x₀, x₁, ..., x_{D-1}]`：
+
+- `max(x)` 返回**最大值**本身（如 `x = [2.0, 8.5, 1.0]` → `max = 8.5`）
+- `argmax(x)` 返回**最大值所在的下标**（如 `x = [2.0, 8.5, 1.0]` → `argmax = 1`）
+
+> 💡 **与 softmax 的关系**：softmax 是 argmax 的「可微软化版」。argmax 返回 one-hot 向量（只有最大值位置为 1，其余为 0），梯度为零无法反向传播；softmax 则给出一个连续的概率分布，最大 logit 对应的概率最高但非 1，其余也非零——既保留了「赢家通吃」的倾向，又处处可微。上图提到的「argmax 不变」正是指：softmax 不会改变最大值的位置，只改变各值的相对占比。
+
+| 操作 | 输入 | 输出 | 可微 | 典型用途 |
+|------|------|------|------|----------|
+| `max(x)` | logits 向量 | 最大值（标量） | ✗ | 数值稳定（减 max） |
+| `argmax(x)` | logits 向量 | 最大值的索引（整数） | ✗ | 分类预测、贪心解码 |
+| `softmax(x)` | logits 向量 | 概率分布（和为 1） | ✓ | 训练、注意力权重 |
 
 ### 1.2 为什么需要 safe softmax：数值稳定性动机
 
