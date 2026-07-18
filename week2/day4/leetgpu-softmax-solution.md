@@ -518,7 +518,7 @@ for (int i = threadIdx.x; i < D; i += BLOCK_SIZE)
 
 ### 4.2 LeetGPU 提交版本
 
-官方题目是 **1D softmax**：`input` 和 `output` 均为长度为 `N` 的向量（`N` 可达 500,000），对整个向量做一次 softmax（等价于本地版的 `M=1, D=N`）。这里采用最直接的方式：**复用本地版的三遍扫描 `softmax_kernel`**，在 `solve` 中只启动 **1 个 block**、把矩阵视为 `M=1, D=N`，让 256 个线程协作完成整行 softmax。
+官方题目是 **1D softmax**：`input` 和 `output` 均为长度为 `N` 的向量（`N` 可达 500,000），对整个向量做一次 softmax（等价于本地版的 `M=1, D=N`）。这里采用最直接的方式：**复用本地版的三遍扫描** `softmax_kernel`，在 `solve` 中只启动 **1 个 block**、把矩阵视为 `M=1, D=N`，让 256 个线程协作完成整行 softmax。
 
 ```cuda
 #include <cmath>
