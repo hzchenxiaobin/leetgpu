@@ -28,7 +28,7 @@ output= [0.0321, 0.0871, 0.2369, 0.6439]
 - 容差 `atol = rtol = 1e-4`
 - 性能测试取较大 `M×D`（如 `M=128, D=8192`）
 
-> 💡 Softmax 是 **memory-bound** 的教科书级案例，也是 [Day 4 Reduction](../week1/day4/leetgpu-reduction-solution.md) 的"warp shuffle 归约"积木的第一次综合实战——它要做**两次归约**（max + sum），且第二次依赖第一次的结果。掌握它之后，[RMSNorm](../week3/day6/leetgpu-rms-normalization-solution.md)（一次归约）就是"删一个 reduce"的填空题。
+> 💡 Softmax 是 **memory-bound** 的教科书级案例，也是 [Day 4 Reduction](../../leetgpu/week1/day5/leetgpu-reduction-solution.md) 的"warp shuffle 归约"积木的第一次综合实战——它要做**两次归约**（max + sum），且第二次依赖第一次的结果。掌握它之后，[RMSNorm](../../leetgpu/week3/day6/leetgpu-rms-normalization-solution.md)（一次归约）就是"删一个 reduce"的填空题。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
@@ -108,7 +108,7 @@ __global__ void softmax_naive(const float* x, float* y, int M, int D) {
 
 ### 3.3 关键技巧：safe softmax + 复用 Day 4 归约积木
 
-**两次块归约都复用 [Day 4 Reduction](../week1/day4/leetgpu-reduction-solution.md) 的模板**，只是把 `+` 换成 `fmaxf`：
+**两次块归约都复用 [Day 4 Reduction](../../leetgpu/week1/day5/leetgpu-reduction-solution.md) 的模板**，只是把 `+` 换成 `fmaxf`：
 
 ![三遍扫描数据流：max → sum(exp) → normalize](../../images/softmax_three_pass.svg)
 
@@ -579,4 +579,4 @@ ncu --kernel-name regex:softmax_kernel \
 | **global 读次数** | 3 次（Pass 1/2/3 各读一遍 x）→ 优化后 2 次（online）或 1 次（shared 缓存） |
 | **warp shuffle 步数** | 每次块归约 `log₂32 = 5` 步，两次共 10 步 |
 
-> 💡 **一句话总结**：Softmax 是"两次归约 + 一次归一化"的经典模板——它把 [Day 4 的 warp shuffle 归约](../week1/day4/leetgpu-reduction-solution.md) 同时用在了 `max` 和 `sum` 上，再用 **safe softmax（减 max）** 解决数值溢出。它的算术强度极低（`AI ≈ 0.375`），是 memory-bound 的完美教学样本：用 ncu 看 `DRAM% >> SM%` 一眼可判。优化路径也很清晰——online softmax 把三遍压成两遍，FP16 存储把字节减半，最终融合进 FlashAttention。掌握这个骨架，[RMSNorm](../week3/day6/leetgpu-rms-normalization-solution.md)（删一个 reduce）和后续 Softmax Attention（加 matmul 融合）都是它的直接延伸。
+> 💡 **一句话总结**：Softmax 是"两次归约 + 一次归一化"的经典模板——它把 [Day 4 的 warp shuffle 归约](../../leetgpu/week1/day5/leetgpu-reduction-solution.md) 同时用在了 `max` 和 `sum` 上，再用 **safe softmax（减 max）** 解决数值溢出。它的算术强度极低（`AI ≈ 0.375`），是 memory-bound 的完美教学样本：用 ncu 看 `DRAM% >> SM%` 一眼可判。优化路径也很清晰——online softmax 把三遍压成两遍，FP16 存储把字节减半，最终融合进 FlashAttention。掌握这个骨架，[RMSNorm](../../leetgpu/week3/day6/leetgpu-rms-normalization-solution.md)（删一个 reduce）和后续 Softmax Attention（加 matmul 融合）都是它的直接延伸。

@@ -245,6 +245,7 @@ def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
     ])
 
     solutions = []
+    seen_slugs = {}  # slug -> count, for disambiguation
     for md_file in md_files:
         markdown_text = md_file.read_text(encoding="utf-8")
         markdown_text = markdown_text.replace("](../../images/", "](./images/")
@@ -252,7 +253,7 @@ def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
         markdown_text = rewrite_md_links_to_html(markdown_text)
 
         title = parse_title(markdown_text)
-        slug = md_file.stem  # e.g. leetgpu-vector-addition-solution
+        base_slug = md_file.stem  # e.g. leetgpu-vector-addition-solution
 
         rel_parts = md_file.relative_to(leetgpu_dir).parts
         week = None
@@ -260,6 +261,17 @@ def build_website(leetgpu_dir: Path, output_dir: Path) -> None:
         if len(rel_parts) >= 3 and re.match(r"^week\d+$", rel_parts[0]) and re.match(r"^day\d+$", rel_parts[1]):
             week = rel_parts[0]
             day = rel_parts[1]
+
+        # Disambiguate duplicate slugs by prefixing with week-day
+        slug = base_slug
+        if slug in seen_slugs:
+            seen_slugs[slug] += 1
+            if week and day:
+                slug = f"{week}-{day}-{base_slug}"
+            else:
+                slug = f"{len(seen_slugs)}-{base_slug}"
+        else:
+            seen_slugs[slug] = 1
 
         solutions.append({
             "slug": slug,

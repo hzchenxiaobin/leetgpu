@@ -23,7 +23,7 @@
 
 **约束**：`1 ≤ B ≤ 256`，`1 ≤ T ≤ 16`，`2 ≤ V ≤ 131072`；性能测试取 `B=64, T=8, V=32768`（Mistral/LLaMA-2 词表）；容差 `atol=rtol=1e-5`。
 
-> 💡 这道题是 [Week5 Day3](../../aiinfra/daily/week5/day3/README.md) 讲的 **vLLM Worker 执行的验证 kernel**。Speculative Decoding 是推理系统的调度层优化——Scheduler 编排"draft 批量生成 + target 批量验证"迭代，Worker 跑验证 kernel。本题就是那个 kernel：对 B 个序列并行做 accept/reject + resample。B 序列的并行度正是 Continuous Batching 拼出来的 batch。
+> 💡 这道题是 [Week5 Day3](../../../aiinfra/daily/week5/day3/README.md) 讲的 **vLLM Worker 执行的验证 kernel**。Speculative Decoding 是推理系统的调度层优化——Scheduler 编排"draft 批量生成 + target 批量验证"迭代，Worker 跑验证 kernel。本题就是那个 kernel：对 B 个序列并行做 accept/reject + resample。B 序列的并行度正是 Continuous Batching 拼出来的 batch。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

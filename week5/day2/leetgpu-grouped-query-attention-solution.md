@@ -19,7 +19,7 @@ $$O_h = \text{softmax}\!\left(\frac{Q_h \cdot K_{\text{kv\_head}(h)}^{\top}}{\sq
 
 **约束**：`1 ≤ num_kv_heads ≤ num_q_heads ≤ 64`，`num_q_heads % num_kv_heads == 0`，`1 ≤ seq_len ≤ 4096`，`8 ≤ head_dim ≤ 256`（8 的倍数）；性能测试取 LLaMA-3 8B 配置 `num_q_heads=32, num_kv_heads=8, seq_len=1024, head_dim=128`；容差 `atol=rtol=1e-4`。
 
-> 💡 这道题是 [Week5 Day2](../../aiinfra/daily/week5/day2/README.md) 讲的 **KV Cache 内存优化**的核心手段。标准 MHA 每个 Q 头有独立 K/V 头，cache 大小 ∝ `num_q_heads`；GQA 让多个 Q 头共享 K/V 头，把 cache 的 `num_heads` 维从 `num_q_heads` 降到 `num_kv_heads`。LLaMA-3 8B（32Q/8KV）直接把 KV cache 缩小到 1/4。Day 2 手写了 KV Cache 的存储结构，GQA 回答的是"能不能少存一些头"——从模型结构层面削减 cache，比 int8 量化（精度层面）更根本。
+> 💡 这道题是 [Week5 Day2](../../../aiinfra/daily/week5/day2/README.md) 讲的 **KV Cache 内存优化**的核心手段。标准 MHA 每个 Q 头有独立 K/V 头，cache 大小 ∝ `num_q_heads`；GQA 让多个 Q 头共享 K/V 头，把 cache 的 `num_heads` 维从 `num_q_heads` 降到 `num_kv_heads`。LLaMA-3 8B（32Q/8KV）直接把 KV cache 缩小到 1/4。Day 2 手写了 KV Cache 的存储结构，GQA 回答的是"能不能少存一些头"——从模型结构层面削减 cache，比 int8 量化（精度层面）更根本。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
@@ -100,7 +100,7 @@ void gqa_cpu(const float* Q, const float* K, const float* V, float* O, int num_q
 ### 3.3 关键技巧
 
 1. **KV head 索引映射**：`kv_h = h / group`（`group = num_q_heads / num_kv_heads`）——这是 GQA 的全部精髓。每个 block 根据 Q head 号算出该读哪个 KV head，直接索引原始的 `num_kv_heads` 份 K/V，无需 expand。
-2. **online softmax 三公式**（与 [Week4 Softmax Attention](../week4/day1/leetgpu-softmax-attention-solution.md) 完全一致）：遍历 `seq_len` 个 key，用 `m/l/o` 增量更新，`S=QK^T` 和 `P=softmax(S)` 永不落 HBM。
+2. **online softmax 三公式**（与 [Week4 Softmax Attention](../../leetgpu/week4/day1/leetgpu-softmax-attention-solution.md) 完全一致）：遍历 `seq_len` 个 key，用 `m/l/o` 增量更新，`S=QK^T` 和 `P=softmax(S)` 永不落 HBM。
 3. **不 expand KV**：从 global 直接读 `K[kv_h, k, :]`，多个 Q head 重读同一 KV head 时由 L2 cache / shared memory 自然复用——避免物化 expanded KV。
 
 > 💡 **GQA 与 MHA 的 kernel 区别仅一行**：MHA 是 `kv_h = h`，GQA 是 `kv_h = h / group`。其余 attention 逻辑完全相同。这也说明 GQA 几乎零额外实现成本就换来 4× cache 缩减——这就是它成为现代 LLM 标配的原因。
@@ -495,7 +495,7 @@ ncu --kernel-name regex:gqa_kernel \
 
 1. **shared memory 缓存 KV tile**：同一 group 的 `group` 个 Q head 读同一份 KV——把一个 KV tile 载入 shared，供同 group 的多个 block 复用，减少 global 重读。（本实现每个 block 独立读 KV，靠 L2 自然复用；显式缓存可进一步提升。）
 2. **合并同 group 的 Q head 到一个 block**：让一个 block 处理同一 group 的多个 `(h, s)`，共享 `q_shm` 之外的 KV tile，提升数据复用。
-3. **FlashAttention tiling**：当 `seq_len` 很大时，把 KV 分块载入 shared，Q tile 常驻，把 HBM IO 从 `O(nq × S² × d)` 降到 `O(S × d)` 级别（与 [Week4 FlashAttention](../week4/day1/leetgpu-softmax-attention-solution.md) 同理）。
+3. **FlashAttention tiling**：当 `seq_len` 很大时，把 KV 分块载入 shared，Q tile 常驻，把 HBM IO 从 `O(nq × S² × d)` 降到 `O(S × d)` 级别（与 [Week4 FlashAttention](../../leetgpu/week4/day1/leetgpu-softmax-attention-solution.md) 同理）。
 4. **vector load（`float4`）**：K/V 按 `d` 维连续，用 `float4` 一次读 4 个 float。
 5. **混合精度**：Q/K/V 用 fp16/bf16，Tensor Core `mma` 做点积（d 大时收益大）。
 

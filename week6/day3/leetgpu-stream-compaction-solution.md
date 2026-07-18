@@ -19,7 +19,7 @@ count  = 4
 
 **约束**：`1 ≤ N ≤ 10^6`；性能测试取大 `N`（百万级）。
 
-> 💡 这道题的 **predicate + scan + scatter** 三段式与 [Week6 Day3](../../aiinfra/daily/week6/day3/README.md) vLLM Scheduler 每轮 `_free_finished_seq_groups()` 过滤已完成序列的操作同构——Scheduler 把 `FINISHED` 序列从 running 队列移除、把活跃序列紧凑保留，正是 stream compaction：predicate = "status != FINISHED"，prefix sum 算出每个活跃序列的新槽位，scatter 到紧凑数组。
+> 💡 这道题的 **predicate + scan + scatter** 三段式与 [Week6 Day3](../../../aiinfra/daily/week6/day3/README.md) vLLM Scheduler 每轮 `_free_finished_seq_groups()` 过滤已完成序列的操作同构——Scheduler 把 `FINISHED` 序列从 running 队列移除、把活跃序列紧凑保留，正是 stream compaction：predicate = "status != FINISHED"，prefix sum 算出每个活跃序列的新槽位，scatter 到紧凑数组。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

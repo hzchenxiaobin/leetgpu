@@ -79,7 +79,7 @@ for (int i = tid; i < N/4; i += stride)
     out4[i] = in4[i];                // 1 条 16B load + 1 条 16B store
 ```
 
-> 💡 为什么不用 2D block（`TILE×TILE`）？因为拷贝**无邻域复用**，2D 索引只增加 `row*N+col` 的乘法开销，却换不到 coalescing 收益（1D 已完美 coalesced）。2D block 在 [Matrix Transpose #3](../../leetgpu/week1/day3/leetgpu-matrix-transpose-solution.md) 那种「读写维度错位」场景才有意义，纯拷贝用 1D 最简洁。
+> 💡 为什么不用 2D block（`TILE×TILE`）？因为拷贝**无邻域复用**，2D 索引只增加 `row*N+col` 的乘法开销，却换不到 coalescing 收益（1D 已完美 coalesced）。2D block 在 [Matrix Transpose #3](../../leetgpu/week1/day4/leetgpu-matrix-transpose-solution.md) 那种「读写维度错位」场景才有意义，纯拷贝用 1D 最简洁。
 
 ### 3.2 存储层次使用
 

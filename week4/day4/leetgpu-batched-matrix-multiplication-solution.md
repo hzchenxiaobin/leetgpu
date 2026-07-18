@@ -19,7 +19,7 @@ A[1] = [[1,0],[0,1]]  B[1] = [[1,2],[3,4]]  → C[1] = [[1,2],[3,4]]
 
 **约束**：`1 ≤ batch ≤ 256`，`1 ≤ M, N, K ≤ 1024`；性能测试取大 batch。
 
-> 💡 这道题的 **batched GEMM** 与 [Week6 Day5](../../aiinfra/daily/week6/day5/README.md) Mini Engine v1 的多请求并发 forward 同构——v1 每轮把多个请求拼 batch 送 model forward，其中 attention/FFN 的核心计算就是 batched GEMM（batch=请求数）。batched matmul 的"每个 batch 独立计算、共享 kernel launch"正是 v1 Scheduler"每轮选多请求组 batch、一次 forward"的底层映射。
+> 💡 这道题的 **batched GEMM** 与 [Week6 Day5](../../../aiinfra/daily/week6/day5/README.md) Mini Engine v1 的多请求并发 forward 同构——v1 每轮把多个请求拼 batch 送 model forward，其中 attention/FFN 的核心计算就是 batched GEMM（batch=请求数）。batched matmul 的"每个 batch 独立计算、共享 kernel launch"正是 v1 Scheduler"每轮选多请求组 batch、一次 forward"的底层映射。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

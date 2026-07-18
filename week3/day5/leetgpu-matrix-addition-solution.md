@@ -1,6 +1,6 @@
 # LeetGPU Matrix Addition 题解（Week3 Day5）
 
-> 本题解与 [Week1 Day7 的 Matrix Addition 题解](../week1/day7/leetgpu-matrix-addition-solution.md) 内容相同，Week3 Day5 的教程链接指向此处。
+> 本题解与 [Week1 Day7 的 Matrix Addition 题解](../../leetgpu/week1/day7/leetgpu-matrix-addition-solution.md) 内容相同，Week3 Day5 的教程链接指向此处。
 
 ## 1. 题目概述
 
@@ -13,7 +13,7 @@
 
 **约束**：元素为 32-bit float，规模达数百万量级。
 
-> 💡 与 [Week3 Day5 算子接入 Mini 引擎](../../aiinfra/daily/week3/day5/README.md) 的关联：本题是"自定义算子集成"模式的最简案例。用今天的 C++ Extension 流程把它封装为 `my_ops.matrix_add_forward`，就掌握了"任何自定义 kernel 接入 PyTorch"的通用模板。
+> 💡 与 [Week3 Day5 算子接入 Mini 引擎](../../../aiinfra/daily/week3/day5/README.md) 的关联：本题是"自定义算子集成"模式的最简案例。用今天的 C++ Extension 流程把它封装为 `my_ops.matrix_add_forward`，就掌握了"任何自定义 kernel 接入 PyTorch"的通用模板。
 
 ## 2. GPU 设计
 
@@ -72,4 +72,4 @@ extern "C" void solve(const float* A, const float* B, float* C, int M, int N) {
 | 算术强度 | `1 FLOP / 12B` → memory-bound |
 | 瓶颈类型 | **memory-bound** |
 
-> 💡 完整版题解（含 float4 向量化、occupancy 调优）见 [Week1 Day7 Matrix Addition 题解](../week1/day7/leetgpu-matrix-addition-solution.md)。
+> 💡 完整版题解（含 float4 向量化、occupancy 调优）见 [Week1 Day7 Matrix Addition 题解](../../leetgpu/week1/day7/leetgpu-matrix-addition-solution.md)。

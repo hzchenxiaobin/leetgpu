@@ -19,7 +19,7 @@ output = [[1.0×0.5+2.0×1.5+0.1, 1.0×1.0+2.0×0.5+0.2]] = [[3.6, 2.2]]
 
 **约束**：`1 ≤ batch_size ≤ 1000`，`1 ≤ input_size ≤ 1000`，`1 ≤ output_size ≤ 1000`；性能测试取 `batch_size=1000, input_size=512, output_size=256`。
 
-> 💡 这道题是 [Week6 Day1](../../aiinfra/daily/week6/day1/README.md) Dynamic Batching 的**微缩版**——它直接展示了 batch_size 对推理性能的影响。性能测试用 `batch_size=1000` 而非 1，正是因为大 batch 让 GEMM 的 M 维足够大，充分利用 GPU 并行。Dynamic Batcher 在系统层面做的事就是把多个单请求（M=1）聚合成大 batch（M=N），让模型 forward 的 GEMM 从 memory-bound 逼近 compute-bound。
+> 💡 这道题是 [Week6 Day1](../../../aiinfra/daily/week6/day1/README.md) Dynamic Batching 的**微缩版**——它直接展示了 batch_size 对推理性能的影响。性能测试用 `batch_size=1000` 而非 1，正是因为大 batch 让 GEMM 的 M 维足够大，充分利用 GPU 并行。Dynamic Batcher 在系统层面做的事就是把多个单请求（M=1）聚合成大 batch（M=N），让模型 forward 的 GEMM 从 memory-bound 逼近 compute-bound。
 
 ## 2. CPU 基线
 

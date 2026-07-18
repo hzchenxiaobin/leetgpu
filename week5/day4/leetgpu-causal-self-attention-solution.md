@@ -29,7 +29,7 @@ output = softmax · V = [[1,2,3,4],[5,6,7,8]]
 
 **约束**：`M, d` 由测试给定；性能测试取 `M=5000, d=128`；容差 `atol=rtol=1e-5`；`Q/K/V/output` 均为 `float32`。
 
-> 💡 这道题是 [Week5 Day4](../../aiinfra/daily/week5/day4/README.md) 讲的 **PagedAttention 服务的 attention 变体**——LLM 推理 prefill 阶段跑的就是 causal self-attention（生成第 i 个 token 只能看到前 i 个 token）。今天我们手写了 PagedAttention kernel（decode 场景：1 query 对 N key），本题是它的 prefill 对偶——M 个 query 互相做 causal masked attention。两者的核心都是"online softmax 融合 + 间接寻址"，PagedAttention 的 block table 机制同样适用于 causal attention 的 KV 存储。
+> 💡 这道题是 [Week5 Day4](../../../aiinfra/daily/week5/day4/README.md) 讲的 **PagedAttention 服务的 attention 变体**——LLM 推理 prefill 阶段跑的就是 causal self-attention（生成第 i 个 token 只能看到前 i 个 token）。今天我们手写了 PagedAttention kernel（decode 场景：1 query 对 N key），本题是它的 prefill 对偶——M 个 query 互相做 causal masked attention。两者的核心都是"online softmax 融合 + 间接寻址"，PagedAttention 的 block table 机制同样适用于 causal attention 的 KV 存储。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
@@ -68,7 +68,7 @@ void causal_attn_cpu(const float* Q, const float* K, const float* V, float* O, i
 
 ### 2.2 朴素 GPU：物化 M×M scores
 
-朴素做法：先算 `S = QK^T/√d`（M×M）写回 HBM，再用 mask kernel 置 `-∞`，再 softmax，再乘 V。**致命问题**：`M=5000` 时 `S` 占 `5000²×4B = 100MB`，且 mask 是单独一趟 kernel。与 [Week4 Softmax Attention](../week4/day1/leetgpu-softmax-attention-solution.md) 同理——应融合成一个 kernel，用 online softmax 不物化 `S`。
+朴素做法：先算 `S = QK^T/√d`（M×M）写回 HBM，再用 mask kernel 置 `-∞`，再 softmax，再乘 V。**致命问题**：`M=5000` 时 `S` 占 `5000²×4B = 100MB`，且 mask 是单独一趟 kernel。与 [Week4 Softmax Attention](../../leetgpu/week4/day1/leetgpu-softmax-attention-solution.md) 同理——应融合成一个 kernel，用 online softmax 不物化 `S`。
 
 > ⚠️ causal 的额外好处：每个 query `i` 只需扫 `j=0..i`（共 `i+1` 个 key），而非全部 `M` 个。这天然减少了 50% 计算和访存——online softmax 的内层循环只需到 `i`，无需 mask 步骤（直接不遍历 `j>i`）。
 
@@ -97,7 +97,7 @@ void causal_attn_cpu(const float* Q, const float* K, const float* V, float* O, i
 ### 3.3 关键技巧
 
 1. **causal 截断**：内层循环 `for (j=0; j<=i; ++j)`，天然不遍历 `j>i`——无需显式 mask 步骤，比"先算全 M 再 mask"省 50% 计算。
-2. **online softmax 三公式**（与 [Week4 Softmax Attention](../week4/day1/leetgpu-softmax-attention-solution.md) 一致）：遍历 key 时增量更新 `m/l/o`，`S=QK^T` 和 `P=softmax(S)` 永不落 HBM。
+2. **online softmax 三公式**（与 [Week4 Softmax Attention](../../leetgpu/week4/day1/leetgpu-softmax-attention-solution.md) 一致）：遍历 key 时增量更新 `m/l/o`，`S=QK^T` 和 `P=softmax(S)` 永不落 HBM。
 3. **Q 缓存到 shared**：本行 `Q[i,:]` 在整遍 key 扫描里复用，载入 `q_shm` 一次。
 4. **注意 scale**：题目 reference 用 `scale = sqrt(d)`（除以 `√d`），与常见 `1/√d` 一致，确认后用。
 
@@ -467,4 +467,4 @@ ncu --kernel-name regex:causal_self_attention_kernel \
 | **HBM IO（K/V 部分）** | `O(M²d)`（每 query 重读） | `O(M²d/2)`（causal 截断） |
 | **瓶颈类型** | memory-bound（S/P 物化） | memory-bound（K/V 重读），tiling 后趋 compute-bound |
 
-> 💡 **一句话总结**：Causal Self-Attention 是 LLM prefill 跑的 attention 变体——query i 只 attend key 0..i（因果性）。用 online softmax 融合（不物化 M×M 的 S/P）+ causal 截断（内层循环只到 i），既省显存又省 50% 计算。它是 [Day4 PagedAttention](../../aiinfra/daily/week5/day4/README.md) decode kernel 的 prefill 对偶——两者核心都是"间接寻址 + online softmax 融合"，PagedAttention 的 block table 同样适用于 causal attention 的 KV 存储。
+> 💡 **一句话总结**：Causal Self-Attention 是 LLM prefill 跑的 attention 变体——query i 只 attend key 0..i（因果性）。用 online softmax 融合（不物化 M×M 的 S/P）+ causal 截断（内层循环只到 i），既省显存又省 50% 计算。它是 [Day4 PagedAttention](../../../aiinfra/daily/week5/day4/README.md) decode kernel 的 prefill 对偶——两者核心都是"间接寻址 + online softmax 融合"，PagedAttention 的 block table 同样适用于 causal attention 的 KV 存储。

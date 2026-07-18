@@ -26,7 +26,7 @@ output     = weights · V_f = [5.0, 6.0, 7.0, 8.0]
 
 **约束**：`1 ≤ H ≤ 64`，`1 ≤ L ≤ 32768`，`8 ≤ d ≤ 256`（8 的倍数）；`K_int8/V_int8 ∈ [-128,127]`；性能测试取 `H=32, L=8192, d=128`；容差 `atol=rtol=1e-3`。
 
-> 💡 这道题就是 [Week5 Day1](../../aiinfra/daily/week5/day1/README.md) 讲的 **Decode 阶段核心算子**：单 query 对 KV Cache 做 1×L 的 attention，是典型 **memory-bound**。题目把 KV 存成 int8 + per-token scale，正是 Day1 "减少 KV Cache 读取"优化方向的落地——int8 相比 fp32 把 KV 的 HBM 流量直接砍到 1/4。生产级推理系统（TensorRT-LLM、vLLM）都用这套。
+> 💡 这道题就是 [Week5 Day1](../../../aiinfra/daily/week5/day1/README.md) 讲的 **Decode 阶段核心算子**：单 query 对 KV Cache 做 1×L 的 attention，是典型 **memory-bound**。题目把 KV 存成 int8 + per-token scale，正是 Day1 "减少 KV Cache 读取"优化方向的落地——int8 相比 fp32 把 KV 的 HBM 流量直接砍到 1/4。生产级推理系统（TensorRT-LLM、vLLM）都用这套。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
@@ -77,7 +77,7 @@ void attention_int8_cpu(const float* Q, const int8_t* K_int8, const int8_t* V_in
 - 反量化写出 fp32 cache 会把 int8 省下的 4× 带宽**全部还回去**（多一次 `H·L·d·4B` 写 + 读）；
 - Decode 本就 memory-bound，多一趟 fp32 cache 的 HBM 往返直接吃掉所有收益。
 
-> ⚠️ 正确做法是**把反量化流式地融在 attention kernel 里**：从 HBM 读 int8 K/V → 寄存器里乘 scale 成 fp32 → 立刻用于点积/加权 → 丢弃。fp32 K/V 永不落 HBM。这就是"kernel fusion 消除中间矩阵物化"的又一次应用（与 [Week4 Softmax Attention](../week4/day1/leetgpu-softmax-attention-solution.md) 消除 S/P 物化同源）。
+> ⚠️ 正确做法是**把反量化流式地融在 attention kernel 里**：从 HBM 读 int8 K/V → 寄存器里乘 scale 成 fp32 → 立刻用于点积/加权 → 丢弃。fp32 K/V 永不落 HBM。这就是"kernel fusion 消除中间矩阵物化"的又一次应用（与 [Week4 Softmax Attention](../../leetgpu/week4/day1/leetgpu-softmax-attention-solution.md) 消除 S/P 物化同源）。
 
 ## 3. GPU 设计
 
@@ -103,7 +103,7 @@ void attention_int8_cpu(const float* Q, const int8_t* K_int8, const int8_t* V_in
 ### 3.3 关键技巧
 
 1. **int8 反量化融在点积里**：`s += Q[t] * (K_int8[...] * k_scale)` —— 读 1 byte，乘成 fp32，立即累加，不物化。
-2. **online softmax 三公式**（与 [Week4 Softmax Attention](../week4/day1/leetgpu-softmax-attention-solution.md) 完全一致）：遍历 `L` 个 token，用 `m/l/o` 增量更新，`S=QK^T` 和 `P=softmax(S)` 永不落 HBM。
+2. **online softmax 三公式**（与 [Week4 Softmax Attention](../../leetgpu/week4/day1/leetgpu-softmax-attention-solution.md) 完全一致）：遍历 `L` 个 token，用 `m/l/o` 增量更新，`S=QK^T` 和 `P=softmax(S)` 永不落 HBM。
    - `m_new = max(m, s_k)`、`l_new = l·exp(m−m_new) + exp(s_k−m_new)`
    - `o_new = o·(l·exp(m−m_new)/l_new) + (exp(s_k−m_new)/l_new)·v`
 3. **per-token scale 广播**：`k_scale[h,s]` 是标量，乘到该 token 的 `d` 维上——读 scale 的开销（`H·L·4B`）远小于读 int8 K（`H·L·d·1B`，d≥8）。

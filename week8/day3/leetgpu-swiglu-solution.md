@@ -20,7 +20,7 @@ output = [0.7311 * 3.0, 1.7616 * 4.0] = [2.1933, 7.0464]
 
 **约束**：`N` 为偶数；`atol = 1e-4`，`rtol = 1e-5`。
 
-> 💡 SwiGLU 是 LLaMA MLP 的核心激活函数。与 [Week8 Day3 面试基础篇](../../aiinfra/daily/week8/day3/README.md) 的"Kernel 优化"主题直接对应——它把 SiLU + elementwise 乘法**融合**在一个 kernel 中，是 kernel fusion 的经典案例。面试问"为什么要做 kernel fusion"时，SwiGLU 是最好的例子：不融合需 3 个 kernel + 3 次 HBM 往返，融合后 1 个 kernel + 1 次读写。
+> 💡 SwiGLU 是 LLaMA MLP 的核心激活函数。与 [Week8 Day3 面试基础篇](../../../aiinfra/daily/week8/day3/README.md) 的"Kernel 优化"主题直接对应——它把 SiLU + elementwise 乘法**融合**在一个 kernel 中，是 kernel fusion 的经典案例。面试问"为什么要做 kernel fusion"时，SwiGLU 是最好的例子：不融合需 3 个 kernel + 3 次 HBM 往返，融合后 1 个 kernel + 1 次读写。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

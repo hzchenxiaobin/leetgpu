@@ -25,7 +25,7 @@ Y[0,2..3] = X[0,2..3] × 2.0 = [6.0, 8.0]
 
 **约束**：性能测试取 `M=N=8192, T=128`；`X/S/Y` 均为 `float32`；容差 `atol=rtol=1e-5`。
 
-> 💡 这道题是 [Week5 Day6](../../aiinfra/daily/week5/day6/README.md) 讲的 **ncu profiling 的理想分析对象**——一个典型的 memory-bound element-wise kernel。每元素只做 1 次乘法（FLOPs 极少），但要读 X + 读 S + 写 Y（HBM 流量大），算术强度极低。用 ncu 测它的 `dram__throughput`（接近峰值）和 `sm__throughput`（很低），验证"AI 极低 → memory-bound"的判据。推理系统里它是 INT8/INT4 量化推理的必经步骤——量化权重从 HBM 读出后反量化再 GEMM。
+> 💡 这道题是 [Week5 Day6](../../../aiinfra/daily/week5/day6/README.md) 讲的 **ncu profiling 的理想分析对象**——一个典型的 memory-bound element-wise kernel。每元素只做 1 次乘法（FLOPs 极少），但要读 X + 读 S + 写 Y（HBM 流量大），算术强度极低。用 ncu 测它的 `dram__throughput`（接近峰值）和 `sm__throughput`（很低），验证"AI 极低 → memory-bound"的判据。推理系统里它是 INT8/INT4 量化推理的必经步骤——量化权重从 HBM 读出后反量化再 GEMM。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
@@ -291,7 +291,7 @@ ncu --kernel-name regex:weight_dequant_kernel \
 | `sm__throughput` | ~3-8% | 算力大量闲置（只做 1 次乘法/元素） |
 | `dram__bytes` | ≈ 2·M·N·4B | 读 X + 写 Y 是主要流量 |
 
-> ⚠️ **关键观察**：`dram__throughput` 高 + `sm__throughput` 低 = memory-bound。这正是 [Day6 profiling](../../aiinfra/daily/week5/day6/README.md) 讲的 ncu 判据。Weight Dequant 是教学最清晰的 memory-bound 例子——AI≈0.17 远低于 Ridge，瓶颈纯粹在搬运数据。优化方向只能是"减数据量"（量化、压缩）或"提升带宽利用"（coalescing、vector load）。
+> ⚠️ **关键观察**：`dram__throughput` 高 + `sm__throughput` 低 = memory-bound。这正是 [Day6 profiling](../../../aiinfra/daily/week5/day6/README.md) 讲的 ncu 判据。Weight Dequant 是教学最清晰的 memory-bound 例子——AI≈0.17 远低于 Ridge，瓶颈纯粹在搬运数据。优化方向只能是"减数据量"（量化、压缩）或"提升带宽利用"（coalescing、vector load）。
 
 ### 5.3 优化方向
 
@@ -311,4 +311,4 @@ ncu --kernel-name regex:weight_dequant_kernel \
 | **算术强度 AI** | `≈ 0.17 FLOP/Byte` | 远低于 Ridge → memory-bound |
 | **瓶颈** | HBM 带宽 | 优化靠减数据量 + coalescing |
 
-> 💡 **一句话总结**：Weight Dequantization 是 memory-bound element-wise kernel 的教科书例子——每元素 1 次乘法，AI≈0.17 ≪ Ridge。它是 [Day6 ncu profiling](../../aiinfra/daily/week5/day6/README.md) 的理想分析对象：`dram__throughput` 接近峰值、`sm__throughput` 极低，确证 memory-bound。推理系统里它是 INT8/INT4 量化推理的必经步骤，优化方向是 vector load + 与 GEMM 融合消除 Y 物化。
+> 💡 **一句话总结**：Weight Dequantization 是 memory-bound element-wise kernel 的教科书例子——每元素 1 次乘法，AI≈0.17 ≪ Ridge。它是 [Day6 ncu profiling](../../../aiinfra/daily/week5/day6/README.md) 的理想分析对象：`dram__throughput` 接近峰值、`sm__throughput` 极低，确证 memory-bound。推理系统里它是 INT8/INT4 量化推理的必经步骤，优化方向是 vector load + 与 GEMM 融合消除 Y 物化。

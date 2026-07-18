@@ -18,7 +18,7 @@
 
 **约束**：`1 ≤ N ≤ 25,000,000`；性能测试取大数组（约 100 MB）。容差 `atol = rtol = 1e-5`。
 
-> 💡 与 [Vector Reversal（#32）](../week7/day2/leetgpu-vector-reversal-solution.md) 的区别：Vector Reversal 是 `input → output`（两个数组，读 input 写 output，天然 coalesced）；Reverse Array 是 **in-place**（单个数组，交换对称位置的元素）。in-place 的核心挑战是**避免双重交换**——如果每个 thread 都执行 `swap(i, N-1-i)`，对称的两个 thread 会把交换做两遍，结果等于没换。
+> 💡 与 [Vector Reversal（#32）](../../leetgpu/week7/day2/leetgpu-vector-reversal-solution.md) 的区别：Vector Reversal 是 `input → output`（两个数组，读 input 写 output，天然 coalesced）；Reverse Array 是 **in-place**（单个数组，交换对称位置的元素）。in-place 的核心挑战是**避免双重交换**——如果每个 thread 都执行 `swap(i, N-1-i)`，对称的两个 thread 会把交换做两遍，结果等于没换。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

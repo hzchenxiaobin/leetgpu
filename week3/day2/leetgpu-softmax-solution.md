@@ -1,6 +1,6 @@
 # LeetGPU Softmax 题解（Week3 Day2）
 
-> 本题解与 [Week2 Day4 的 Softmax 题解](../week2/day4/leetgpu-softmax-solution.md) 内容相同，Week3 Day2 的教程链接指向此处。
+> 本题解与 [Week2 Day4 的 Softmax 题解](../../leetgpu/week2/day4/leetgpu-softmax-solution.md) 内容相同，Week3 Day2 的教程链接指向此处。
 
 ## 1. 题目概述
 
@@ -13,7 +13,7 @@
 
 **约束**：`1 ≤ N ≤ 1,000,000`，支持 batch 维度。
 
-> 💡 与 [Week3 Day2 手写 Softmax + LayerNorm Kernel](../../aiinfra/daily/week3/day2/README.md) 的关联：本题就是今天 row-wise Softmax 的直接实战。核心是 safe softmax（减 max）+ block 内两级归约（`blockReduceMax` + `blockReduceSum`）。
+> 💡 与 [Week3 Day2 手写 Softmax + LayerNorm Kernel](../../../aiinfra/daily/week3/day2/README.md) 的关联：本题就是今天 row-wise Softmax 的直接实战。核心是 safe softmax（减 max）+ block 内两级归约（`blockReduceMax` + `blockReduceSum`）。
 
 ## 2. GPU 设计
 
@@ -251,4 +251,4 @@ __inline__ __device__ float block_reduce_sum(float val, float* shared) {
 | 算术强度 | `~3 FLOP / 8B` → memory-bound |
 | 瓶颈类型 | **memory-bound**：`DRAM% >> SM%` |
 
-> 💡 完整版题解（含 online 两遍扫描优化、Roofline 分析）见 [Week2 Day4 Softmax 题解](../week2/day4/leetgpu-softmax-solution.md)。
+> 💡 完整版题解（含 online 两遍扫描优化、Roofline 分析）见 [Week2 Day4 Softmax 题解](../../leetgpu/week2/day4/leetgpu-softmax-solution.md)。

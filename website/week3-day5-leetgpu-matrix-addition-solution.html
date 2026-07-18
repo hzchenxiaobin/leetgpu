@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeetGPU Matrix Addition 题解（Week3 Day5）</title>
+    <link rel="stylesheet" href="../css/style.css?v=4">
+    <script src="../js/marked.min.js"></script>
+    <link href="../css/prism-tomorrow.min.css" rel="stylesheet">
+    <script src="../js/prism.min.js"></script>
+    <script src="../js/prism-c.min.js"></script>
+    <script src="../js/prism-cpp.min.js"></script>
+    <script>Prism.languages.cuda=Prism.languages.extend("c",{builtin:/\b(?:__global__|__device__|__host__|__shared__|__constant__|__managed__|__restrict__|__syncthreads|__threadfence|__threadfence_block|blockIdx|threadIdx|blockDim|gridDim|warpSize)\b/});</script>
+    <script src="../js/prism-bash.min.js"></script>
+    <script src="../js/prism-python.min.js"></script>
+</head>
+<body>
+    <button class="menu-toggle" aria-label="Toggle menu">☰</button>
+
+    <div class="site-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <a href="./index.html" style="text-decoration: none;">
+                    <h1 class="sidebar-title" style="font-size: 1.5rem; margin-bottom: 0;">LeetGPU 题解</h1>
+                </a>
+            </div>
+            <nav class="sidebar-nav">
+<a class="nav-link" href="./index.html">📌 LeetGPU 题解</a>
+<div class="nav-section-title">题目</div>
+<div class="nav-accordion-item level-1">
+  <div class="nav-accordion-header">
+    <span class="nav-link week-link">Week 1</span><button class="nav-accordion-toggle" aria-label="收起/展开 Week 1" aria-expanded="false">▶</button>
+  </div>
+  <div class="nav-accordion-content">
+    <div class="nav-section">
+<a class="nav-link" href="./leetgpu-vector-addition-solution.html"><span class="nav-day-tag">day1</span>Vector Addition</a>
+<a class="nav-link" href="./leetgpu-relu-solution.html"><span class="nav-day-tag">day2</span>ReLU</a>
+<a class="nav-link" href="./leetgpu-matrix-addition-solution.html"><span class="nav-day-tag">day3</span>Matrix Addition</a>
+<a class="nav-link" href="./leetgpu-matrix-transpose-solution.html"><span class="nav-day-tag">day4</span>Matrix Transpose</a>
+<a class="nav-link" href="./leetgpu-reduction-solution.html"><span class="nav-day-tag">day5</span>Reduction</a>
+<a class="nav-link" href="./leetgpu-matrix-multiplication-solution.html"><span class="nav-day-tag">day6</span>Matrix Multiplication</a>
+<a class="nav-link" href="./week1-day7-leetgpu-matrix-addition-solution.html"><span class="nav-day-tag">day7</span>Matrix Addition</a>
+    </div>
+  </div>
+</div>
+<div class="nav-accordion-item level-1">
+  <div class="nav-accordion-header">
+    <span class="nav-link week-link">Week 2</span><button class="nav-accordion-toggle" aria-label="收起/展开 Week 2" aria-expanded="false">▶</button>
+  </div>
+  <div class="nav-accordion-content">
+    <div class="nav-section">
+<a class="nav-link" href="./leetgpu-prefix-sum-solution.html"><span class="nav-day-tag">day1</span>Prefix Sum</a>
+<a class="nav-link" href="./leetgpu-gemm-solution.html"><span class="nav-day-tag">day2</span>GEMM</a>
+<a class="nav-link" href="./leetgpu-2d-convolution-solution.html"><span class="nav-day-tag">day3</span>2D Convolution</a>
+<a class="nav-link" href="./leetgpu-softmax-solution.html"><span class="nav-day-tag">day4</span>Softmax</a>
+<a class="nav-link" href="./leetgpu-softmax-attention-solution.html"><span class="nav-day-tag">day5</span>Softmax Attention</a>
+<a class="nav-link" href="./leetgpu-histogramming-solution.html"><span class="nav-day-tag">day6</span>Histogramming</a>
+<a class="nav-link" href="./leetgpu-max-subarray-sum-solution.html"><span class="nav-day-tag">day7</span>Max Subarray Sum</a>
+    </div>
+  </div>
+</div>
+<div class="nav-accordion-item level-1 is-expanded">
+  <div class="nav-accordion-header">
+    <span class="nav-link week-link">Week 3</span><button class="nav-accordion-toggle" aria-label="收起/展开 Week 3" aria-expanded="true">▼</button>
+  </div>
+  <div class="nav-accordion-content">
+    <div class="nav-section">
+<a class="nav-link" href="./leetgpu-1d-convolution-solution.html"><span class="nav-day-tag">day1</span>1D Convolution</a>
+<a class="nav-link" href="./week3-day2-leetgpu-softmax-solution.html"><span class="nav-day-tag">day2</span>Softmax</a>
+<a class="nav-link" href="./leetgpu-argmax-solution.html"><span class="nav-day-tag">day3</span>Argmax</a>
+<a class="nav-link" href="./leetgpu-attention-solution.html"><span class="nav-day-tag">day4</span>Attention</a>
+<a class="nav-link active" href="./week3-day5-leetgpu-matrix-addition-solution.html"><span class="nav-day-tag">day5</span>Matrix Addition</a>
+<a class="nav-link" href="./leetgpu-rms-normalization-solution.html"><span class="nav-day-tag">day6</span>RMS Normalization</a>
+<a class="nav-link" href="./leetgpu-causal-self-attention-solution.html"><span class="nav-day-tag">day7</span>Causal Self-Attention</a>
+    </div>
+  </div>
+</div>
+<div class="nav-accordion-item level-1">
+  <div class="nav-accordion-header">
+    <span class="nav-link week-link">Week 4</span><button class="nav-accordion-toggle" aria-label="收起/展开 Week 4" aria-expanded="false">▶</button>
+  </div>
+  <div class="nav-accordion-content">
+    <div class="nav-section">
+<a class="nav-link" href="./week4-day1-leetgpu-softmax-attention-solution.html"><span class="nav-day-tag">day1</span>Softmax Attention</a>
+<a class="nav-link" href="./week4-day2-leetgpu-attention-solution.html"><span class="nav-day-tag">day2</span>Attention</a>
+<a class="nav-link" href="./leetgpu-dot-product-solution.html"><span class="nav-day-tag">day3</span>Dot Product</a>
+<a class="nav-link" href="./leetgpu-batched-matrix-multiplication-solution.html"><span class="nav-day-tag">day4</span>Batched Matrix Multiplication</a>
+<a class="nav-link" href="./leetgpu-matrix-copy-solution.html"><span class="nav-day-tag">day5</span>Matrix Copy</a>
+<a class="nav-link" href="./leetgpu-multi-head-attention-solution.html"><span class="nav-day-tag">day6</span>Multi-Head Attention</a>
+<a class="nav-link" href="./leetgpu-gpt-2-transformer-block-solution.html"><span class="nav-day-tag">day7</span>GPT-2 Transformer Block</a>
+    </div>
+  </div>
+</div>
+<div class="nav-accordion-item level-1">
+  <div class="nav-accordion-header">
+    <span class="nav-link week-link">Week 5</span><button class="nav-accordion-toggle" aria-label="收起/展开 Week 5" aria-expanded="false">▶</button>
+  </div>
+  <div class="nav-accordion-content">
+    <div class="nav-section">
+<a class="nav-link" href="./leetgpu-int8-kv-cache-attention-solution.html"><span class="nav-day-tag">day1</span>INT8 KV-Cache Attention</a>
+<a class="nav-link" href="./leetgpu-grouped-query-attention-solution.html"><span class="nav-day-tag">day2</span>Grouped Query Attention (GQA)</a>
+<a class="nav-link" href="./leetgpu-speculative-decoding-verification-solution.html"><span class="nav-day-tag">day3</span>Speculative Decoding Verification</a>
+<a class="nav-link" href="./week5-day4-leetgpu-causal-self-attention-solution.html"><span class="nav-day-tag">day4</span>Causal Self-Attention</a>
+<a class="nav-link" href="./leetgpu-token-embedding-layer-solution.html"><span class="nav-day-tag">day5</span>Token Embedding Layer</a>
+<a class="nav-link" href="./leetgpu-weight-dequantization-solution.html"><span class="nav-day-tag">day6</span>Weight Dequantization</a>
+<a class="nav-link" href="./leetgpu-simple-inference-solution.html"><span class="nav-day-tag">day7</span>Simple Inference</a>
+    </div>
+  </div>
+</div>
+<div class="nav-accordion-item level-1">
+  <div class="nav-accordion-header">
+    <span class="nav-link week-link">Week 6</span><button class="nav-accordion-toggle" aria-label="收起/展开 Week 6" aria-expanded="false">▶</button>
+  </div>
+  <div class="nav-accordion-content">
+    <div class="nav-section">
+<a class="nav-link" href="./week6-day1-leetgpu-simple-inference-solution.html"><span class="nav-day-tag">day1</span>Simple Inference</a>
+<a class="nav-link" href="./week6-day2-leetgpu-max-subarray-sum-solution.html"><span class="nav-day-tag">day2</span>Max Subarray Sum</a>
+<a class="nav-link" href="./leetgpu-stream-compaction-solution.html"><span class="nav-day-tag">day3</span>Stream Compaction</a>
+<a class="nav-link" href="./leetgpu-segmented-prefix-sum-solution.html"><span class="nav-day-tag">day4</span>Segmented Prefix Sum</a>
+<a class="nav-link" href="./week6-day5-leetgpu-batched-matrix-multiplication-solution.html"><span class="nav-day-tag">day5</span>Batched Matrix Multiplication</a>
+<a class="nav-link" href="./leetgpu-top-k-selection-solution.html"><span class="nav-day-tag">day6</span>Top K Selection</a>
+<a class="nav-link" href="./week6-day7-leetgpu-dot-product-solution.html"><span class="nav-day-tag">day7</span>Dot Product</a>
+    </div>
+  </div>
+</div>
+<div class="nav-accordion-item level-1">
+  <div class="nav-accordion-header">
+    <span class="nav-link week-link">Week 7</span><button class="nav-accordion-toggle" aria-label="收起/展开 Week 7" aria-expanded="false">▶</button>
+  </div>
+  <div class="nav-accordion-content">
+    <div class="nav-section">
+<a class="nav-link" href="./week7-day1-leetgpu-matrix-copy-solution.html"><span class="nav-day-tag">day1</span>Matrix Copy</a>
+<a class="nav-link" href="./leetgpu-reverse-array-solution.html"><span class="nav-day-tag">day2</span>Reverse Array</a>
+<a class="nav-link" href="./leetgpu-vector-reversal-solution.html"><span class="nav-day-tag">day2</span>Vector Reversal</a>
+<a class="nav-link" href="./leetgpu-scalar-multiply-solution.html"><span class="nav-day-tag">day3</span>Scalar Multiply</a>
+<a class="nav-link" href="./week7-day4-leetgpu-matrix-transpose-solution.html"><span class="nav-day-tag">day4</span>Matrix Transpose</a>
+<a class="nav-link" href="./leetgpu-element-reversal-solution.html"><span class="nav-day-tag">day5</span>Element Reversal</a>
+<a class="nav-link" href="./week7-day6-leetgpu-reduction-solution.html"><span class="nav-day-tag">day6</span>Reduction</a>
+<a class="nav-link" href="./week7-day7-leetgpu-matrix-addition-solution.html"><span class="nav-day-tag">day7</span>Matrix Addition</a>
+    </div>
+  </div>
+</div>
+<div class="nav-accordion-item level-1">
+  <div class="nav-accordion-header">
+    <span class="nav-link week-link">Week 8</span><button class="nav-accordion-toggle" aria-label="收起/展开 Week 8" aria-expanded="false">▶</button>
+  </div>
+  <div class="nav-accordion-content">
+    <div class="nav-section">
+<a class="nav-link" href="./leetgpu-silu-solution.html"><span class="nav-day-tag">day1</span>SiLU</a>
+<a class="nav-link" href="./leetgpu-rope-embedding-solution.html"><span class="nav-day-tag">day2</span>Rotary Positional Embedding</a>
+<a class="nav-link" href="./leetgpu-swiglu-solution.html"><span class="nav-day-tag">day3</span>SwiGLU</a>
+<a class="nav-link" href="./leetgpu-sliding-window-self-attention-solution.html"><span class="nav-day-tag">day4</span>Sliding Window Self-Attention</a>
+<a class="nav-link" href="./leetgpu-lora-linear-solution.html"><span class="nav-day-tag">day5</span>LoRA Linear</a>
+<a class="nav-link" href="./leetgpu-batch-normalization-solution.html"><span class="nav-day-tag">day6</span>Batch Normalization</a>
+<a class="nav-link" href="./week8-day7-leetgpu-1d-convolution-solution.html"><span class="nav-day-tag">day7</span>1D Convolution</a>
+    </div>
+  </div>
+</div>
+<div class="nav-section-title">更多</div>
+<a class="nav-link" href="https://hzchenxiaobin.github.io/ai-infra-notes/index.html">📚 AI Infra 学习笔记</a>
+<a class="nav-link" href="../leetcode/index.html">🧩 LeetCode 题解</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <h1 class="page-title">LeetGPU Matrix Addition 题解（Week3 Day5）</h1>
+            </div>
+            <article class="content" id="content"></article>
+        </main>
+    </div>
+
+    <button class="back-to-top" aria-label="Back to top">↑</button>
+
+    <script>
+        const markdown = `# LeetGPU Matrix Addition 题解（Week3 Day5）
+
+> 本题解与 [Week1 Day7 的 Matrix Addition 题解](./leetgpu-matrix-addition-solution.html) 内容相同，Week3 Day5 的教程链接指向此处。
+
+## 1. 题目概述
+
+- **标题 / 题号**：Matrix Addition（#1，easy）
+- **链接**：https://leetgpu.com/challenges/matrix-addition
+- **难度**：简单
+- **标签**：CUDA、Element-wise、Memory Coalescing、Occupancy
+
+**题意**：给定两个相同形状的大矩阵 \`A\` 和 \`B\`，计算 \`C = A + B\`。
+
+**约束**：元素为 32-bit float，规模达数百万量级。
+
+> 💡 与 [Week3 Day5 算子接入 Mini 引擎](../../../aiinfra/daily/week3/day5/index.html) 的关联：本题是"自定义算子集成"模式的最简案例。用今天的 C++ Extension 流程把它封装为 \`my_ops.matrix_add_forward\`，就掌握了"任何自定义 kernel 接入 PyTorch"的通用模板。
+
+## 2. GPU 设计
+
+一维 grid-stride loop 映射，可用 \`float4\` 向量化加载（一次 128-bit），把 4 条 load 合并为 1 条。
+
+## 3. Kernel 实现
+
+\`\`\`cuda
+// matrix_addition.cu —— Matrix Addition with float4 vectorization
+#include <cuda_runtime.h>
+
+__global__ void matrix_add_kernel(const float* A, const float* B, float* C, int total) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < total) {
+        C[idx] = A[idx] + B[idx];
+    }
+}
+
+extern "C" void solve(const float* A, const float* B, float* C, int M, int N) {
+    int total = M * N;
+    int blockSize = 256;
+    int gridSize = (total + blockSize - 1) / blockSize;
+    matrix_add_kernel<<<gridSize, blockSize>>>(A, B, C, total);
+}
+\`\`\`
+
+### 3.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本（从上方实现中提取，增加了 \`cudaDeviceSynchronize()\`）。
+
+\`\`\`cuda
+#include <cuda_runtime.h>
+
+__global__ void matrix_add_kernel(const float* A, const float* B, float* C, int total) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < total) {
+        C[idx] = A[idx] + B[idx];
+    }
+}
+
+// A, B, C are device pointers
+extern "C" void solve(const float* A, const float* B, float* C, int M, int N) {
+    int total = M * N;
+    int blockSize = 256;
+    int gridSize = (total + blockSize - 1) / blockSize;
+    matrix_add_kernel<<<gridSize, blockSize>>>(A, B, C, total);
+    cudaDeviceSynchronize();
+}
+\`\`\`
+
+## 4. 复杂度分析
+
+| 维度 | 分析 |
+|------|------|
+| 时间复杂度 | \`O(M×N)\` |
+| 算术强度 | \`1 FLOP / 12B\` → memory-bound |
+| 瓶颈类型 | **memory-bound** |
+
+> 💡 完整版题解（含 float4 向量化、occupancy 调优）见 [Week1 Day7 Matrix Addition 题解](./leetgpu-matrix-addition-solution.html)。
+`;
+
+        const renderer = new marked.Renderer();
+        marked.setOptions({
+            renderer: renderer,
+            headerIds: false,
+            gfm: true,
+            breaks: false,
+            sanitize: false
+        });
+
+        try {
+            if (typeof marked === 'undefined') {
+                throw new Error('marked.js failed to load.');
+            }
+            document.getElementById('content').innerHTML = marked.parse(markdown);
+
+            if (window.Prism) {
+                Prism.highlightAll();
+            }
+        } catch (err) {
+            document.getElementById('content').innerHTML = '<div style="padding: 20px; color: #ff7b72; background: #2d1515; border-radius: 8px;">' +
+                '<h2>⚠️ 页面渲染失败</h2>' +
+                '<p>' + err.message + '</p>' +
+                '</div>';
+            console.error('Markdown render error:', err);
+        }
+    </script>
+    <script src="../js/main.js?v=5"></script>
+</body>
+</html>

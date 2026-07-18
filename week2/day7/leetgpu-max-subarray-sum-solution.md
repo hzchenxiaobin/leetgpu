@@ -1,6 +1,6 @@
 # LeetGPU Max Subarray Sum 题解（Week2 Day7 综合验收）
 
-> 本题解与 [Week6 Day2 的 Max Subarray Sum 题解](../week6/day2/leetgpu-max-subarray-sum-solution.md) 内容相同，Week2 Day7 综合验收日链接指向此处。
+> 本题解与 [Week6 Day2 的 Max Subarray Sum 题解](../../leetgpu/week6/day2/leetgpu-max-subarray-sum-solution.md) 内容相同，Week2 Day7 综合验收日链接指向此处。
 
 ## 1. 题目概述
 
@@ -13,7 +13,7 @@
 
 **约束**：`1 ≤ window_size ≤ N ≤ 10,000,000`。
 
-> 💡 与 [Week2 Day7 综合验收](../../aiinfra/daily/week2/day7/README.md) 的关联：本题综合了 Week2 的两大主题——Prefix Sum（Day1）+ Reduction（Week1 Day4/Day5）。用 prefix sum 计算窗口和，再用 reduction 求最大值，是一道"两阶段 kernel"的综合手撕题。
+> 💡 与 [Week2 Day7 综合验收](../../../aiinfra/daily/week2/day7/README.md) 的关联：本题综合了 Week2 的两大主题——Prefix Sum（Day1）+ Reduction（Week1 Day4/Day5）。用 prefix sum 计算窗口和，再用 reduction 求最大值，是一道"两阶段 kernel"的综合手撕题。
 
 ## 2. GPU 设计
 

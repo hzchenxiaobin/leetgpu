@@ -15,7 +15,7 @@ $$O_{b,h} = \text{softmax}\!\left(\frac{Q_{b,h}\, K_{b,h}^{\mathsf{T}}}{\sqrt{d}
 
 **约束**：`1 ≤ B ≤ 128`，`1 ≤ H ≤ 16`，`1 ≤ N ≤ 4096`，`1 ≤ d ≤ 128`；容差 `atol=rtol=1e-3`。
 
-> 💡 这是本系列**最难的题**。朴素 MHA 要为每个 `(batch, head)` 物化两个 `N×N` 中间矩阵 `S=QK^T` 和 `P=softmax(S)`，总显存 `O(B·H·N²)`——`B=128, H=16, N=4096` 时光 `S`、`P` 就各占 **128 GB**，直接 OOM。解法核心是把 [Day 5 Softmax Attention](../week2/day5/leetgpu-softmax-attention-solution.md) 的 **FlashAttention（online softmax + tiling）** 思想扩展到 `B×H` 维度：**三重并行** `batch × head × Q-tile`，每组内用 tiling + online softmax 不物化 `S/P`，把显存从 `O(B·H·N²)` 降到 `O(B·H·N·d)`，HBM IO 从 `O(B·H·N²)` 降到趋近 `O(B·H·N·d)`。
+> 💡 这是本系列**最难的题**。朴素 MHA 要为每个 `(batch, head)` 物化两个 `N×N` 中间矩阵 `S=QK^T` 和 `P=softmax(S)`，总显存 `O(B·H·N²)`——`B=128, H=16, N=4096` 时光 `S`、`P` 就各占 **128 GB**，直接 OOM。解法核心是把 [Day 5 Softmax Attention](../../leetgpu/week2/day5/leetgpu-softmax-attention-solution.md) 的 **FlashAttention（online softmax + tiling）** 思想扩展到 `B×H` 维度：**三重并行** `batch × head × Q-tile`，每组内用 tiling + online softmax 不物化 `S/P`，把显存从 `O(B·H·N²)` 降到 `O(B·H·N·d)`，HBM IO 从 `O(B·H·N²)` 降到趋近 `O(B·H·N·d)`。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
@@ -100,7 +100,7 @@ void mha_cpu(const float* Q, const float* K, const float* V, float* O, int B, in
 
 **① batched kernel launch**：`gridDim = (N/Br, H, B)`，`blockIdx.z=batch`、`blockIdx.y=head`。一组 `(batch, head)` 对应一个独立的 attention 计算，互不通信——天然适合 3D grid。相比 `B·H` 次 `cudaLaunchKernel`（每次 launch ~5µs，`B·H=2048` 次共 ~10ms），单次 batched launch **零开销**。
 
-**② online softmax 三公式**（复用 [Day 5](../week2/day5/leetgpu-softmax-attention-solution.md) 的推导）：设当前 running max `m`、running sum `l`、running output `o`，新增 score `s`、对应 value `v`：
+**② online softmax 三公式**（复用 [Day 5](../../leetgpu/week2/day5/leetgpu-softmax-attention-solution.md) 的推导）：设当前 running max `m`、running sum `l`、running output `o`，新增 score `s`、对应 value `v`：
 
 1. `m_new = max(m, s)`
 2. `l_new = l · exp(m − m_new) + exp(s − m_new)`
@@ -112,7 +112,7 @@ void mha_cpu(const float* Q, const float* K, const float* V, float* O, int B, in
 
 **③ 每 warp 处理 1 行 query，32 lane 拆分 d 维**：block 内 `NUM_WARPS` 个 warp 各负责 1 行 query（`Br = NUM_WARPS`）。每个 warp 的 32 个 thread（lane）沿 `d` 维切分——每 lane 持有 `D_PER_THREAD = ⌈d/32⌉` 个 `d` 元素。点积 `Q·K` 时各 lane 算 partial sum 再 `warp_reduce_sum`；输出累加器 `o_reg[D_PER_THREAD]` 也分布在各 lane。这比"1 block 1 行 query"的朴素做法多了 `Br` 倍 K/V 复用。
 
-> ⚠️ 本实现的 FlashAttention kernel 结构直接复用 [每日教程 Week4 Day2](../../aiinfra/daily/week4/day2/README.md) 的 `flashAttentionFwd`，只是把 grid 维度从 `(N/Br, 1, 1)` 扩展为 `(N/Br, H, B)`，并在寻址时乘上 `batch·H+head` 的 stride。**核心 kernel 逻辑不变**，MHA 的难度在于"如何正确地批量启动 + 寻址"，而非 attention 算法本身。
+> ⚠️ 本实现的 FlashAttention kernel 结构直接复用 [每日教程 Week4 Day2](../../../aiinfra/daily/week4/day2/README.md) 的 `flashAttentionFwd`，只是把 grid 维度从 `(N/Br, 1, 1)` 扩展为 `(N/Br, H, B)`，并在寻址时乘上 `batch·H+head` 的 stride。**核心 kernel 逻辑不变**，MHA 的难度在于"如何正确地批量启动 + 寻址"，而非 attention 算法本身。
 
 ## 4. Kernel 实现
 

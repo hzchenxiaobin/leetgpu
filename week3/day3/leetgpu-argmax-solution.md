@@ -11,7 +11,7 @@
 
 **约束**：`1 ≤ N ≤ 10,000,000`。
 
-> 💡 与 [Week3 Day3 优化对比实验](../../aiinfra/daily/week3/day3/README.md) 的关联：Argmax 是"带状态追踪的归约"——不仅要找最大值，还要记录其下标。正是 warp 级 vs block 级 reduce 的直接实战。
+> 💡 与 [Week3 Day3 优化对比实验](../../../aiinfra/daily/week3/day3/README.md) 的关联：Argmax 是"带状态追踪的归约"——不仅要找最大值，还要记录其下标。正是 warp 级 vs block 级 reduce 的直接实战。
 
 ## 2. GPU 设计
 

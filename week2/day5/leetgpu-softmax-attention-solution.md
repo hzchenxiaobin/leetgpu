@@ -112,7 +112,7 @@ void attention_cpu(const float* Q, const float* K, const float* V, float* O, int
 
 令 `α = exp(m − m_new)`（旧状态的缩放因子）、`p = exp(s − m_new)`（新 key 的权重），则 `l_new = l·α + p`，`o_new = o · (l·α/l_new) + (p/l_new) · v`。
 
-> 💡 **数值稳定**：所有 `exp` 都减去 running max `m_new`，保证指数 ≤ 0，永不溢出。这正是 [Day 4 Softmax](../week2/day4/leetgpu-softmax-solution.md) "减最大值"思想的在线版。
+> 💡 **数值稳定**：所有 `exp` 都减去 running max `m_new`，保证指数 ≤ 0，永不溢出。这正是 [Day 4 Softmax](../../leetgpu/week2/day4/leetgpu-softmax-solution.md) "减最大值"思想的在线版。
 >
 > 💡 **1/√d 缩放**：在算 `s_k = Q·K/√d` 时就把 scale 乘上，避免 `QK^T` 数值过大导致 `exp` 上溢。
 

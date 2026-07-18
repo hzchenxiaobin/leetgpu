@@ -18,7 +18,7 @@ C = [[6,8],[10,12]]
 
 **约束**：`1 ≤ M, N ≤ 4096`；性能测试取大矩阵。
 
-> 💡 这道题是 **element-wise 计算的最简形式**——两个矩阵逐元素相加。与 [Week7 Day7 代码重构与文档](../../aiinfra/daily/week7/day7/README.md) 的关联：它是 Week 7 的"收官题"——从 Day 1 的 Matrix Copy（纯搬运）到 Day 7 的 Matrix Addition（搬运+计算），体现了 Mini 系统从"能搬数据"到"能算结果"的完整能力。它也是 Day 4 自定义 kernel 集成中最基础的验证算子。
+> 💡 这道题是 **element-wise 计算的最简形式**——两个矩阵逐元素相加。与 [Week7 Day7 代码重构与文档](../../../aiinfra/daily/week7/day7/README.md) 的关联：它是 Week 7 的"收官题"——从 Day 1 的 Matrix Copy（纯搬运）到 Day 7 的 Matrix Addition（搬运+计算），体现了 Mini 系统从"能搬数据"到"能算结果"的完整能力。它也是 Day 4 自定义 kernel 集成中最基础的验证算子。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
@@ -200,7 +200,7 @@ int main(int argc, char** argv) {
 | `block(16, 16)` | 2D block，16×16 = 256 线程 |
 | `grid((N+15)/16, (M+15)/16)` | 2D grid，列方向 `(N+15)/16` 个 block、行方向 `(M+15)/16` 个 block |
 
-> 💡 **关键洞察**：2D block 的 coalesced 关键在"列方向 = `threadIdx.x`"——warp 内 32 个 thread 的 `threadIdx.x` 连续，故 `j` 连续、`idx = i*N+j` 连续，`A[idx]`/`B[idx]`/`C[idx]` 均合并访问。若误把行方向映射到 `threadIdx.x`，则 warp 内 `i` 连续、`j` 不变，`idx` 步长为 `N`（跨行），导致 32 个分散事务、带宽崩塌。算术强度 `1 FLOP / 12B ≈ 0.083 FLOP/B`，纯 memory-bound，受 HBM 三向带宽（读 A + 读 B + 写 C）限制。本 2D 版与 [Week3 Day5](../../week3/day5/leetgpu-matrix-addition-solution.md) 的 1D 展平版、[Week1 Day7](../../week1/day7/leetgpu-matrix-addition-solution.md) 的 float4 向量化版是同一题的三种映射策略：2D 直观、1D 简洁、float4 高带宽，本质都是 coalesced element-wise。
+> 💡 **关键洞察**：2D block 的 coalesced 关键在"列方向 = `threadIdx.x`"——warp 内 32 个 thread 的 `threadIdx.x` 连续，故 `j` 连续、`idx = i*N+j` 连续，`A[idx]`/`B[idx]`/`C[idx]` 均合并访问。若误把行方向映射到 `threadIdx.x`，则 warp 内 `i` 连续、`j` 不变，`idx` 步长为 `N`（跨行），导致 32 个分散事务、带宽崩塌。算术强度 `1 FLOP / 12B ≈ 0.083 FLOP/B`，纯 memory-bound，受 HBM 三向带宽（读 A + 读 B + 写 C）限制。本 2D 版与 [Week3 Day5](../../leetgpu/week3/day5/leetgpu-matrix-addition-solution.md) 的 1D 展平版、[Week1 Day7](../../leetgpu/week1/day7/leetgpu-matrix-addition-solution.md) 的 float4 向量化版是同一题的三种映射策略：2D 直观、1D 简洁、float4 高带宽，本质都是 coalesced element-wise。
 
 ## 5. 性能分析
 

@@ -19,7 +19,7 @@ input = [1, 2, 4, 2, 3], window_size = 2
 
 **约束**：`1 ≤ N ≤ 50000`，`-10 ≤ input[i] ≤ 10`，`1 ≤ window_size ≤ N`；性能测试取 `N=50000, window_size=25000`。
 
-> 💡 这道题的**滑动窗口**思想与 [Week6 Day2](../../aiinfra/daily/week6/day2/README.md) Continuous Batching 的 iteration-level 调度同构——窗口在数据上滑动，每步加入新元素、移出旧元素，正是 Continuous Batching "每轮加入新请求、移出完成请求"的微缩版。
+> 💡 这道题的**滑动窗口**思想与 [Week6 Day2](../../../aiinfra/daily/week6/day2/README.md) Continuous Batching 的 iteration-level 调度同构——窗口在数据上滑动，每步加入新元素、移出旧元素，正是 Continuous Batching "每轮加入新请求、移出完成请求"的微缩版。
 
 ## 2. CPU 基线
 
@@ -216,7 +216,7 @@ extern "C" void solve(const int* input, int* output, int N, int window_size) {
 | `warp_max[8]` | shared memory，存放各 warp 的最大值 |
 | `output` | 全局结果，初始化为 `INT_MIN`，由 `atomicMax` 更新 |
 
-> 💡 **关键洞察**：本提交版是"暴力但并行"——每窗口仍 `O(W)` 串行求和，总工作量 `O(N·W)`，靠海量线程把 wall-time 压下来。性能测试 `N=50000, W=25000` 时每窗口加 25000 次，总计算量 `≈ 1.25e9` 次加法。真正的 `O(N)` 解法是 **prefix sum**：先算前缀和 `pref[i]`，则窗口和 `= pref[i+W-1] - pref[i-1]` 降为 `O(1)`，总工作量 `O(N)`（见 [Week2 Day7 题解](../week2/day7/leetgpu-max-subarray-sum-solution.md)）。两版是"算力换带宽" vs "带宽换算力"的权衡：暴力版无额外显存、compute-bound；prefix 版多一趟 `O(N)` 扫描和 `pref` 数组、转 memory-bound。归约部分（warp shuffle → shared → atomicMax）是 GPU 求最大值的通用骨架，与 Reduction 题完全复用。
+> 💡 **关键洞察**：本提交版是"暴力但并行"——每窗口仍 `O(W)` 串行求和，总工作量 `O(N·W)`，靠海量线程把 wall-time 压下来。性能测试 `N=50000, W=25000` 时每窗口加 25000 次，总计算量 `≈ 1.25e9` 次加法。真正的 `O(N)` 解法是 **prefix sum**：先算前缀和 `pref[i]`，则窗口和 `= pref[i+W-1] - pref[i-1]` 降为 `O(1)`，总工作量 `O(N)`（见 [Week2 Day7 题解](../../leetgpu/week2/day7/leetgpu-max-subarray-sum-solution.md)）。两版是"算力换带宽" vs "带宽换算力"的权衡：暴力版无额外显存、compute-bound；prefix 版多一趟 `O(N)` 扫描和 `pref` 数组、转 memory-bound。归约部分（warp shuffle → shared → atomicMax）是 GPU 求最大值的通用骨架，与 Reduction 题完全复用。
 
 ## 5. 复杂度分析
 

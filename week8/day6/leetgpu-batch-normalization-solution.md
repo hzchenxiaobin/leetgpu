@@ -26,7 +26,7 @@ y = gamma * (x - 4.5) / sqrt(5.25 + eps) + beta
 
 **约束**：`N,H,W` 较大（如 `N=64, C=128, H=W=32`，每通道 `NHW=65536` 个元素），`eps=1e-5`。
 
-> 💡 BatchNorm 是面试中 **归一化家族** 的代表题。它与 [Week8 Day6 查漏补缺](../../aiinfra/daily/week8/day6/README.md) 的"易混淆概念 LayerNorm vs BatchNorm"直接对应——BatchNorm 按通道归一化（reduce 跨 batch/spatial），LayerNorm 按特征归一化（reduce 跨 feature）。能讲清两者 reduce 维度的差异 + 实现，是区分"背了"和"懂了"的关键。
+> 💡 BatchNorm 是面试中 **归一化家族** 的代表题。它与 [Week8 Day6 查漏补缺](../../../aiinfra/daily/week8/day6/README.md) 的"易混淆概念 LayerNorm vs BatchNorm"直接对应——BatchNorm 按通道归一化（reduce 跨 batch/spatial），LayerNorm 按特征归一化（reduce 跨 feature）。能讲清两者 reduce 维度的差异 + 实现，是区分"背了"和"懂了"的关键。
 
 ---
 

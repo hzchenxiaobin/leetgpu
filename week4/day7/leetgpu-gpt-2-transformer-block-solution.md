@@ -1,6 +1,6 @@
 # LeetGPU GPT-2 Transformer Block 题解（Week4 Day7 综合验收）
 
-> 本题为 Week4 Day7 综合验收题解，对应 [IO 优化方法论总结](../../aiinfra/daily/week4/day7/README.md)。
+> 本题为 Week4 Day7 综合验收题解，对应 [IO 优化方法论总结](../../../aiinfra/daily/week4/day7/README.md)。
 
 ## 1. 题目概述
 
@@ -41,7 +41,7 @@ x → LayerNorm1 → Causal Attention → +x → LayerNorm2 → FFN(GELU) → +x
 | HBM IO | 优化后 `O(Nd)` per layer（FlashAttention + 算子融合） |
 | 综合考察 | FlashAttention（Week4）+ LayerNorm（Week3）+ GEMM（Week2）+ 融合 |
 
-> 💡 完整版题解见 [Week5 Day7 GPT-2 Transformer Block 题解](../week5/day7/leetgpu-gpt-2-transformer-block-solution.md)。
+> 💡 完整版题解见 [Week5 Day7 GPT-2 Transformer Block 题解](../../leetgpu/week5/day7/leetgpu-gpt-2-transformer-block-solution.md)。
 
 ## 4. Kernel 实现
 
@@ -339,4 +339,4 @@ extern "C" void solve(const float* x, float* output, const float* weights, int s
 | `ffn` | `ln2` | `ff2` | 读 `Nd` / 写 `Nd` | GELU 已在片内；可与 LN2 融合 |
 | `add_residual` | `residual1, ff2` | `output` | 读 `2Nd` / 写 `Nd` | 与 FFN 融合 |
 
-> 💡 **关键洞察**：本实现是 "naive but correct"——8 个子 kernel 各自独立启动，中间结果（`ln1`、`qkv_buf`、`attn_concat`、`attn_proj`、`residual1`、`ln2`、`ff2`）全部经过 HBM 往返。优化路径不是单点提速某个 kernel，而是**算子融合**：把 LN→QKV、attn→projection、residual→LN2→FFN 等相邻算子合并为单个 kernel，把 HBM IO 从 `O(Nd)` per stage 压缩到整层 `O(Nd)`。这正是 Week4 IO 优化方法论的核心结论，也是 [Week5 Day7 完整版题解](../week5/day7/leetgpu-gpt-2-transformer-block-solution.md) 的优化目标。
+> 💡 **关键洞察**：本实现是 "naive but correct"——8 个子 kernel 各自独立启动，中间结果（`ln1`、`qkv_buf`、`attn_concat`、`attn_proj`、`residual1`、`ln2`、`ff2`）全部经过 HBM 往返。优化路径不是单点提速某个 kernel，而是**算子融合**：把 LN→QKV、attn→projection、residual→LN2→FFN 等相邻算子合并为单个 kernel，把 HBM IO 从 `O(Nd)` per stage 压缩到整层 `O(Nd)`。这正是 Week4 IO 优化方法论的核心结论，也是 [Week5 Day7 完整版题解](../../leetgpu/week5/day7/leetgpu-gpt-2-transformer-block-solution.md) 的优化目标。

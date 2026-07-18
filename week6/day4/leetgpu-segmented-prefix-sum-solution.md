@@ -19,7 +19,7 @@ output = [0, 3, 4, 0, 4, 6]
 
 **约束**：`1 ≤ N ≤ 10^6`，段数 `1 ≤ S ≤ N`；性能测试取大 `N`。
 
-> 💡 这道题的**段内独立扫描 + 段边界处理**与 [Week6 Day4](../../aiinfra/daily/week6/day4/README.md) 的 Chunked Prefill 把长 prompt 拆成多个 chunk 同构——每个 chunk 像一个段，段内独立做 attention，段间通过 KV Cache 累积（carry）。segmented prefix sum 段间**不 carry**，chunked prefill 段间**carry**（KV 状态传递），对比学习能加深理解。
+> 💡 这道题的**段内独立扫描 + 段边界处理**与 [Week6 Day4](../../../aiinfra/daily/week6/day4/README.md) 的 Chunked Prefill 把长 prompt 拆成多个 chunk 同构——每个 chunk 像一个段，段内独立做 attention，段间通过 KV Cache 累积（carry）。segmented prefix sum 段间**不 carry**，chunked prefill 段间**carry**（KV 状态传递），对比学习能加深理解。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

@@ -31,7 +31,7 @@ output[0] = [1,2,3,4]*cos + [-3,-4,1,2]*sin
 
 **约束**：`1 ≤ M ≤ 4096`，`D` 为偶数；`atol = rtol = 1e-4`。
 
-> 💡 RoPE 是 LLaMA 架构的核心位置编码组件。与 [Week8 Day2 架构图](../../aiinfra/daily/week8/day2/README.md) 直接对应——在五层架构图中，RoPE 位于第④层（模型层）的 Attention 之前，是位置信息注入点。理解 RoPE 的数据流（Q 分两路：一路乘 cos，一路 rotate_half 后乘 sin，再相加）就是画一张"微型数据流图"，与系统级数据流图同构。
+> 💡 RoPE 是 LLaMA 架构的核心位置编码组件。与 [Week8 Day2 架构图](../../../aiinfra/daily/week8/day2/README.md) 直接对应——在五层架构图中，RoPE 位于第④层（模型层）的 Attention 之前，是位置信息注入点。理解 RoPE 的数据流（Q 分两路：一路乘 cos，一路 rotate_half 后乘 sin，再相加）就是画一张"微型数据流图"，与系统级数据流图同构。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
