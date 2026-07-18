@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 540" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="540" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Safe Softmax 动机：为什么必须减去行最大值？</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">朴素版 exp(大数) 溢出 → NaN；减 max 后 exp(x-m) ∈ (0,1]，且结果数学等价</text>
+
+  <!-- ===== Left: naive softmax overflow ===== -->
+  <rect x="20" y="60" width="295" height="300" fill="none" stroke="#b85450" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="167" y="80" text-anchor="middle" font-size="12" fill="#b85450" font-weight="bold">朴素 softmax（错误示范）</text>
+  <text x="167" y="96" text-anchor="middle" font-size="10" fill="#888">y_i = exp(x_i) / Σ exp(x_j)</text>
+
+  <!-- input -->
+  <text x="32" y="118" font-size="10" fill="#888">输入 logits（含较大值）</text>
+  <g font-size="10" fill="#333">
+    <rect x="32"  y="126" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="57"  y="142" text-anchor="middle">8.0</text>
+    <rect x="84"  y="126" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="109" y="142" text-anchor="middle">10.0</text>
+    <rect x="136" y="126" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="161" y="142" text-anchor="middle">12.0</text>
+    <text x="196" y="142" font-size="9" fill="#888">FP16 上界 65504</text>
+  </g>
+
+  <path d="M 167 156 L 167 172" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="175" y="168" font-size="9" fill="#888">exp(·)</text>
+
+  <!-- exp results: overflow -->
+  <text x="32" y="190" font-size="10" fill="#888">exp 结果</text>
+  <g font-size="9" fill="#333">
+    <rect x="32"  y="198" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="57"  y="214" text-anchor="middle">2981</text>
+    <rect x="84"  y="198" width="50" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="109" y="214" text-anchor="middle">22026</text>
+    <rect x="136" y="198" width="50" height="24" fill="#f8d7da" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <text x="161" y="214" text-anchor="middle" fill="#b85450" font-weight="bold">162755</text>
+    <text x="196" y="214" font-size="9" fill="#b85450">FP16: Inf!</text>
+  </g>
+
+  <path d="M 167 228 L 167 244" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="175" y="240" font-size="9" fill="#888">Σ</text>
+
+  <!-- sum overflow -->
+  <text x="32" y="262" font-size="10" fill="#888">求和</text>
+  <rect x="60" y="270" width="120" height="26" fill="#f8d7da" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+  <text x="120" y="288" text-anchor="middle" font-size="11" fill="#b85450" font-weight="bold">sum = Inf</text>
+
+  <path d="M 167 302 L 167 316" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="175" y="312" font-size="9" fill="#888">÷ sum</text>
+
+  <!-- result NaN -->
+  <rect x="60" y="324" width="120" height="26" fill="#f8d7da" stroke="#b85450" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+  <text x="120" y="342" text-anchor="middle" font-size="11" fill="#b85450" font-weight="bold">y = Inf / Inf = NaN</text>
+
+  <!-- ===== Right: safe softmax ===== -->
+  <rect x="325" y="60" width="295" height="300" fill="none" stroke="#4a7a3a" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="472" y="80" text-anchor="middle" font-size="12" fill="#4a7a3a" font-weight="bold">Safe softmax（正确做法）</text>
+  <text x="472" y="96" text-anchor="middle" font-size="10" fill="#888">m = max(x); y_i = exp(x_i - m) / Σ exp(x_j - m)</text>
+
+  <!-- input -->
+  <text x="337" y="118" font-size="10" fill="#888">输入 logits（同左）</text>
+  <g font-size="10" fill="#333">
+    <rect x="337" y="126" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="362" y="142" text-anchor="middle">8.0</text>
+    <rect x="389" y="126" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="414" y="142" text-anchor="middle">10.0</text>
+    <rect x="441" y="126" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="466" y="142" text-anchor="middle">12.0</text>
+    <text x="500" y="142" font-size="9" fill="#4a7a3a">m = 12.0</text>
+  </g>
+
+  <path d="M 472 156 L 472 172" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="480" y="168" font-size="9" fill="#888">x - m</text>
+
+  <!-- shifted: all <= 0 -->
+  <text x="337" y="190" font-size="10" fill="#888">减 max 后（皆 ≤ 0）</text>
+  <g font-size="10" fill="#333">
+    <rect x="337" y="198" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="362" y="214" text-anchor="middle">-4.0</text>
+    <rect x="389" y="198" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="414" y="214" text-anchor="middle">-2.0</text>
+    <rect x="441" y="198" width="50" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="466" y="214" text-anchor="middle">0.0</text>
+    <text x="500" y="214" font-size="9" fill="#4a7a3a">最大项变 0</text>
+  </g>
+
+  <path d="M 472 228 L 472 244" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="480" y="240" font-size="9" fill="#888">exp(·)</text>
+
+  <!-- exp results: all in (0,1] -->
+  <text x="337" y="262" font-size="10" fill="#888">exp 结果 ∈ (0, 1]</text>
+  <g font-size="9" fill="#333">
+    <rect x="337" y="270" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="362" y="286" text-anchor="middle">0.018</text>
+    <rect x="389" y="270" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="414" y="286" text-anchor="middle">0.135</text>
+    <rect x="441" y="270" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.4" rx="3" filter="url(#rough2)"/>
+    <text x="466" y="286" text-anchor="middle" font-weight="bold">1.000</text>
+    <text x="500" y="286" font-size="9" fill="#4a7a3a">永不溢出</text>
+  </g>
+
+  <path d="M 472 300 L 472 316" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="480" y="312" font-size="9" fill="#888">Σ, ÷Σ</text>
+
+  <!-- result: valid probability -->
+  <rect x="370" y="324" width="110" height="26" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+  <text x="425" y="342" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">y = [.016, .118, .866]</text>
+
+  <!-- ===== Bottom: mathematical equivalence ===== -->
+  <line x1="20" y1="376" x2="620" y2="376" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="398" font-size="12" fill="#446688" font-weight="bold">数学等价性：减 max 不改变结果（平移不变性）</text>
+
+  <rect x="30" y="408" width="580" height="56" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="8" filter="url(#rough2)"/>
+  <text x="320" y="430" text-anchor="middle" font-family="monospace" font-size="11" fill="#333">exp(x_i - m) / Σ_j exp(x_j - m) = exp(x_i)·e⁻ᵐ / [Σ_j exp(x_j)·e⁻ᵐ]</text>
+  <text x="320" y="450" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">= exp(x_i) / Σ_j exp(x_j)   （分子分母同乘 e⁻ᵐ，约掉）</text>
+
+  <!-- ===== Key takeaway ===== -->
+  <rect x="30" y="476" width="580" height="50" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="44" y="496" font-size="11" fill="#d6a040" font-weight="bold">关键结论：</text>
+  <text x="60" y="514" font-size="10" fill="#555">减 max 把所有指数压到 ≤ 0，exp ∈ (0,1]，FP16/FP32 都不会溢出；同时结果与朴素版数学等价——这是所有 softmax 实现的标配，不是可选优化。</text>
+</svg>

@@ -28,6 +28,64 @@ output= [0.0321, 0.0871, 0.2369, 0.6439]
 - 容差 `atol = rtol = 1e-4`
 - 性能测试取较大 `M×D`（如 `M=128, D=8192`）
 
+### 1.1 Softmax 是什么：从 logits 到概率分布
+
+Softmax 把一组**任意实数**（logits，无约束）映射为一组**非负且和为 1**的值（可解释为概率分布）。它是分类输出层和注意力权值的标配算子。
+
+![Softmax 数学原理：logits → 概率分布](../../images/softmax_math_overview.svg)
+
+> **图：** Softmax 三步变换流水线。① 输入 logits（可负、可大）；② `exp` 单调放大差异，把所有值变正；③ 除以总和归一化，得到和为 1 的概率分布。右侧柱状图直观展示：argmax 不变，但分布被"锐化"——最大 logit 对应的输出占比最高（`.644`）。
+
+**为什么是 `exp` 而不是别的函数？** 三个原因：
+
+1. **非负性**：`exp(x) > 0` 对任意实数 `x` 成立，天然满足概率非负要求。
+2. **单调放大差异**：`exp` 是单调递增的凸函数，logit 的小差异会被指数级放大，使"最大值"更突出——这正是分类与注意力想要的"赢家通吃"效应。
+3. **与交叉熵 / 对数似然天然契合**：取对数后 `log(softmax) = x - logΣexp(x)`（即 **logsumexp**），梯度形式简洁，数值上也更稳定。
+
+Softmax 有三个关键性质，直接决定了 GPU 实现的形态：
+
+| 性质 | 公式 | 对实现的含义 |
+|------|------|--------------|
+| **① 输出和为 1** | `Σ y_i = 1` | 必须先算分母 `Σexp`，再除——天然需要一次**块归约求和** |
+| **② 平移不变性** | `softmax(x + c) = softmax(x)` | 减任意常数结果不变 → 减 `max` 既安全又不改结果（safe softmax 的数学依据） |
+| **③ 温度缩放** | `softmax(x / T)` | `T` 大更平坦、`T` 小更尖锐；不影响本实现的骨架 |
+
+**深度学习中的两大用途**：
+
+- **分类输出层**：最后一层线性输出 `D` 个 logits → softmax → 类别概率，接交叉熵损失。这是机器学习入门最先碰到的 softmax。
+- **Attention 权重**：`QK^T` 得到 query 对每个 key 的相似度 score → row-wise softmax → 注意力分布。本题"每行独立做 softmax"正是 attention 的直接抽象，[Softmax Attention](../../leetgpu/week2/day5/leetgpu-softmax-attention-solution.md) 题就是在它前面加一次 matmul。
+
+### 1.2 为什么需要 safe softmax：数值稳定性动机
+
+朴素 softmax `y_i = exp(x_i) / Σexp(x_j)` 看起来简单，却有一个致命问题：**`exp` 会溢出**。
+
+![Safe Softmax 动机：为什么必须减去行最大值](../../images/softmax_safe_numerical.svg)
+
+> **图：** 左侧朴素版，输入含 `12.0` 时 `exp(12) ≈ 162755`，FP16（上界 `65504`）下直接 `Inf`，进而 `sum = Inf`、`y = Inf/Inf = NaN`，整行作废。右侧 safe softmax 先减去行最大值 `m = 12`，所有指数变非正，`exp(x-m) ∈ (0, 1]` 永不溢出；底部证明两种写法数学等价（分子分母同乘 `e⁻ᵐ` 约掉）。
+
+**溢出到底有多容易发生？**
+
+| 输入 `x` | `exp(x)` | FP16（上界 65504） | FP32（上界 ≈ 3.4e38） |
+|----------|----------|-------------------|----------------------|
+| `10.0` | `22026` | 安全 | 安全 |
+| `11.1` | `66171` | **溢出 → Inf** | 安全 |
+| `88.8` | `≈ 2e38` | Inf | **逼近溢出** |
+| `100.0` | `≈ 2.7e43` | Inf | **溢出 → Inf** |
+
+本题约束 `x ∈ [-10, 10]`，FP32 下 `exp(10) ≈ 22026` 不会溢出，但：
+
+1. 一旦换 **FP16/BF16** 存储或计算（大模型推理标配），`exp(11.1)` 就溢出；
+2. 输入范围稍放宽（如未归一化的 logits），FP32 也会溢出；
+3. 即使不溢出，`exp` 值很大时累加也会**损失有效数字**，降低精度。
+
+**safe softmax 的核心思想**：利用性质 ②（平移不变性），先减去行最大值 `m = max_j x_j`，把所有指数压到非正：
+
+$$y_i = \frac{\exp(x_i - m)}{\sum_j \exp(x_j - m)}, \qquad m = \max_j x_j$$
+
+减 max 后 `x_i - m ≤ 0`，故 `exp(x_i - m) ∈ (0, 1]`，**任何精度下都不会溢出**。而由平移不变性，结果与朴素版完全相同——这是"免费的稳定性"，不是近似。
+
+> ⚠️ **safe softmax 不是可选优化，而是所有正确 softmax 实现的标配**。它直接决定了本 kernel 的**三遍扫描结构**：必须先扫一遍求 `max`（Pass 1），才能安全地算 `exp(x - max)` 求 `sum`（Pass 2），最后归一化（Pass 3）。这也是为什么 softmax 比 [RMSNorm](../../leetgpu/week3/day6/leetgpu-rms-normalization-solution.md)（只需一次归约、无需减 max）多一遍扫描——**多出的那一遍就是为了求数值稳定所需的 `max`**。
+
 > 💡 Softmax 是 **memory-bound** 的教科书级案例，也是 [Day 4 Reduction](../../leetgpu/week1/day5/leetgpu-reduction-solution.md) 的"warp shuffle 归约"积木的第一次综合实战——它要做**两次归约**（max + sum），且第二次依赖第一次的结果。掌握它之后，[RMSNorm](../../leetgpu/week3/day6/leetgpu-rms-normalization-solution.md)（一次归约）就是"删一个 reduce"的填空题。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
