@@ -518,7 +518,13 @@ for (int i = threadIdx.x; i < D; i += BLOCK_SIZE)
 
 ### 4.2 LeetGPU 提交版本
 
-下面给出适配官方 starter 签名 `solve(input, output, N)` 的提交版本。由于 starter 只传入总元素数 `N`，这里把全部 `N` 个元素视为**一行**做 softmax（等价于 `M=1, D=N`）。
+下面给出适配官方 starter 签名 `solve(input, output, N)` 的提交版本。官方题目是 **1D softmax**：`input` 和 `output` 均为长度为 `N` 的向量（`N` 可达 500,000），对整个向量做一次 softmax（等价于 `M=1, D=N`）。
+
+> ⚠️ **不要照搬本地版**：本地版用 `<<<M, 256>>>`（每行一个 block），但官方 starter 只有 `N` 没有 `M/D`。若直接 `<<<1, 256>>>` 让一个 block 串行处理 50 万元素，单 block 要循环 ~2000 次，完全无法发挥 GPU 并行度。正确做法是**多 block 分块 + 两阶段归约**：每个 block 负责一个 chunk，先协作求全局 `max` 和 `sum`，再协作写回归一化结果。
+
+策略：
+- **阶段 1（kernel 1）**：把 `N` 个元素分成 `NUM_BLOCKS` 个 chunk，每个 chunk 由一个 block 处理。每个 block 求自己 chunk 的 `local_max`，用 `atomicMax` 汇总到全局 `g_max`；再求 `local_sum = Σ exp(x - g_max)`，用 `atomicAdd` 汇总到全局 `g_sum`。
+- **阶段 2（kernel 2）**：每个 thread 用 `g_max` 和 `g_sum` 对自己负责的元素做 `y = exp(x - g_max) / g_sum`，直接写回。
 
 ```cuda
 #include <cmath>
@@ -546,14 +552,12 @@ __inline__ __device__ float block_reduce_sum(float val, float* shared) {
     int lane = threadIdx.x & (WARP_SIZE - 1);
     int warpId = threadIdx.x >> 5;
     val = warp_reduce_sum(val);
-    if (lane == 0)
-        shared[warpId] = val;
+    if (lane == 0) shared[warpId] = val;
     __syncthreads();
     if (warpId == 0) {
         val = (lane < NUM_WARPS) ? shared[lane] : 0.0f;
         val = warp_reduce_sum(val);
-        if (lane == 0)
-            shared[0] = val;
+        if (lane == 0) shared[0] = val;
     }
     __syncthreads();
     return shared[0];
@@ -563,48 +567,80 @@ __inline__ __device__ float block_reduce_max(float val, float* shared) {
     int lane = threadIdx.x & (WARP_SIZE - 1);
     int warpId = threadIdx.x >> 5;
     val = warp_reduce_max(val);
-    if (lane == 0)
-        shared[warpId] = val;
+    if (lane == 0) shared[warpId] = val;
     __syncthreads();
     if (warpId == 0) {
         val = (lane < NUM_WARPS) ? shared[lane] : -INFINITY;
         val = warp_reduce_max(val);
-        if (lane == 0)
-            shared[0] = val;
+        if (lane == 0) shared[0] = val;
     }
     __syncthreads();
     return shared[0];
 }
 
-__global__ void softmax_kernel(const float* __restrict__ x, float* __restrict__ y, int M, int D) {
+// ---- 阶段 1：求全局 max 和 sum（多 block 分块 + atomic 汇总）----
+__global__ void softmax_reduce_kernel(const float* __restrict__ x, float* __restrict__ g_max,
+                                       float* __restrict__ g_sum, int N) {
     __shared__ float shared[NUM_WARPS + 1];
 
-    int r = blockIdx.x;
-    if (r >= M)
-        return;
-    const float* xr = x + r * D;
-    float* yr = y + r * D;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = gridDim.x * blockDim.x;
 
+    // ---- Pass A：求 local_max，atomicMax 到 g_max ----
     float local_max = -INFINITY;
-    for (int i = threadIdx.x; i < D; i += BLOCK_SIZE)
-        local_max = fmaxf(local_max, xr[i]);
-    float row_max = block_reduce_max(local_max, shared);
+    for (int i = tid; i < N; i += stride)
+        local_max = fmaxf(local_max, x[i]);
+    local_max = block_reduce_max(local_max, shared);
+    if (threadIdx.x == 0)
+        atomicMax((int*)g_max, __float_as_int(local_max));
 
+    __threadfence(); // 确保 g_max 对所有 block 可见
+
+    // ---- Pass B：求 local_sum = Σ exp(x - g_max)，atomicAdd 到 g_sum ----
+    float global_max = *g_max;
     float local_sum = 0.0f;
-    for (int i = threadIdx.x; i < D; i += BLOCK_SIZE)
-        local_sum += expf(xr[i] - row_max);
-    float row_sum = block_reduce_sum(local_sum, shared);
-    float inv_sum = 1.0f / row_sum;
+    for (int i = tid; i < N; i += stride)
+        local_sum += expf(x[i] - global_max);
+    local_sum = block_reduce_sum(local_sum, shared);
+    if (threadIdx.x == 0)
+        atomicAdd(g_sum, local_sum);
+}
 
-    for (int i = threadIdx.x; i < D; i += BLOCK_SIZE)
-        yr[i] = expf(xr[i] - row_max) * inv_sum;
+// ---- 阶段 2：归一化写回 y = exp(x - g_max) / g_sum ----
+__global__ void softmax_normalize_kernel(const float* __restrict__ x, float* __restrict__ y,
+                                          const float* __restrict__ g_max,
+                                          const float* __restrict__ g_sum, int N) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = gridDim.x * blockDim.x;
+    float inv_sum = 1.0f / (*g_sum);
+    float mx = *g_max;
+    for (int i = tid; i < N; i += stride)
+        y[i] = expf(x[i] - mx) * inv_sum;
 }
 
 // input, output are device pointers
 extern "C" void solve(const float* input, float* output, int N) {
     if (N <= 0) return;
-    softmax_kernel<<<1, BLOCK_SIZE>>>(input, output, 1, N);
+
+    int num_sm;
+    cudaDeviceGetAttribute(&num_sm, cudaDevAttrMultiProcessorCount, 0);
+    int blocks = num_sm * 4; // 经验值：足够填满 SM
+
+    float *g_max, *g_sum;
+    cudaMalloc(&g_max, sizeof(float));
+    cudaMalloc(&g_sum, sizeof(float));
+    // 初始化 g_max = -INFINITY（用 int 表示），g_sum = 0
+    float neg_inf = -INFINITY;
+    float zero = 0.0f;
+    cudaMemcpy(g_max, &neg_inf, sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(g_sum, &zero, sizeof(float), cudaMemcpyHostToDevice);
+
+    softmax_reduce_kernel<<<blocks, BLOCK_SIZE>>>(input, g_max, g_sum, N);
+    softmax_normalize_kernel<<<blocks, BLOCK_SIZE>>>(input, output, g_max, g_sum, N);
     cudaDeviceSynchronize();
+
+    cudaFree(g_max);
+    cudaFree(g_sum);
 }
 ```
 
