@@ -160,6 +160,9 @@ def page_template(title: str, nav_html: str, markdown: str) -> str:
     <title>{title}</title>
     <link rel="stylesheet" href="../css/style.css?v=4">
     <script src="../js/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="../js/markdown-math.js"></script>
     <link href="../css/prism-tomorrow.min.css" rel="stylesheet">
     <script src="../js/prism.min.js"></script>
     <script src="../js/prism-c.min.js"></script>
