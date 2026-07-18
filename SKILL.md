@@ -416,6 +416,13 @@ leetgpu/
 - 图片引用用相对路径：`![<中文alt>](../../images/<filename>.svg)`（题解位于 `weekN/dayM/` 下，`../../images/` 解析到共享的 `leetgpu/images/`，由 `build.py` 统一重写为 `./images/`）。
 - 每篇题解引用 **2-4 张 SVG/PNG 插图**，并配 `### 4.2 代码详解` 子节（详见 §5）。
 
+### 数学公式
+
+- 行内公式用 `$...$`，块级公式用 `$$...$$`
+- **禁止**用反引号 `` `...` `` 包裹数学公式，否则会被渲染为等宽代码，KaTeX 不会识别
+- 公式内函数/运算符使用 LaTeX 命令：`\exp`、`\log`、`\sum`、`\max`、`\frac`、`\sqrt`，避免直接写 `exp`、`log`、`Σ`、`√`
+
+
 ## 4. 图片风格：手绘 sketch 风（Excalidraw-like）
 
 **所有插图统一为手绘 sketch 风**，与每日教程（`aiinfra/daily-tutorial/SKILL.md`）和 LeetCode 题解保持一致。具体要求：
