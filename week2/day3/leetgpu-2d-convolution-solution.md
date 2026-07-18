@@ -313,6 +313,46 @@ __global__ void conv2d_shared_halo(const float* __restrict__ input,
 
 > ⚠️ 这是程序员的承诺。如果实际传入的两个指针指向重叠内存，行为是未定义的，可能得到错误结果。
 
+#### 关于 `OT = 16`
+
+`OT` 是**输出 tile 边长**（Output Tile），定义为 16 意味着每个 block 负责计算 `16×16 = 256` 个输出像素。
+
+选 16 是在 CUDA 线程并行度、shared memory 占用和 SM 占用率之间取的经验平衡点：
+
+1. **线程数是 warp 的整数倍**
+   ```cuda
+   dim3 threads(OT, OT); // 16 × 16 = 256 threads = 8 warps
+   ```
+   CUDA 调度单位是 warp（32 线程）。256 线程 = 8 warp，调度整齐，也有利于 warp-level 的延迟隐藏。
+
+2. **shared memory 占用很小**
+   输入 tile 含 halo 后边长为 `IT = OT + K - 1`：
+
+   | K | IT | smem 大小 (`IT² × 4B`) |
+   |---|----|------------------------|
+   | 3 | 18 | ~1.3 KB |
+   | 5 | 20 | ~1.6 KB |
+   | 16 | 31 | ~3.8 KB |
+
+   即使最大卷积核 `K = 16`，每个 block 的 shared memory 也只有约 3.8 KB，远小于 RTX 5090 每个 SM 128 KB 的 L1/Shared Memory 上限。
+
+3. **寄存器压力低**
+   每个 thread 只算**一个输出像素**，局部变量主要是坐标 `tx, ty, ox, oy` 和累加器 `acc`，寄存器用量很小。寄存器少意味着同一个 SM 上能同时驻留更多 block，占用率更高。
+
+4. **以 RTX 5090 为例的占用率估算**
+   RTX 5090（Blackwell GB202）每 SM 关键上限：
+   - 最多 **2048 线程/SM**
+   - 最多 **32 block/SM**
+   - **128 KB L1/Shared Memory**
+   - **256 KB Register File** = 65,536 个 32-bit 寄存器
+
+   对本 kernel：
+   - **线程限制**：`2048 / 256 = 8` block/SM
+   - **寄存器限制**：假设每线程用 32 个寄存器，每 block 用 `256 × 32 = 8192` 个；`65536 / 8192 = 8` block/SM
+   - **shared memory 限制**：`128 KB / 3.8 KB ≈ 33` block/SM，远大于线程限制
+
+   因此瓶颈是线程/寄存器限制，最多 8 block/SM，即 `8 × 256 = 2048` 线程/SM，可以达到 **100% 理论占用率**。实际占用率还会受指令延迟、memory latency、分支发散等因素影响，但 `OT = 16` 是一个能让硬件资源不被 tile 大小本身限制的经典选择。
+
 > 💡 上面带 `main()` 的完整文件用于本地自测与 profiling。提交 LeetGPU 时，需要把 kernel 填入官方 starter 的 `__global__` 空壳，并适配它的 `solve` 函数签名。
 
 ### 4.1 LeetGPU 提交版本
