@@ -532,3 +532,16 @@ ncu --kernel-name regex:int8_kv_attention_kernel \
 | **相对墙钟** | 1× | ~6-8×（最慢） | ~4× |
 
 > 💡 **一句话总结**：Decode 阶段的 attention 是"单 query 扫一遍 KV Cache"的 memory-bound 算子。把 KV 存成 **int8 + per-token scale** 并在 kernel 里**流式反量化**，让 HBM 流量降到 fp32 的 1/4——墙钟近似也降到 1/4（因为卡在带宽上）。这就是 Day1 "减少 KV Cache 读取"优化方向的工业级落地，也是 TensorRT-LLM / vLLM 的生产标配。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 80 | [Grouped Query Attention (GQA)](https://leetgpu.com/challenges/grouped-query-attention) | 中等 | — | GQA，KV head 复用的 attention 基础 |
+| 64 | [Weight Dequantization](https://leetgpu.com/challenges/weight-dequantization) | 中等 | — | Weight Dequantization，反量化基础 |
+| 53 | [Causal Self-Attention](https://leetgpu.com/challenges/causal-self-attention) | 困难 | — | Causal Self-Attention，attention 基础 |
+| 32 | [INT8 Quantized MatMul](https://leetgpu.com/challenges/int8-quantized-matmul) | 中等 | — | INT8 Quantized MatMul，INT8 计算基础 |
+
+> 💡 **选题思路**：量化 KV cache + attention，练习低精度推理与 attention 的结合。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

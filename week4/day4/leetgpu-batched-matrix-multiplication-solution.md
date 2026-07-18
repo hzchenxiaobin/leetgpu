@@ -299,3 +299,16 @@ ncu --set full ./batched_matmul | rg -i "Memory Throughput|Compute|Occupancy"
 | 瓶颈 | global 带宽 | 算力（大 K 时） |
 
 > 💡 **一句话总结**：Batched Matmul 是 Mini Engine v1 多请求 forward 的底层映射——`blockIdx.z` 索引 batch = v1 每轮 batch 个请求，stride 寻址 = 各请求独立 KV Cache，tiled 累加 = 共享 kernel 代码复用。生产环境用 cuBLASLt batched 接口。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 22 | [General Matrix Multiplication (GEMM)](https://leetgpu.com/challenges/gemm) | 中等 | — | 完整 GEMM，register blocking 基础 |
+| 57 | [FP16 Batched Matrix Multiplication](https://leetgpu.com/challenges/fp16-batched-matmul) | 中等 | — | FP16 Batched MatMul，半精度 + Tensor Core |
+| 32 | [INT8 Quantized MatMul](https://leetgpu.com/challenges/int8-quantized-matmul) | 中等 | — | INT8 量化 GEMM，低精度 batch |
+| 37 | [Matrix Power](https://leetgpu.com/challenges/matrix-power) | 中等 | — | Matrix Power，重复 matmul 调度 |
+
+> 💡 **选题思路**：batched GEMM + 多组矩阵并行调度，练习 batch 维度的 kernel 设计。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

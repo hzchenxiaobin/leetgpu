@@ -227,3 +227,16 @@ extern "C" void solve(const int* input, int* output, int N, int window_size) {
 | 综合考察 | Prefix Sum（Day1）+ Warp Shuffle Reduce（Week1）+ atomicMax |
 
 > 💡 **一句话总结**：Max Subarray Sum 是 Week2 综合验收的理想题目——融合了 Prefix Sum（Day1）+ Reduction（Week1），考察两阶段 kernel 设计和 warp shuffle 归约，适合限时手撕。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 16 | [Prefix Sum](https://leetgpu.com/challenges/prefix-sum) | 中等 | — | Prefix Sum，本题的核心基础 |
+| 47 | [Subarray Sum](https://leetgpu.com/challenges/subarray-sum) | 中等 | — | Subarray Sum，prefix sum 直接应用 |
+| 48 | [2D Subarray Sum](https://leetgpu.com/challenges/2d-subarray-sum) | 中等 | — | 2D Subarray Sum，扩展到二维 |
+| 72 | [Stream Compaction](https://leetgpu.com/challenges/stream-compaction) | 中等 | — | Stream Compaction，scan 的另一应用 |
+
+> 💡 **选题思路**：prefix sum + Kadane scan + 归约，练习 scan 的综合应用。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

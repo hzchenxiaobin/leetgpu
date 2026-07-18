@@ -834,3 +834,16 @@ ncu --kernel-name regex:"mha_standard_kernel|mha_flash_kernel" \
 | **O(B·H·N²) 来源** | 物化 `B·H` 组各两个 `N×N` 矩阵 | 已消除 | 已消除 |
 
 > 💡 **一句话总结**：Multi-Head Attention 的本质是 `B·H` 组独立的单头 attention 并行。朴素方法把 `B·H` 组各两个 `N×N` 中间矩阵物化到 HBM，导致 `O(B·H·N²)` 的显存与 IO——大规模下直接 OOM。FlashAttention 的 **batched kernel launch（**`gridDim=(N/Br, H, B)`**）+ online softmax + K/V tiling** 三板斧让 `S/P` 永不落 HBM、K/V 被 `Br` 个 query 行复用，把显存降到 `O(B·H·N·d)`、HBM IO 趋近 `O(B·H·N·d)`。这就是长序列 Transformer 能跑起来的根本原因，也是本系列最难的题——**它综合了 batched launch、warp 级并行、shared memory tiling、online softmax 四大 CUDA 技术**。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 6 | [Softmax Attention](https://leetgpu.com/challenges/softmax-attention) | 中等 | — | Softmax Attention，单 head 基础版 |
+| 80 | [Grouped Query Attention (GQA)](https://leetgpu.com/challenges/grouped-query-attention) | 中等 | — | GQA，KV head 共享变体 |
+| 53 | [Causal Self-Attention](https://leetgpu.com/challenges/causal-self-attention) | 困难 | — | Causal Self-Attention，因果掩码 |
+| 74 | [GPT-2 Transformer Block](https://leetgpu.com/challenges/gpt-2-transformer-block) | 困难 | — | GPT-2 Block，attention 的综合应用 |
+
+> 💡 **选题思路**：FlashAttention 思想 + head 并行，练习融合 attention 的高阶优化。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

@@ -258,3 +258,16 @@ RTX 5090 ridge point ≈ 12.6 FLOP/Byte
 | 带宽利用率 | ~45% | ~71-84% |
 
 > 💡 **一句话总结**：SiLU 是 memory-bound elementwise kernel 的代表——优化重点是 `__expf` 快速数学（减少计算开销）+ coalesced 访存（打满带宽）+ kernel fusion（省 HBM 往返）。它对应 Week8 Day1 的 benchmark 方法论：用 cudaEvent 测带宽，对比 HBM 峰值，验证"优化到头"的判断标准（带宽利用率 80%+）。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 21 | [ReLU](https://leetgpu.com/challenges/relu) | 简单 | — | ReLU，最简激活函数对比 |
+| 68 | [Sigmoid Activation](https://leetgpu.com/challenges/sigmoid) | 简单 | — | Sigmoid，silu 的组件 |
+| 54 | [Swish-Gated Linear Unit](https://leetgpu.com/challenges/swiglu) | 简单 | — | SwiGLU，融合激活 + 门控进阶 |
+| 23 | [Leaky ReLU](https://leetgpu.com/challenges/leaky-relu) | 简单 | — | Leaky ReLU，分支激活对比 |
+
+> 💡 **选题思路**：融合 sigmoid + mul 逐元素，练习 fused activation kernel。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

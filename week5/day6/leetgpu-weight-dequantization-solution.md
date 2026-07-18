@@ -312,3 +312,16 @@ ncu --kernel-name regex:weight_dequant_kernel \
 | **瓶颈** | HBM 带宽 | 优化靠减数据量 + coalescing |
 
 > 💡 **一句话总结**：Weight Dequantization 是 memory-bound element-wise kernel 的教科书例子——每元素 1 次乘法，AI≈0.17 ≪ Ridge。它是 [Day6 ncu profiling](../../../aiinfra/daily/week5/day6/README.md) 的理想分析对象：`dram__throughput` 接近峰值、`sm__throughput` 极低，确证 memory-bound。推理系统里它是 INT8/INT4 量化推理的必经步骤，优化方向是 vector load + 与 GEMM 融合消除 Y 物化。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 32 | [INT8 Quantized MatMul](https://leetgpu.com/challenges/int8-quantized-matmul) | 中等 | — | INT8 Quantized MatMul，量化计算的应用 |
+| 81 | [INT4 Weight-Only Quantized MatMul](https://leetgpu.com/challenges/int4-matmul) | 中等 | — | INT4 Weight-Only，4-bit 打包反量化 |
+| 96 | [INT8 KV-Cache Attention](https://leetgpu.com/challenges/int8-kv-cache-attention) | 中等 | — | INT8 KV-Cache，量化 attention 应用 |
+| 85 | [LoRA Linear](https://leetgpu.com/challenges/lora-linear) | 中等 | — | LoRA Linear，低秩 + 量化推理 |
+
+> 💡 **选题思路**：量化反量化到 fp16/fp32，练习低精度推理的基础操作。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

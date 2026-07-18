@@ -292,3 +292,16 @@ ncu --set full ./dot_product | rg -i "Memory Throughput|Occupancy| DRAM"
 | 瓶颈 | 无并行 | DRAM 带宽（memory-bound） |
 
 > 💡 **一句话总结**：Dot Product 是归约的最简形式——warp shuffle 树形归约 + block 两级 + atomicAdd 跨 block。它是 Week 6 所有累加/统计操作的底层模板（benchmark percentile、Scheduler budget 累加、Batcher 聚合），Week 7 系统整合会频繁用到。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 4 | [Reduction](https://leetgpu.com/challenges/reduction) | 中等 | — | 树形归约，dot product 的基础组件 |
+| 58 | [FP16 Dot Product](https://leetgpu.com/challenges/fp16-dot-product) | 中等 | — | FP16 Dot Product，半精度归约 |
+| 27 | [Mean Squared Error](https://leetgpu.com/challenges/mean-squared-error) | 中等 | — | MSE，平方差归约的变体 |
+| 17 | [Dot Product](https://leetgpu.com/challenges/dot-product) | 中等 | — | 同题，可对比不同归约写法 |
+
+> 💡 **选题思路**：元素乘 + block 归约，练习融合 kernel 与归约。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

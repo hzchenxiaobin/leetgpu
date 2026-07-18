@@ -252,3 +252,16 @@ PASS
 | **kernel 启动数** | 1 次 |
 
 > 💡 **一句话总结**：Scalar Multiply 是 element-wise 操作的最简形式——`output[i] = input[i] * alpha`。它是 attention scaling、softmax 温度、LayerNorm 归一化的核心操作，纯 memory-bound。理解它的低计算密度是理解 Speculative Decoding 加速原理的基础——GPU decode 阶段算力闲置，draft model 利用闲置算力生成候选 token。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 1 | [Vector Addition](https://leetgpu.com/challenges/vector-addition) | 简单 | — | Vector Addition，grid-stride + coalesced 基础 |
+| 21 | [ReLU](https://leetgpu.com/challenges/relu) | 简单 | — | ReLU，逐元素 + 分支 |
+| 8 | [Matrix Addition](https://leetgpu.com/challenges/matrix-addition) | 简单 | — | Matrix Addition，2D 逐元素 |
+| 62 | [Value Clipping](https://leetgpu.com/challenges/value-clipping) | 简单 | — | Value Clipping，逐元素 clamp |
+
+> 💡 **选题思路**：标量 × 向量逐元素，练习最简 elementwise kernel。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

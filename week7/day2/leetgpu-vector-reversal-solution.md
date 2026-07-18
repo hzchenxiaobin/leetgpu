@@ -242,3 +242,16 @@ PASS
 | **kernel 启动数** | 1 次 |
 
 > 💡 **一句话总结**：Vector Reversal 是索引映射的最简形式——`output[i] = input[N-1-i]`。与调度器的"请求到 batch 槽位的映射"同构：都是用索引规则做资源分配。读地址递减、写地址递增，两端均 coalesced，带宽利用率接近峰值。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 19 | [Reverse Array](https://leetgpu.com/challenges/reverse-array) | 简单 | — | Reverse Array，同类型基础题 |
+| 63 | [Interleave Arrays](https://leetgpu.com/challenges/interleave) | 简单 | — | Interleave，索引重排练习 |
+| 62 | [Value Clipping](https://leetgpu.com/challenges/value-clipping) | 简单 | — | Value Clipping，逐元素索引 |
+| 31 | [Matrix Copy](https://leetgpu.com/challenges/matrix-copy) | 简单 | — | Matrix Copy，coalesced 带宽优化 |
+
+> 💡 **选题思路**：1D 向量反转 + coalesced，练习 in-place swap 与索引映射。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

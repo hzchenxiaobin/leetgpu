@@ -330,3 +330,16 @@ ncu --metrics gpu__time_duration.sum, \
 | **每 thread 工作量** | `ceil(N / stride)` 个元素，随 `N` 线性增长 |
 
 > 💡 **一句话总结**：向量加法是「带宽天花板」题——它的性能上限由 `峰值带宽 / (3N × 4B)` 决定，所有优化都在逼近这条线。把这道题的 grid-stride + coalesced 模板记住，后面所有 elementwise kernel（ReLU、Sigmoid、bias-add）都是同一个套路。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 21 | [ReLU](https://leetgpu.com/challenges/relu) | 简单 | — | 同为逐元素 kernel，多了分支判断，练习 coalesced 读写 |
+| 31 | [Matrix Copy](https://leetgpu.com/challenges/matrix-copy) | 简单 | — | 纯拷贝，专注带宽优化与 float4 向量化 |
+| 68 | [Sigmoid Activation](https://leetgpu.com/challenges/sigmoid) | 简单 | — | 数学函数逐元素，练习 fused kernel 思想 |
+| 63 | [Interleave Arrays](https://leetgpu.com/challenges/interleave) | 简单 | — | 写索引映射练习，coalesced 写回 |
+
+> 💡 **选题思路**：均为 memory-bound 逐元素 kernel，练习 grid-stride loop 与合并访存这一 GPU 编程最基础模板。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

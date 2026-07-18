@@ -987,3 +987,16 @@ ncu --metrics gpu__time_duration.sum, \
 | **总 FLOPS** | `2MNK = 2×1024³ ≈ 2.15 GFLOP`（`M=N=K=1024`） |
 
 > 💡 **一句话总结**：GEMM #22 的核心是 **WMMA Tensor Core**——用 FP16 输入 + fp32 accumulator fragment，一次 `mma.sync` 吞掉 `16×16×16` 的乘加，把 Week 1 的 CUDA Core 范式升级为 Tensor Core 范式。配合 Shared Memory Tiling 复用 `A/B` 子块、epilogue 统一套 `α/β` 并转 half 写回，在 1024³ 时达到 cuBLAS 的 **~56%**，随规模上升至 4096³ 的 **~53%**。它是通往 CUTLASS / `wgmma` / FlashAttention 的第一块基石——后者的「分块 + 寄存器/Tensor Core 累加 + 软件流水线」正是同一套思想的进化。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 2 | [Matrix Multiplication](https://leetgpu.com/challenges/matrix-multiplication) | 简单 | — | naive tiled matmul，对比基础写法 |
+| 30 | [Batched Matrix Multiplication](https://leetgpu.com/challenges/batched-matrix-multiplication) | 中等 | — | batched GEMM，多矩阵并行调度 |
+| 32 | [INT8 Quantized MatMul](https://leetgpu.com/challenges/int8-quantized-matmul) | 中等 | — | INT8 量化 GEMM，低精度 + scale |
+| 57 | [FP16 Batched Matrix Multiplication](https://leetgpu.com/challenges/fp16-batched-matmul) | 中等 | — | FP16 + Tensor Core，半精度 GEMM |
+
+> 💡 **选题思路**：GEMM tiling / register blocking / 双缓冲，练习 compute-bound kernel 优化全链路。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

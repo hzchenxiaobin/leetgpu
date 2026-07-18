@@ -164,3 +164,16 @@ extern "C" void solve(const float* Q, const float* K, const float* V, float* out
 | **瓶颈** | HBM 带宽 | SRAM 容量限制 tile 大小 |
 
 > 💡 **一句话总结**：FlashAttention 的核心是用 online softmax + 分块 tiling 消除 S/P 矩阵的 HBM 往返，IO 从 O(N²) 降到 O(Nd)，是 attention 加速的基石。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 6 | [Softmax Attention](https://leetgpu.com/challenges/softmax-attention) | 中等 | — | Softmax Attention，本题的基础版本 |
+| 12 | [Multi-Head Attention](https://leetgpu.com/challenges/multi-head-attention) | 困难 | — | Multi-Head Attention，head 并行进阶 |
+| 53 | [Causal Self-Attention](https://leetgpu.com/challenges/causal-self-attention) | 困难 | — | Causal Self-Attention，因果掩码 |
+| 59 | [Sliding Window Self-Attention](https://leetgpu.com/challenges/sliding-window-self-attention) | 困难 | — | Sliding Window Self-Attention，局部窗口 |
+
+> 💡 **选题思路**：attention score + softmax + weighted sum，练习 fused attention 全流程。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

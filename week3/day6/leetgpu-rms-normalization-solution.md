@@ -458,3 +458,16 @@ Llama 把 RMSNorm + QKV GEMM 融合成单个 kernel，省去 RMSNorm 输出 `(B,
 | **global 读次数** | 2 次（Pass 1 + Pass 2 各读一遍 x）→ 优化后 1 次 |
 
 > 💡 **一句话总结**：RMSNorm 是"一次归约 + 一次归一化"的极简模板——它比 [Softmax](../../leetgpu/week2/day4/leetgpu-softmax-solution.md)（两次归约）和 LayerNorm（两次归约且 variance 依赖 mean）都更省，是 Llama 选它替代 LayerNorm 的性能根因。掌握了 [Day 4 的 `block_reduce`](../../leetgpu/week1/day5/leetgpu-reduction-solution.md) 积木后，RMSNorm 几乎是"填空题"。它的 memory-bound 本质（AI ≈ 0.42）让它成为 [Day 20 端到端 Profiling](../../../aiinfra/daily/week3/day6/README.md) 的完美靶点——用 ncu 看 `DRAM% >> SM%` 就能一眼判定。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 40 | [Batch Normalization](https://leetgpu.com/challenges/batch-normalization) | 中等 | — | Batch Normalization，mean/var 归约归一化 |
+| 105 | [Group Normalization](https://leetgpu.com/challenges/group-normalization) | 中等 | — | Group Normalization，分组归约 |
+| 5 | [Softmax](https://leetgpu.com/challenges/softmax) | 中等 | — | Softmax，max+sum 归约 + 归一化 |
+| 50 | [RMS Normalization](https://leetgpu.com/challenges/rms-normalization) | 中等 | — | RMS Norm，同题对比不同实现 |
+
+> 💡 **选题思路**：归约 + 归一化（root mean square），练习 norm 类 kernel。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

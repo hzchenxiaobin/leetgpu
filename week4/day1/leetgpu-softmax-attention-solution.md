@@ -693,3 +693,16 @@ ncu --kernel-name regex:attention_naive_kernel|attention_fused_kernel \
 | **O(N²) 来源** | 物化两个 `N×N` 矩阵 `S`、`P` | 已消除 | 已消除 |
 
 > 💡 **一句话总结**：Attention 的 `O(N²)` 灾难来自 **把** `S=QK^T` **和** `P=softmax(S)` **两个** `N×N` **中间矩阵写回 HBM**。online softmax 的三公式让 max/sum/output 在一遍扫描里增量更新，`S/P` 永不落 HBM——显存从 `O(N²)` 降到 `O(d)`，IO 的 `O(N²)` 中间部分归零。本实现的简化 fused 已消除 `S/P` 物化；再叠加 FlashAttention 的 `Br×Bc` tiling 复用 `K/V`，即可把总 HBM IO 压到 **O(Nd)**，这就是长序列 Attention 的工业级解法。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 12 | [Multi-Head Attention](https://leetgpu.com/challenges/multi-head-attention) | 困难 | — | Multi-Head Attention，FlashAttention 思想 |
+| 53 | [Causal Self-Attention](https://leetgpu.com/challenges/causal-self-attention) | 困难 | — | Causal mask，下三角掩码 |
+| 17 | [Dot Product](https://leetgpu.com/challenges/dot-product) | 中等 | — | Dot Product，attention 的基础组件 |
+| 5 | [Softmax](https://leetgpu.com/challenges/softmax) | 中等 | — | Softmax，attention 的基础组件 |
+
+> 💡 **选题思路**：fused softmax+matmul + 数值稳定，练习 attention score 计算全流程。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

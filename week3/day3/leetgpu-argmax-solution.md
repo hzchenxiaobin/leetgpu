@@ -238,3 +238,16 @@ for (int offset = 16; offset > 0; offset >>= 1) {
 | 时间复杂度 | `O(N)` + `O(log 32)` warp reduce |
 | 瓶颈类型 | memory-bound（读 N 个 float，计算极轻） |
 | 关键技巧 | `__shfl_down_sync` 同时 shuffle val 和 idx，平局取较小 idx |
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 4 | [Reduction](https://leetgpu.com/challenges/reduction) | 中等 | — | 树形归约，argmax 的基础组件 |
+| 29 | [Top K Selection](https://leetgpu.com/challenges/top-k-selection) | 中等 | — | Top-K Selection，排序归约进阶 |
+| 5 | [Softmax](https://leetgpu.com/challenges/softmax) | 中等 | — | Softmax，先求 max 再归一化 |
+| 17 | [Dot Product](https://leetgpu.com/challenges/dot-product) | 中等 | — | Dot Product，block 归约练习 |
+
+> 💡 **选题思路**：归约变体（求最大值索引），练习比较归约与 warp shuffle。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

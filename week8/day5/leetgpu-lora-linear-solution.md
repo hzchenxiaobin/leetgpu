@@ -394,3 +394,16 @@ ncu --set full --target-processes all ./lora
 当 `r << min(m,n)` 时，LoRA 把可训练参数和额外计算都降到原来的 `~r/max(m,n)`。
 
 > 💡 **一句话总结**：LoRA Linear 的核心是"不把低秩更新物化到完整权重，而是先降维再升维"。GPU 实现要点是共享 `x` 和 `h`，并把 `W·x` 与 `B·h` 在一个 kernel 内融合完成，从而最小化 HBM 访问。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 41 | [Simple Inference](https://leetgpu.com/challenges/simple-inference) | 简单 | — | Simple Inference，基础推理管线 |
+| 64 | [Weight Dequantization](https://leetgpu.com/challenges/weight-dequantization) | 中等 | — | Weight Dequantization，低精度推理基础 |
+| 84 | [SwiGLU MLP Block](https://leetgpu.com/challenges/swiglu-mlp-block) | 中等 | — | SwiGLU MLP Block，融合 MLP 模块 |
+| 2 | [Matrix Multiplication](https://leetgpu.com/challenges/matrix-multiplication) | 简单 | — | Matrix Multiplication，低秩 matmul 基础 |
+
+> 💡 **选题思路**：低秩适配 + 融合低秩矩阵，练习推理优化中的低秩计算。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

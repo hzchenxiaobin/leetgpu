@@ -334,3 +334,16 @@ FlashAttention 的 Q/K/V tile 在 shared memory 中的布局管理与 transpose 
 | **shared memory** | `TILE × (TILE+1) × 4B = 3328B` per block |
 
 > 💡 **一句话总结**：Matrix Transpose 是 shared memory tiling 的经典练习——读按行（coalesced）、写按列（strided），用 `smem[TILE][TILE+1]` 中转 + padding 避免 bank conflict。它与自定义 Kernel 集成的内存布局管理同构，是 FlashAttention 分块读写的基础。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 31 | [Matrix Copy](https://leetgpu.com/challenges/matrix-copy) | 简单 | — | 纯拷贝带宽优化，对比转置的访存模式 |
+| 10 | [2D Convolution](https://leetgpu.com/challenges/2d-convolution) | 中等 | — | 2D shared memory halo + tiling |
+| 2 | [Matrix Multiplication](https://leetgpu.com/challenges/matrix-multiplication) | 简单 | — | tiled matmul，同样用 shared mem 分块 |
+| 63 | [Interleave Arrays](https://leetgpu.com/challenges/interleave) | 简单 | — | 写索引重排，coalesced 练习 |
+
+> 💡 **选题思路**：shared memory tiling + bank conflict padding，练习矩阵数据重排类 kernel。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

@@ -1131,3 +1131,16 @@ presum.cu global traffic:
 4. **2 kernel vs 3 kernel → 省掉一次 launch**（省 5-10μs）
 
 代价是 O(B²) 的 `inter_block_reduce` 和 `MAX_BLOCK_NUM` 限制，在 numBlocks ≤ 1024 的小规模场景下完全可接受。这印证了 scan 优化的核心原则：**memory-bound kernel 的优化关键在减少 global memory 访问轮次，而非减少计算量**。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 70 | [Segmented Prefix Sum](https://leetgpu.com/challenges/segmented-prefix-sum) | 中等 | — | 分段 scan，段边界处理进阶 |
+| 72 | [Stream Compaction](https://leetgpu.com/challenges/stream-compaction) | 中等 | — | predicate + scan 得到输出位置 |
+| 47 | [Subarray Sum](https://leetgpu.com/challenges/subarray-sum) | 中等 | — | prefix sum 直接应用求子和 |
+| 82 | [Linear Recurrence](https://leetgpu.com/challenges/linear-recurrence) | 中等 | — | 线性递推，scan 的数学扩展 |
+
+> 💡 **选题思路**：warp scan + 三阶段分块 scan，练习并行前缀扫描这一核心模板。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

@@ -407,3 +407,16 @@ ncu --kernel-name regex:matrix_copy_vectorized \
 | **理论带宽上限** | `2×bytes / kernel_time`，受 HBM 峰值限制；金标准 = `cudaMemcpy` |
 
 > 💡 **一句话总结**：Matrix Copy 是 LeetGPU 题库里**最纯粹的「带宽天花板」题**——算术强度为 0，性能上限完全由 `峰值带宽 / (2N × 4B)` 决定，所有优化都在逼近这条线（以及 `cudaMemcpy` 金标准）。把 **1D grid-stride + coalesced + float4** 模板吃透，你就理解了所有「读一次写一次」型 memory-bound 算子（拷贝、类型转换、连续段格式重排）的优化范式：**向量化 + 合并访存 + 榨干带宽**。剩下的优化空间为零——因为这里根本没有计算可供优化。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 1 | [Vector Addition](https://leetgpu.com/challenges/vector-addition) | 简单 | — | Vector Addition，grid-stride + coalesced 基础 |
+| 8 | [Matrix Addition](https://leetgpu.com/challenges/matrix-addition) | 简单 | — | Matrix Addition，2D coalesced |
+| 3 | [Matrix Transpose](https://leetgpu.com/challenges/matrix-transpose) | 简单 | — | Matrix Transpose，非连续访存对比 |
+| 63 | [Interleave Arrays](https://leetgpu.com/challenges/interleave) | 简单 | — | Interleave，写索引映射练习 |
+
+> 💡 **选题思路**：纯带宽优化 + coalesced 拷贝，练习 memory-bound kernel 的极限优化。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

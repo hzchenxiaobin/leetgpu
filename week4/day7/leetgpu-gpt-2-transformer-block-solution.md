@@ -340,3 +340,16 @@ extern "C" void solve(const float* x, float* output, const float* weights, int s
 | `add_residual` | `residual1, ff2` | `output` | 读 `2Nd` / 写 `Nd` | 与 FFN 融合 |
 
 > 💡 **关键洞察**：本实现是 "naive but correct"——8 个子 kernel 各自独立启动，中间结果（`ln1`、`qkv_buf`、`attn_concat`、`attn_proj`、`residual1`、`ln2`、`ff2`）全部经过 HBM 往返。优化路径不是单点提速某个 kernel，而是**算子融合**：把 LN→QKV、attn→projection、residual→LN2→FFN 等相邻算子合并为单个 kernel，把 HBM IO 从 `O(Nd)` per stage 压缩到整层 `O(Nd)`。这正是 Week4 IO 优化方法论的核心结论，也是 [Week5 Day7 完整版题解](../../leetgpu/week5/day7/leetgpu-gpt-2-transformer-block-solution.md) 的优化目标。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 12 | [Multi-Head Attention](https://leetgpu.com/challenges/multi-head-attention) | 困难 | — | Multi-Head Attention，block 的核心组件 |
+| 50 | [RMS Normalization](https://leetgpu.com/challenges/rms-normalization) | 中等 | — | RMS Norm，归一化组件 |
+| 54 | [Swish-Gated Linear Unit](https://leetgpu.com/challenges/swiglu) | 简单 | — | SwiGLU，激活/MLP 组件 |
+| 85 | [LoRA Linear](https://leetgpu.com/challenges/lora-linear) | 中等 | — | LoRA Linear，低秩线性层变体 |
+
+> 💡 **选题思路**：LN + Attention + MLP 综合模块，练习多 kernel 流水线与模块融合。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

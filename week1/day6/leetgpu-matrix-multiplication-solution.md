@@ -395,3 +395,16 @@ ncu --metrics gpu__time_duration.sum, \
 | **总 FLOPS** | `2MNK = 2 × 8192 × 6144 × 4096 ≈ 411 GFLOP` |
 
 > 💡 **一句话总结**：GEMM 是 CUDA 编程的"大魔王"——它把前 5 题学到的所有技巧（coalesced 访存、shared memory tiling、`__syncthreads`、register 优化）全部用上，还引入了 compute-bound 这一新维度。`shared memory tiling` 这一个技巧就能带来 15-20× 加速，是 GPU 编程里"投入产出比最高"的优化。掌握了它，你就拿到了通往 CUTLASS / cuBLAS / Tensor Core 的入场券。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 22 | [General Matrix Multiplication (GEMM)](https://leetgpu.com/challenges/gemm) | 中等 | — | 完整 GEMM，register blocking + 双缓冲进阶 |
+| 30 | [Batched Matrix Multiplication](https://leetgpu.com/challenges/batched-matrix-multiplication) | 中等 | — | batched GEMM，多组矩阵并行 |
+| 37 | [Matrix Power](https://leetgpu.com/challenges/matrix-power) | 中等 | — | 重复 matmul，练习 tiling 复用 |
+| 32 | [INT8 Quantized MatMul](https://leetgpu.com/challenges/int8-quantized-matmul) | 中等 | — | INT8 量化 GEMM，低精度计算 |
+
+> 💡 **选题思路**：tiled matmul + register tiling，练习 GEMM 这一 compute-bound 核心模板。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

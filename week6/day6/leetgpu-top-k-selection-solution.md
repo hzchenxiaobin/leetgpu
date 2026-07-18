@@ -327,3 +327,16 @@ ncu --set full ./top_k | rg -i "Memory Throughput|Occupancy"
 | 适合 | k≈N | k≪N | 通用 |
 
 > 💡 **一句话总结**：Top K Selection 是 benchmark P99 统计的 GPU 加速版——bitonic sort 的 compare-swap 网络并行排序，对应 P99 用排序后取分位数。k≪N 时用堆归约或 radix select 避免 `O(N log²N)` 全排序浪费。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 60 | [Top-p Sampling](https://leetgpu.com/challenges/top-p-sampling) | 中等 | — | Top-p Sampling，排序 + 累积概率 + 采样 |
+| 15 | [Sorting](https://leetgpu.com/challenges/sorting) | 困难 | — | Sorting，通用并行排序 |
+| 36 | [Radix Sort](https://leetgpu.com/challenges/radix-sort) | 困难 | — | Radix Sort，按位 histogram + scan 排序 |
+| 71 | [Parallel Merge](https://leetgpu.com/challenges/parallel-merge) | 中等 | — | Parallel Merge，归并排序网络 |
+
+> 💡 **选题思路**：bitonic 排序 + 堆归约，练习并行排序与选择。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

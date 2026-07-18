@@ -444,3 +444,16 @@ ncu --set full --target-processes all ./swa
 | 适用场景 | 短序列 | 长序列、局部相关性强的任务 |
 
 > 💡 **一句话总结**：Sliding Window Self-Attention 用固定局部窗口把 attention 从二次方降到线性，是长文本推理的重要优化。实现核心是"只算窗口、不存 score、online softmax 一遍过"。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 53 | [Causal Self-Attention](https://leetgpu.com/challenges/causal-self-attention) | 困难 | — | Causal Self-Attention，因果掩码变体 |
+| 80 | [Grouped Query Attention (GQA)](https://leetgpu.com/challenges/grouped-query-attention) | 中等 | — | GQA，KV head 共享变体 |
+| 6 | [Softmax Attention](https://leetgpu.com/challenges/softmax-attention) | 中等 | — | Softmax Attention，无窗口基础版 |
+| 92 | [Decaying Causal Attention](https://leetgpu.com/challenges/decaying-causal-attention) | 中等 | — | Decaying Causal Attention，衰减因子变体 |
+
+> 💡 **选题思路**：局部注意力窗口 + fused attention，练习窗口 mask 对 attention 的影响。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

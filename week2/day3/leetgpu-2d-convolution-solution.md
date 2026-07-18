@@ -739,3 +739,16 @@ ncu --set full \
 | **冗余读对比** | naive `H·W·K²` 次读 → halo `~1.27·H·W` 次读，K=3 时约 **7× 降**，K=5 时约 **20× 降** |
 
 > 💡 **一句话总结**：2D 卷积是 shared memory halo 的样板题——用 `(OT+K-1)²` 的 halo tile 把"被多个输出共享的邻域"在 shared memory 里复用，global 读次数从 `H·W·K²` 降到 `~H·W`；卷积核权重放 `__constant__` 广播。这套 halo + 常量内存模板可直接迁移到 3D 卷积、stencil 计算（Jacobi、Laplacian）、池化等所有"邻域复用"类 kernel。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 9 | [1D Convolution](https://leetgpu.com/challenges/1d-convolution) | 简单 | — | 1D 卷积，halo 基础入门 |
+| 11 | [3D Convolution](https://leetgpu.com/challenges/3d-convolution) | 中等 | — | 3D 卷积，体数据 halo 扩展 |
+| 28 | [Gaussian Blur](https://leetgpu.com/challenges/gaussian-blur) | 中等 | — | 可分离卷积，行列分离优化 |
+| 42 | [2D Max Pooling](https://leetgpu.com/challenges/2d-max-pooling) | 中等 | — | 滑窗 max pooling，类似 tiling 模式 |
+
+> 💡 **选题思路**：shared memory halo + 常数内存，练习卷积类 kernel 的边界处理与 tiling。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

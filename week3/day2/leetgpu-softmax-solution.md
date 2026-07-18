@@ -252,3 +252,16 @@ __inline__ __device__ float block_reduce_sum(float val, float* shared) {
 | 瓶颈类型 | **memory-bound**：`DRAM% >> SM%` |
 
 > 💡 完整版题解（含 online 两遍扫描优化、Roofline 分析）见 [Week2 Day4 Softmax 题解](../../leetgpu/week2/day4/leetgpu-softmax-solution.md)。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 50 | [RMS Normalization](https://leetgpu.com/challenges/rms-normalization) | 中等 | — | RMS Norm，归约 + 归一化变体 |
+| 6 | [Softmax Attention](https://leetgpu.com/challenges/softmax-attention) | 中等 | — | fused softmax+matmul，数值稳定进阶 |
+| 4 | [Reduction](https://leetgpu.com/challenges/reduction) | 中等 | — | 树形归约，softmax 的基础组件 |
+| 40 | [Batch Normalization](https://leetgpu.com/challenges/batch-normalization) | 中等 | — | Batch Norm，mean/var 归约归一化 |
+
+> 💡 **选题思路**：三遍 kernel + 数值稳定，练习归约与归一化的融合。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

@@ -380,3 +380,16 @@ ncu --kernel-name regex:matadd_kernel \
 | **理论带宽上限** | `3×bytes / kernel_time`，受 HBM 峰值限制 |
 
 > 💡 **一句话总结**：Matrix Addition 是 Week 1 的"memory-bound 毕业考"——它没有 shared memory tiling、没有 warp shuffle、没有 bank conflict，只有最纯粹的"读-算-写"。优化全部集中在 **global memory 访问效率**：`float4` 向量化把事务数减 4×，grid-stride 保证 coalesced，`BLOCK_SIZE=256` 平衡 occupancy 与资源。本题用 Roofline 判定（AI ≪ Ridge Point → memory-bound）和 ncu profiling（`dram__throughput` 是核心指标）串起 Week 1 的三大概念，是检验"memory-bound 优化方法论"是否内化的标尺。掌握它，你就理解了所有 element-wise kernel（激活函数、归一化、残差加等）的优化范式：**向量化 + coalesced + 榨干带宽**。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 31 | [Matrix Copy](https://leetgpu.com/challenges/matrix-copy) | 简单 | — | 纯矩阵拷贝，专注 coalesced 带宽优化 |
+| 1 | [Vector Addition](https://leetgpu.com/challenges/vector-addition) | 简单 | — | 1D 向量加法，grid-stride 基础 |
+| 8 | [Matrix Addition](https://leetgpu.com/challenges/matrix-addition) | 简单 | — | 同题，可对比不同 tile 写法 |
+| 62 | [Value Clipping](https://leetgpu.com/challenges/value-clipping) | 简单 | — | 逐元素 clamp，练习 2D 索引 |
+
+> 💡 **选题思路**：2D grid 映射 + 合并访存，练习矩阵级 elementwise kernel。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

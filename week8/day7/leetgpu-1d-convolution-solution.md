@@ -334,3 +334,16 @@ ncu --kernel-name regex:conv1dKernel \
 | **瓶颈类型** | **memory-bound** | 优化方向是 shared memory 复用 + 提带宽 |
 
 > 💡 **一句话总结**：1D Convolution 是 shared memory halo 模板的最简教学题——核心就一句话：**把 tile 和它的左右 halo 一次性搬进 shared memory，后续计算只读 shared**。这个模板掌握后，2D Conv / Stencil / Gaussian Blur 都是同构扩展。作为 8 周收官题，它检验你最扎实的 shared memory 基本功。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 10 | [2D Convolution](https://leetgpu.com/challenges/2d-convolution) | 中等 | — | 2D 卷积，halo 扩展到二维 |
+| 11 | [3D Convolution](https://leetgpu.com/challenges/3d-convolution) | 中等 | — | 3D 卷积，体数据 halo |
+| 90 | [Causal Depthwise Conv1d](https://leetgpu.com/challenges/causal-depthwise-conv1d) | 中等 | — | Causal Depthwise Conv1d，因果卷积变体 |
+| 28 | [Gaussian Blur](https://leetgpu.com/challenges/gaussian-blur) | 中等 | — | Gaussian Blur，可分离卷积 |
+
+> 💡 **选题思路**：1D shared memory halo，练习卷积边界填充与 tile 加载。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

@@ -48,3 +48,16 @@ Week3 Day7 为综合验收日，本页仅做概念串讲。Causal Self-Attention
 - [Week5 Day4 Causal Self-Attention 题解](../../leetgpu/week5/day4/leetgpu-causal-self-attention-solution.md)
 
 请直接复制该页面的 LeetGPU 提交版本代码块到挑战编辑器中；其 `solve` 签名与官方 starter 一致，为 `extern "C" void solve(const float* Q, const float* K, const float* V, float* output, int M, int d)`。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 59 | [Sliding Window Self-Attention](https://leetgpu.com/challenges/sliding-window-self-attention) | 困难 | — | Sliding Window，另一种局部 attention 窗口 |
+| 80 | [Grouped Query Attention (GQA)](https://leetgpu.com/challenges/grouped-query-attention) | 中等 | — | GQA，KV head 复用的 attention 变体 |
+| 12 | [Multi-Head Attention](https://leetgpu.com/challenges/multi-head-attention) | 困难 | — | Multi-Head Attention，head 并行 |
+| 6 | [Softmax Attention](https://leetgpu.com/challenges/softmax-attention) | 中等 | — | Softmax Attention，无 mask 基础版 |
+
+> 💡 **选题思路**：因果掩码 + fused attention，练习 mask 对 attention 的影响。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

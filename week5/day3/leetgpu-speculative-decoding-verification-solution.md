@@ -690,3 +690,16 @@ ncu --kernel-name regex:spec_decode_verify_kernel \
 | **瓶颈** | 概率张量 IO + reject/bonus 的 CDF scan | accept 率高时接近 O(B×T) |
 
 > 💡 **一句话总结**：投机解码验证是 vLLM Worker 执行的 batched kernel——B 个序列并行（Continuous Batching 拼出的 batch），每序列内 T 个 token 串行 accept/reject，reject 时 block 协作流式扫 V 维 CDF 重采样。accept 率越高越快（best case 全 accept 只 O(B×T)），这正是投机解码用小 draft 模型"投机"的收益来源——draft 越准，accept 越多，target 前向次数越少，端到端越快。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 29 | [Top K Selection](https://leetgpu.com/challenges/top-k-selection) | 中等 | — | Top-K Selection，排序归约基础 |
+| 60 | [Top-p Sampling](https://leetgpu.com/challenges/top-p-sampling) | 中等 | — | Top-p Sampling，排序 + 采样 |
+| 72 | [Stream Compaction](https://leetgpu.com/challenges/stream-compaction) | 中等 | — | Stream Compaction，scan + predicate |
+| 16 | [Prefix Sum](https://leetgpu.com/challenges/prefix-sum) | 中等 | — | Prefix Sum，验证的 scan 基础 |
+
+> 💡 **选题思路**：draft token 验证 + scan，练习推理优化中的并行验证。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

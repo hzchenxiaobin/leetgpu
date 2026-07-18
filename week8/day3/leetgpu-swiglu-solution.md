@@ -279,3 +279,16 @@ RTX 5090 ridge point ≈ 12.6 FLOP/Byte
 | HBM 访问 | 5×halfN | 3×halfN |
 
 > 💡 **一句话总结**：SwiGLU 是 kernel fusion 的经典案例——融合 SiLU + 乘法在 register 内完成，省 40% HBM 访问。它对应 Week8 Day3 面试基础篇的"Kernel 优化"主题：面试问"为什么要 fuse kernel"时，用 SwiGLU 回答——不融合需 3 kernel + 5×halfN HBM 访问，融合后 1 kernel + 3×halfN，对 memory-bound kernel 意味着 ~40% 加速。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 52 | [Sigmoid Linear Unit (SiLU)](https://leetgpu.com/challenges/silu) | 简单 | — | SiLU，SwiGLU 的激活组件 |
+| 21 | [ReLU](https://leetgpu.com/challenges/relu) | 简单 | — | ReLU，最简激活对比 |
+| 65 | [Gaussian Error Gated Linear Unit](https://leetgpu.com/challenges/geglu) | 简单 | — | GeGLU，GELU 门控变体 |
+| 84 | [SwiGLU MLP Block](https://leetgpu.com/challenges/swiglu-mlp-block) | 中等 | — | SwiGLU MLP Block，SwiGLU 的完整 MLP 应用 |
+
+> 💡 **选题思路**：融合激活 + 门控乘法，练习 fused MLP 组件 kernel。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

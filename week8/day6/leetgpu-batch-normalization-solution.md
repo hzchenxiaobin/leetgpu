@@ -503,3 +503,16 @@ ncu --kernel-name regex:batchnormForward \
 | **瓶颈类型** | **memory-bound** | IO 主导，优化方向是减少遍数 + 提带宽 |
 
 > 💡 **一句话总结**：BatchNorm 是典型的 memory-bound kernel——它和 LayerNorm 的本质区别是 **reduce 的维度**（BatchNorm 跨 batch/spatial，LayerNorm 跨 feature），但优化的核心都是 **融合 + 减少全局 IO 遍数**。掌握这个模板，RMSNorm / GroupNorm 都是同构的变体。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 50 | [RMS Normalization](https://leetgpu.com/challenges/rms-normalization) | 中等 | — | RMS Normalization，归约 + 归一化变体 |
+| 105 | [Group Normalization](https://leetgpu.com/challenges/group-normalization) | 中等 | — | Group Normalization，分组归约 |
+| 4 | [Reduction](https://leetgpu.com/challenges/reduction) | 中等 | — | Reduction，mean/var 归约的基础组件 |
+| 5 | [Softmax](https://leetgpu.com/challenges/softmax) | 中等 | — | Softmax，max + sum 归约归一化 |
+
+> 💡 **选题思路**：mean/var 归约 + 归一化，练习统计归约类 norm kernel。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

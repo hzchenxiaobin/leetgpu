@@ -404,3 +404,16 @@ ncu --kernel-name regex:histogram \
 | **global atomic 次数** | 朴素 `O(N)`；privatized `O(B × blocks)`（约 11 万 vs 1000 万） |
 
 > 💡 **一句话总结**：直方图是 **privatization** 模式的教科书案例——它揭示了一个 GPU 编程铁律：**当写者数量远大于写地址数量时，先在本地副本里聚合，再批量合并到全局**。这个"私有副本 + 末尾归并"的骨架会反复出现在 radix sort 的计数阶段、reduce-scatter、AllReduce 的 ring 算法，乃至分布式系统的 combiner 阶段。掌握它，等于掌握了一整类"多对少写"问题的通用解。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 43 | [Count Array Element](https://leetgpu.com/challenges/count-array-element) | 中等 | — | 计数归约，atomic vs reduction 对比 |
+| 44 | [Count 2D Array Element](https://leetgpu.com/challenges/count-2d-array-element) | 中等 | — | 2D 计数，扩展到多维 atomic |
+| 29 | [Top K Selection](https://leetgpu.com/challenges/top-k-selection) | 中等 | — | bitonic 排序 + 堆归约，相关并行模式 |
+| 36 | [Radix Sort](https://leetgpu.com/challenges/radix-sort) | 困难 | — | Radix Sort，histogram + scan 综合 |
+
+> 💡 **选题思路**：shared memory 直方图 + atomic 冲突，练习计数类并行模式。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

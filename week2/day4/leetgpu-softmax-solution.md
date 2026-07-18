@@ -36,7 +36,7 @@ Softmax 把一组**任意实数**（logits，无约束）映射为一组**非负
 
 > **图：** Softmax 三步变换流水线。① 输入 logits（可负、可大）；② `exp` 单调放大差异，把所有值变正；③ 除以总和归一化，得到和为 1 的概率分布。右侧柱状图直观展示：argmax 不变，但分布被"锐化"——最大 logit 对应的输出占比最高（`.644`）。
 
-**为什么是 `exp` 而不是别的函数？** 三个原因：
+**为什么是** `exp` **而不是别的函数？** 三个原因：
 
 1. **非负性**：`exp(x) > 0` 对任意实数 `x` 成立，天然满足概率非负要求。
 2. **单调放大差异**：`exp` 是单调递增的凸函数，logit 的小差异会被指数级放大，使"最大值"更突出——这正是分类与注意力想要的"赢家通吃"效应。
@@ -57,7 +57,7 @@ Softmax 有三个关键性质，直接决定了 GPU 实现的形态：
 
 ### 1.2 为什么需要 safe softmax：数值稳定性动机
 
-朴素 softmax $y_i = \exp(x_i) / \sum_j \exp(x_j)$ 看起来简单，却有一个致命问题：**`exp` 会溢出**。
+朴素 softmax $y_i = \exp(x_i) / \sum_j \exp(x_j)$ 看起来简单，却有一个致命问题：`exp` **会溢出**。
 
 ![Safe Softmax 动机：为什么必须减去行最大值](../../images/softmax_safe_numerical.svg)
 
@@ -84,7 +84,7 @@ $$y_i = \frac{\exp(x_i - m)}{\sum_j \exp(x_j - m)}, \qquad m = \max_j x_j$$
 
 减 max 后 `x_i - m ≤ 0`，故 `exp(x_i - m) ∈ (0, 1]`，**任何精度下都不会溢出**。而由平移不变性，结果与朴素版完全相同——这是"免费的稳定性"，不是近似。
 
-> ⚠️ **safe softmax 不是可选优化，而是所有正确 softmax 实现的标配**。它直接决定了本 kernel 的**三遍扫描结构**：必须先扫一遍求 `max`（Pass 1），才能安全地算 `exp(x - max)` 求 `sum`（Pass 2），最后归一化（Pass 3）。这也是为什么 softmax 比 [RMSNorm](../../leetgpu/week3/day6/leetgpu-rms-normalization-solution.md)（只需一次归约、无需减 max）多一遍扫描——**多出的那一遍就是为了求数值稳定所需的 `max`**。
+> ⚠️ **safe softmax 不是可选优化，而是所有正确 softmax 实现的标配**。它直接决定了本 kernel 的**三遍扫描结构**：必须先扫一遍求 `max`（Pass 1），才能安全地算 `exp(x - max)` 求 `sum`（Pass 2），最后归一化（Pass 3）。这也是为什么 softmax 比 [RMSNorm](../../leetgpu/week3/day6/leetgpu-rms-normalization-solution.md)（只需一次归约、无需减 max）多一遍扫描——**多出的那一遍就是为了求数值稳定所需的** `max`。
 
 > 💡 Softmax 是 **memory-bound** 的教科书级案例，也是 [Day 4 Reduction](../../leetgpu/week1/day5/leetgpu-reduction-solution.md) 的"warp shuffle 归约"积木的第一次综合实战——它要做**两次归约**（max + sum），且第二次依赖第一次的结果。掌握它之后，[RMSNorm](../../leetgpu/week3/day6/leetgpu-rms-normalization-solution.md)（一次归约）就是"删一个 reduce"的填空题。
 
@@ -638,3 +638,16 @@ ncu --kernel-name regex:softmax_kernel \
 | **warp shuffle 步数** | 每次块归约 `log₂32 = 5` 步，两次共 10 步 |
 
 > 💡 **一句话总结**：Softmax 是"两次归约 + 一次归一化"的经典模板——它把 [Day 4 的 warp shuffle 归约](../../leetgpu/week1/day5/leetgpu-reduction-solution.md) 同时用在了 `max` 和 `sum` 上，再用 **safe softmax（减 max）** 解决数值溢出。它的算术强度极低（`AI ≈ 0.375`），是 memory-bound 的完美教学样本：用 ncu 看 `DRAM% >> SM%` 一眼可判。优化路径也很清晰——online softmax 把三遍压成两遍，FP16 存储把字节减半，最终融合进 FlashAttention。掌握这个骨架，[RMSNorm](../../leetgpu/week3/day6/leetgpu-rms-normalization-solution.md)（删一个 reduce）和后续 Softmax Attention（加 matmul 融合）都是它的直接延伸。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 50 | [RMS Normalization](https://leetgpu.com/challenges/rms-normalization) | 中等 | — | RMS Norm，归约 + 归一化变体 |
+| 6 | [Softmax Attention](https://leetgpu.com/challenges/softmax-attention) | 中等 | — | fused softmax+matmul，数值稳定进阶 |
+| 4 | [Reduction](https://leetgpu.com/challenges/reduction) | 中等 | — | 树形归约，softmax 的基础组件 |
+| 40 | [Batch Normalization](https://leetgpu.com/challenges/batch-normalization) | 中等 | — | Batch Norm，mean/var 归约归一化 |
+
+> 💡 **选题思路**：三遍 kernel + 数值稳定，练习归约与归一化的融合。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

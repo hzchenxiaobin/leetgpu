@@ -204,3 +204,16 @@ final_reduce<<<1, BLOCK_SIZE>>>(output, output, gridSize);
 | 算术强度 | `0.25 FLOP/B`（1 次加法 / 4B 读取） |
 | 瓶颈类型 | **memory-bound**：受 HBM 读带宽限制 |
 | kernel 启动数 | 2 次（block 归约 + final 归约） |
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 17 | [Dot Product](https://leetgpu.com/challenges/dot-product) | 中等 | — | 元素乘 + 全局归约，归约的直接应用 |
+| 43 | [Count Array Element](https://leetgpu.com/challenges/count-array-element) | 中等 | — | 计数归约 + atomic，对比归约与 atomic |
+| 27 | [Mean Squared Error](https://leetgpu.com/challenges/mean-squared-error) | 中等 | — | 平方差归约，归约在损失函数中的应用 |
+| 51 | [Max Subarray Sum](https://leetgpu.com/challenges/max-subarray-sum) | 中等 | — | scan + 归约的综练习 |
+
+> 💡 **选题思路**：树形归约 + warp shuffle，练习并行归约这一核心模板。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

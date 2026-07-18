@@ -116,3 +116,16 @@ extern "C" void solve(const float* input, const float* kernel, float* output, in
 | 时间复杂度 | `O(N×K)` |
 | 算术强度 | `2K FLOP / 4(K+1)B ≈ 0.5 FLOP/B`（K 小时 memory-bound） |
 | 瓶颈类型 | K 小 → memory-bound；K 大 → compute-bound |
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 10 | [2D Convolution](https://leetgpu.com/challenges/2d-convolution) | 中等 | — | 2D 卷积，halo 扩展到二维 |
+| 11 | [3D Convolution](https://leetgpu.com/challenges/3d-convolution) | 中等 | — | 3D 卷积，体数据 halo |
+| 90 | [Causal Depthwise Conv1d](https://leetgpu.com/challenges/causal-depthwise-conv1d) | 中等 | — | Causal Depthwise Conv1d，因果卷积变体 |
+| 28 | [Gaussian Blur](https://leetgpu.com/challenges/gaussian-blur) | 中等 | — | Gaussian Blur，可分离卷积 |
+
+> 💡 **选题思路**：1D shared memory halo，练习卷积边界填充与 tile 加载。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

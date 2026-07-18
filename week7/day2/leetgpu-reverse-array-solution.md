@@ -287,3 +287,16 @@ verify: PASS
 | **同步需求** | 无 `__syncthreads()` — 各 thread 操作独立元素对 |
 
 > 💡 **一句话总结**：Reverse Array 是 in-place 并行算法的入门题——核心不是访存优化（虽然它是 memory-bound），而是理解**对称操作的作用域限制**。`i < N/2` 这一行判断是正确性的保证：它让每个元素只被一个 thread 修改，避免双重交换和 data race。这个"限制作用域"的思想在所有 in-place 并行算法中通用（如 in-place transpose、in-place scan 的 down-sweep 阶段）。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 63 | [Interleave Arrays](https://leetgpu.com/challenges/interleave) | 简单 | — | Interleave，写索引映射 + coalesced |
+| 1 | [Vector Addition](https://leetgpu.com/challenges/vector-addition) | 简单 | — | Vector Addition，1D grid-stride 基础 |
+| 31 | [Matrix Copy](https://leetgpu.com/challenges/matrix-copy) | 简单 | — | Matrix Copy，coalesced 带宽优化 |
+| 62 | [Value Clipping](https://leetgpu.com/challenges/value-clipping) | 简单 | — | Value Clipping，逐元素 + 索引 |
+
+> 💡 **选题思路**：1D 并行 in-place swap + coalesced，练习数据重排类 kernel。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

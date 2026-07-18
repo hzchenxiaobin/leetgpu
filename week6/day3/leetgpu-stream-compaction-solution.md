@@ -417,3 +417,16 @@ ncu --set full --target-processes all ./stream_compaction \
 | 瓶颈 | atomic 吞吐 | DRAM 带宽 |
 
 > 💡 **一句话总结**：Stream Compaction 是 vLLM Scheduler 每轮过滤已完成序列的微缩版——predicate 判活、prefix sum 算新位置、scatter 紧凑写入。warp scan `__shfl_up_sync` 让前缀和在寄存器内完成，对应 Scheduler 用预算计数器累加决定每个序列的槽位。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 16 | [Prefix Sum](https://leetgpu.com/challenges/prefix-sum) | 中等 | — | Prefix Sum，stream compaction 的基础 |
+| 70 | [Segmented Prefix Sum](https://leetgpu.com/challenges/segmented-prefix-sum) | 中等 | — | Segmented Prefix Sum，分段 scan 进阶 |
+| 43 | [Count Array Element](https://leetgpu.com/challenges/count-array-element) | 中等 | — | Count Array Element，predicate 计数 |
+| 87 | [Speculative Decoding Verification](https://leetgpu.com/challenges/speculative-decoding-verification) | 中等 | — | Speculative Decoding Verification，compaction 的推理应用 |
+
+> 💡 **选题思路**：predicate + scan 得到输出位置，练习 scan 的筛选应用。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

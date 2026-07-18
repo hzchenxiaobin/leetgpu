@@ -317,3 +317,16 @@ RTX 5090 ridge point ≈ 12.6 FLOP/Byte
 | 带宽利用率 | ~39% | ~64% |
 
 > 💡 **一句话总结**：RoPE 是 LLaMA 架构的核心位置编码——elementwise + memory-bound，优化重点是 2D 映射消除除法 + coalesced 访存 + kernel fusion。它对应 Week8 Day2 的架构图：RoPE 位于模型层 Attention 之前，画数据流图时必须画出"Q 分两路（cos / rotate_half×sin）→ 相加"的微型数据流。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 106 | [Token Embedding Layer](https://leetgpu.com/challenges/token-embedding-layer) | 中等 | — | Token Embedding，嵌入查表基础 |
+| 54 | [Swish-Gated Linear Unit](https://leetgpu.com/challenges/swiglu) | 简单 | — | SwiGLU，融合 elementwise 进阶 |
+| 52 | [Sigmoid Linear Unit (SiLU)](https://leetgpu.com/challenges/silu) | 简单 | — | SiLU，fused elementwise |
+| 50 | [RMS Normalization](https://leetgpu.com/challenges/rms-normalization) | 中等 | — | RMS Normalization，归约 + elementwise |
+
+> 💡 **选题思路**：复数旋转 + elementwise，练习位置编码的并行实现。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

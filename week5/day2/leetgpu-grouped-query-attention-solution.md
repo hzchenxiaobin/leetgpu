@@ -511,3 +511,16 @@ ncu --kernel-name regex:gqa_kernel \
 | **代表模型** | 原版 Transformer | LLaMA-2/3, Mistral | Falcon, PaLI |
 
 > 💡 **一句话总结**：GQA 把 KV Cache 的 `num_heads` 维从 `num_q_heads` 降到 `num_kv_heads`（LLaMA-3 32Q/8KV → 4× 缩减），是**模型结构层面**的 cache 优化——无损精度、kernel 只改一行索引（`kv_h = h / group`）。与 int8 量化（精度层面，有损）正交，可叠加（GQA + int8 = 8× cache 压缩）。这就是 GQA 成为现代 LLM（LLaMA-3、Mistral、Gemma）标配的原因。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 12 | [Multi-Head Attention](https://leetgpu.com/challenges/multi-head-attention) | 困难 | — | Multi-Head Attention，MHA 基础版 |
+| 53 | [Causal Self-Attention](https://leetgpu.com/challenges/causal-self-attention) | 困难 | — | Causal Self-Attention，mask 变体 |
+| 96 | [INT8 KV-Cache Attention](https://leetgpu.com/challenges/int8-kv-cache-attention) | 中等 | — | INT8 KV-Cache Attention，量化 + KV cache |
+| 59 | [Sliding Window Self-Attention](https://leetgpu.com/challenges/sliding-window-self-attention) | 困难 | — | Sliding Window，另一种 attention 变体 |
+
+> 💡 **选题思路**：KV head 共享 + attention，练习 GQA 的分组调度。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

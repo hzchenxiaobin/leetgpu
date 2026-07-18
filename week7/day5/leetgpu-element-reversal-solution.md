@@ -225,3 +225,16 @@ PASS
 | **kernel 启动数** | 1 次 |
 
 > 💡 **一句话总结**：Element Reversal 是最简单的 element-wise 操作——`output[i] = -input[i]`，纯 memory-bound。它与系统联调中的结果一致性验证同构：逐元素对比是联调精度验证的基础方法。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 19 | [Reverse Array](https://leetgpu.com/challenges/reverse-array) | 简单 | — | Reverse Array，同类型基础题 |
+| 63 | [Interleave Arrays](https://leetgpu.com/challenges/interleave) | 简单 | — | Interleave，索引重排练习 |
+| 62 | [Value Clipping](https://leetgpu.com/challenges/value-clipping) | 简单 | — | Value Clipping，逐元素索引 |
+| 31 | [Matrix Copy](https://leetgpu.com/challenges/matrix-copy) | 简单 | — | Matrix Copy，coalesced 带宽优化 |
+
+> 💡 **选题思路**：逐元素反转 + 索引映射，练习 elementwise 重排。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

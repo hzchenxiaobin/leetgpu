@@ -478,3 +478,16 @@ ncu --kernel-name regex:token_embedding_layernorm_kernel \
 | **瓶颈** | gather 随机读 token_emb | 大表随机访问，L2 命中率关键 |
 
 > 💡 **一句话总结**：Token Embedding Layer 是推理引擎的第一个算子——token id → 向量。用融合 kernel 把 gather + 加 + LayerNorm 一次完成（中间 `s[D]` 不落 HBM）。它是 [Day5 Mini 引擎](../../../aiinfra/daily/week5/day5/README.md) `self.embedding` 的手写版，Week7 替换 PyTorch 后端时直接用。瓶颈在 embedding 大表的 gather 随机读，优化靠行对齐 + L2 友好访问。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 61 | [Rotary Positional Embedding](https://leetgpu.com/challenges/rope-embedding) | 中等 | — | RoPE，位置嵌入的另一种实现 |
+| 41 | [Simple Inference](https://leetgpu.com/challenges/simple-inference) | 简单 | — | Simple Inference，embedding 的推理应用 |
+| 64 | [Weight Dequantization](https://leetgpu.com/challenges/weight-dequantization) | 中等 | — | Weight Dequantization，查表式反量化 |
+| 106 | [Token Embedding Layer](https://leetgpu.com/challenges/token-embedding-layer) | 中等 | — | 同题，可对比不同实现 |
+
+> 💡 **选题思路**：gather / lookup table，练习嵌入查表类 kernel。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

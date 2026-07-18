@@ -227,3 +227,16 @@ extern "C" void solve(const int* input, int* output, int N, int window_size) {
 | 瓶颈 | compute（W 大时） | memory-bound（读 prefix） |
 
 > 💡 **一句话总结**：滑动窗口最大和是 Continuous Batching iteration-level 调度的微缩版——窗口滑动 = 请求加入/退出，prefix sum 优化 = token budget 的窗口控制。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 16 | [Prefix Sum](https://leetgpu.com/challenges/prefix-sum) | 中等 | — | Prefix Sum，本题的核心基础 |
+| 47 | [Subarray Sum](https://leetgpu.com/challenges/subarray-sum) | 中等 | — | Subarray Sum，prefix sum 直接应用 |
+| 48 | [2D Subarray Sum](https://leetgpu.com/challenges/2d-subarray-sum) | 中等 | — | 2D Subarray Sum，扩展到二维 |
+| 72 | [Stream Compaction](https://leetgpu.com/challenges/stream-compaction) | 中等 | — | Stream Compaction，scan 的另一应用 |
+
+> 💡 **选题思路**：prefix sum + Kadane scan + 归约，练习 scan 的综合应用。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

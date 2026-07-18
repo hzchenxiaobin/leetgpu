@@ -441,3 +441,16 @@ ncu --set full ./segmented_prefix_sum | rg -i "Memory Throughput|Occupancy| DRAM
 | 瓶颈 | launch + 负载失衡 | DRAM 带宽 |
 
 > 💡 **一句话总结**：Segmented Prefix Sum 是 Chunked Prefill 分块处理的微缩版——每个 chunk/段独立扫描，段首归零 = chunk 边界状态重置。区别在于 chunked prefill 段间 carry（KV 累积），此处段间不 carry。warp scan `__shfl_up_sync` 让段内前缀和在寄存器内完成。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 16 | [Prefix Sum](https://leetgpu.com/challenges/prefix-sum) | 中等 | — | Prefix Sum，分段 scan 的基础 |
+| 72 | [Stream Compaction](https://leetgpu.com/challenges/stream-compaction) | 中等 | — | Stream Compaction，scan 的另一应用 |
+| 82 | [Linear Recurrence](https://leetgpu.com/challenges/linear-recurrence) | 中等 | — | Linear Recurrence，scan 的数学扩展 |
+| 94 | [SSM Selective Scan](https://leetgpu.com/challenges/ssm-selective-scan) | 中等 | — | SSM Selective Scan，分段 scan 的前沿应用 |
+
+> 💡 **选题思路**：分段 scan + 段边界处理，练习 prefix sum 的高阶变体。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

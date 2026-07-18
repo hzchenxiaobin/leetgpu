@@ -252,3 +252,16 @@ PASS
 | **kernel 启动数** | 1 次 |
 
 > 💡 **一句话总结**：Matrix Addition 是 element-wise 计算的最简形式——`C = A + B`，纯 memory-bound（算术强度 0.083 FLOP/B）。它是 Week 7 的收官题，从 Day 1 的纯搬运到 Day 7 的搬运+计算，完整覆盖了推理系统的基础数据操作能力。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 31 | [Matrix Copy](https://leetgpu.com/challenges/matrix-copy) | 简单 | — | 纯矩阵拷贝，专注 coalesced 带宽优化 |
+| 1 | [Vector Addition](https://leetgpu.com/challenges/vector-addition) | 简单 | — | 1D 向量加法，grid-stride 基础 |
+| 8 | [Matrix Addition](https://leetgpu.com/challenges/matrix-addition) | 简单 | — | 同题，可对比不同 tile 写法 |
+| 62 | [Value Clipping](https://leetgpu.com/challenges/value-clipping) | 简单 | — | 逐元素 clamp，练习 2D 索引 |
+
+> 💡 **选题思路**：2D grid 映射 + 合并访存，练习矩阵级 elementwise kernel。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

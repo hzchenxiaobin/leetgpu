@@ -330,3 +330,16 @@ ncu --metrics smsp__sass_branch_targets.sum, \
 | **divergence 影响** | if-else 版有 2× 分支开销，但因 kernel 整体 memory-bound，wall-time 影响有限；branchless 版更优且更通用 |
 
 > 💡 **一句话总结**：ReLU = Vector Addition 的骨架 − 一个输入数组 + 一个分支。它把 elementwise kernel 的两大通用模板一次性钉牢——**grid-stride + coalesced** 管并行与访存，**branchless（fmaxf）** 管分支消除。记住这两个模板，后面所有激活函数（Sigmoid、LeakyReLU、GELU、SiLU）都是同一套骨架换个算式。
+
+## 同类练习题
+
+下面是与本题考查相同 CUDA 概念的 LeetGPU 练习题，建议按顺序挑战：
+
+| # | 题目 | 难度 | 核心概念 | 与本题的关联 |
+|---|------|------|----------|-------------|
+| 23 | [Leaky ReLU](https://leetgpu.com/challenges/leaky-relu) | 简单 | — | 带负斜率分支，对比无分支优化 |
+| 52 | [Sigmoid Linear Unit (SiLU)](https://leetgpu.com/challenges/silu) | 简单 | — | 融合 sigmoid+mul，练习 fused kernel |
+| 68 | [Sigmoid Activation](https://leetgpu.com/challenges/sigmoid) | 简单 | — | 纯数学函数逐元素，练习 exp 实现 |
+| 65 | [Gaussian Error Gated Linear Unit](https://leetgpu.com/challenges/geglu) | 简单 | — | GELU 激活，更复杂的逐元素融合 |
+
+> 💡 **选题思路**：同属逐元素激活函数 family，练习分支/无分支 kernel 与合并访存。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。
