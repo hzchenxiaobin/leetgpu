@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 400" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="23" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="880" height="400" fill="#fdfcf7"/>
+
+  <text x="440" y="32" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">INT8 Quantized MatMul：tiled GEMM + INT32 累加 + requantize</text>
+  <path d="M 280 40 Q 440 48 600 40" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- input A (int8) -->
+  <text x="40" y="80" font-size="12" font-weight="bold" fill="#2b6e9e">A int8 [M×K]</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="88" width="120" height="76" rx="6" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.4"/>
+  </g>
+  <text x="100" y="132" text-anchor="middle" font-size="11" fill="#2b6e9e">A[i][k] ∈ [-128,127]</text>
+  <text x="100" y="150" text-anchor="middle" font-size="10" fill="#666">1 字节/元素</text>
+
+  <!-- input B (int8) -->
+  <text x="190" y="80" font-size="12" font-weight="bold" fill="#7a5415">B int8 [K×N]</text>
+  <g filter="url(#sk)">
+    <rect x="190" y="88" width="120" height="76" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.4"/>
+  </g>
+  <text x="250" y="132" text-anchor="middle" font-size="11" fill="#7a5415">B[k][j] ∈ [-128,127]</text>
+  <text x="250" y="150" text-anchor="middle" font-size="10" fill="#666">1 字节/元素</text>
+
+  <text x="170" y="130" font-size="14" fill="#444">×</text>
+
+  <!-- arrow to tile -->
+  <path d="M 170 170 L 170 196" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- tile + int32 accumulate -->
+  <text x="40" y="214" font-size="12" font-weight="bold" fill="#444">① shared mem tile + INT32 累加</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="222" width="270" height="92" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-width="1.2"/>
+  </g>
+  <text x="55" y="244" font-size="11" fill="#444">sA[32][32] int8  sB[32][32] int8</text>
+  <text x="55" y="264" font-size="11" fill="#b85450" font-weight="bold">acc += ((int)A-zpA) * ((int)B-zpB)</text>
+  <text x="55" y="282" font-size="10" fill="#666">内层 K 循环零浮点，INT32 乘加</text>
+  <text x="55" y="300" font-size="10" fill="#2e6e2e">tile 复用 32× → 省带宽</text>
+
+  <!-- arrow to requantize -->
+  <path d="M 320 268 L 360 268" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- requantize -->
+  <text x="380" y="214" font-size="12" font-weight="bold" fill="#444">② requantize（末尾一次）</text>
+  <g filter="url(#sk)">
+    <rect x="380" y="222" width="240" height="92" rx="8" fill="#fce4ec" stroke="#b85450" stroke-width="1.3"/>
+  </g>
+  <text x="395" y="244" font-size="10" fill="#444">cf = acc * sA * sB / sC</text>
+  <text x="395" y="262" font-size="10" fill="#b85450" font-weight="bold">q = rintf(cf) + zpC</text>
+  <text x="395" y="280" font-size="10" fill="#666">rintf = 银行家舍入</text>
+  <text x="395" y="298" font-size="10" fill="#666">clamp(q, -128, 127)</text>
+
+  <!-- arrow to output -->
+  <path d="M 620 268 L 660 268" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- output C (int8) -->
+  <text x="680" y="214" font-size="12" font-weight="bold" fill="#2e6e2e">C int8 [M×N]</text>
+  <g filter="url(#sk)">
+    <rect x="680" y="222" width="150" height="92" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+  </g>
+  <text x="755" y="266" text-anchor="middle" font-size="11" fill="#2e6e2e" font-weight="bold">C[i][j] int8</text>
+  <text x="755" y="286" text-anchor="middle" font-size="10" fill="#666">量化结果</text>
+
+  <!-- key insight box -->
+  <g filter="url(#sk)">
+    <rect x="40" y="338" width="790" height="50" rx="6" fill="#f0f7ff" stroke="#4a8edb" stroke-width="1.1" stroke-dasharray="4 2"/>
+  </g>
+  <text x="55" y="360" font-size="11" fill="#2b6e9e" font-weight="bold">关键洞察：</text>
+  <text x="125" y="360" font-size="11" fill="#444">sA·sB 在公式中约分 → acc 即纯整数 D，内层零浮点；末尾一次 rintf requantize。</text>
+  <text x="125" y="378" font-size="11" fill="#b85450">INT8 输入省 4× 带宽 + INT32 累加省浮点算力 = W8A8 量化推理核心收益</text>
+</svg>

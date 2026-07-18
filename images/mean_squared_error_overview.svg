@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 470" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="37"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.6"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="700" height="470" fill="#fdfcf7"/>
+
+  <text x="350" y="28" text-anchor="middle" font-size="16" fill="#2b2b2b" font-weight="bold">MSE：融合 kernel（平方差 + 两级归约 + 缩放）</text>
+  <text x="350" y="46" text-anchor="middle" font-size="11" fill="#888">mse[0] = mean((pred − target)²)，中间平方差不落 HBM</text>
+
+  <!-- inputs -->
+  <text x="30" y="80" font-size="12" fill="#446688" font-weight="bold">predictions[]</text>
+  <g font-size="9" fill="#333">
+    <rect x="30" y="88" width="56" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="58" y="104" text-anchor="middle" font-size="9">p[0]</text>
+    <rect x="86" y="88" width="56" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="114" y="104" text-anchor="middle" font-size="9">p[1]</text>
+    <rect x="142" y="88" width="56" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="170" y="104" text-anchor="middle" font-size="9">p[2]</text>
+    <text x="210" y="104" font-size="10" fill="#888">... N</text>
+  </g>
+
+  <text x="30" y="132" font-size="12" fill="#4a7a3a" font-weight="bold">targets[]</text>
+  <g font-size="9" fill="#333">
+    <rect x="30" y="140" width="56" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="58" y="156" text-anchor="middle" font-size="9">t[0]</text>
+    <rect x="86" y="140" width="56" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="114" y="156" text-anchor="middle" font-size="9">t[1]</text>
+    <rect x="142" y="140" width="56" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="170" y="156" text-anchor="middle" font-size="9">t[2]</text>
+    <text x="210" y="156" font-size="10" fill="#888">... N</text>
+  </g>
+  <text x="280" y="124" font-size="10" fill="#888">global memory（各读 1 遍）</text>
+
+  <!-- fused FMA -->
+  <path d="M 120 168 L 120 188" stroke="#b85450" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="30" y="186" font-size="12" fill="#b85450" font-weight="bold">① 融合：平方差在寄存器累加（不写中间数组）</text>
+
+  <rect x="30" y="196" width="640" height="50" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="216" font-family="monospace" font-size="11" fill="#333">float sum = 0;</text>
+  <text x="44" y="234" font-family="monospace" font-size="11" fill="#b85450" font-weight="bold">for (i = tid; i &lt; N; i += stride) { d = p[i]-t[i];  sum += d*d; }</text>
+
+  <!-- block reduce -->
+  <path d="M 350 248 L 350 266" stroke="#d6a040" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="30" y="264" font-size="12" fill="#d6a040" font-weight="bold">② block 归约（warp shuffle + shared memory）</text>
+
+  <rect x="30" y="274" width="320" height="56" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="294" font-size="11" fill="#7a5415" font-weight="bold">warp_reduce（__shfl_down_sync）</text>
+  <text x="44" y="310" font-size="10" fill="#555">32 lane 部分平方差和 → lane 0</text>
+  <text x="44" y="324" font-size="10" fill="#555">warp lane 0 写 shared[warp_id]</text>
+
+  <rect x="370" y="274" width="300" height="56" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1" rx="6" filter="url(#rough2)"/>
+  <text x="384" y="294" font-size="11" fill="#7a5415" font-weight="bold">block 终约（warp 0）</text>
+  <text x="384" y="310" font-size="10" fill="#555">__syncthreads → 读 shared[]</text>
+  <text x="384" y="324" font-size="10" fill="#555">再 warp_reduce → block 平方差和</text>
+
+  <!-- atomicAdd -->
+  <path d="M 350 332 L 350 350" stroke="#446688" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="30" y="348" font-size="12" fill="#446688" font-weight="bold">③ 跨 block：atomicAdd(mse, block_sum)</text>
+
+  <rect x="230" y="358" width="240" height="34" fill="#e8f0fe" stroke="#446688" stroke-width="1.4" rx="6" filter="url(#rough2)"/>
+  <text x="350" y="376" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">mse[0] = Σ 平方差和（先清零）</text>
+  <text x="350" y="388" text-anchor="middle" font-size="9" fill="#888">写者数 = block 数，竞争可接受</text>
+
+  <!-- scale -->
+  <path d="M 350 394 L 350 410" stroke="#4a7a3a" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <rect x="250" y="414" width="200" height="30" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.4" rx="6" filter="url(#rough2)"/>
+  <text x="350" y="433" text-anchor="middle" font-size="11" fill="#2e6e2e" font-weight="bold">④ scale：mse[0] /= N（单线程 kernel）</text>
+
+  <!-- insight -->
+  <rect x="470" y="358" width="210" height="86" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2" stroke-dasharray="4,3" rx="6" filter="url(#rough2)"/>
+  <text x="575" y="378" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">融合收益</text>
+  <text x="575" y="394" text-anchor="middle" font-size="9" fill="#555">朴素：先写 N 个平方差到</text>
+  <text x="575" y="406" text-anchor="middle" font-size="9" fill="#555">HBM（多 4N 字节写），</text>
+  <text x="575" y="418" text-anchor="middle" font-size="9" fill="#555">再读回归约。</text>
+  <text x="575" y="434" text-anchor="middle" font-size="9" fill="#b85450" font-weight="bold">融合：读 2 遍 写 0 遍中间</text>
+</svg>

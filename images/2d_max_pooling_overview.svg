@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="42" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="880" height="460" fill="#fdfcf7"/>
+
+  <text x="440" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#2b2b2b">2D Max Pooling：滑窗取最大值（kernel_size×stride+padding）</text>
+  <path d="M 280 38 Q 440 46 600 38" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- Input grid with padding -->
+  <text x="60" y="66" font-size="12" font-weight="bold" fill="#2b6e9e">输入 input[n, c, H, W]（含 padding=1 虚线外圈，值=-∞）</text>
+  <g filter="url(#sk)">
+    <!-- padding border (dashed) -->
+    <rect x="44" y="76" width="432" height="312" fill="none" stroke="#bbb" stroke-width="1.2" stroke-dasharray="4,3"/>
+  </g>
+  <!-- 6x6 input cells starting at (60,92), each 64x48 -->
+  <g font-size="11" fill="#333" text-anchor="middle">
+    <!-- row 0 -->
+    <rect x="60" y="92" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="92" y="120">1</text>
+    <rect x="124" y="92" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="156" y="120">3</text>
+    <rect x="188" y="92" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="220" y="120">2</text>
+    <rect x="252" y="92" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="284" y="120">4</text>
+    <rect x="316" y="92" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="348" y="120">5</text>
+    <rect x="380" y="92" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="412" y="120">1</text>
+    <!-- row 1 -->
+    <rect x="60" y="140" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="92" y="168">6</text>
+    <rect x="124" y="140" width="64" height="48" fill="#fce4ec" stroke="#b85450" stroke-width="2.2" filter="url(#sk)"/><text x="156" y="168">9</text>
+    <rect x="188" y="140" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="220" y="168">2</text>
+    <rect x="252" y="140" width="64" height="48" fill="#fce4ec" stroke="#b85450" stroke-width="2.2" filter="url(#sk)"/><text x="284" y="168">7</text>
+    <rect x="316" y="140" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="348" y="168">3</text>
+    <rect x="380" y="140" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="412" y="168">8</text>
+    <!-- row 2 -->
+    <rect x="60" y="188" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="92" y="216">4</text>
+    <rect x="124" y="188" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="156" y="216">5</text>
+    <rect x="188" y="188" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="220" y="216">1</text>
+    <rect x="252" y="188" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="284" y="216">3</text>
+    <rect x="316" y="188" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="348" y="216">6</text>
+    <rect x="380" y="188" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="412" y="216">2</text>
+    <!-- row 3 -->
+    <rect x="60" y="236" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="92" y="264">7</text>
+    <rect x="124" y="236" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="156" y="264">2</text>
+    <rect x="188" y="236" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="220" y="264">8</text>
+    <rect x="252" y="236" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="284" y="264">4</text>
+    <rect x="316" y="236" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="348" y="264">9</text>
+    <rect x="380" y="236" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="412" y="264">1</text>
+    <!-- row 4 -->
+    <rect x="60" y="284" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="92" y="312">3</text>
+    <rect x="124" y="284" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="156" y="312">5</text>
+    <rect x="188" y="284" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="220" y="312">7</text>
+    <rect x="252" y="284" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="284" y="312">2</text>
+    <rect x="316" y="284" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="348" y="312">6</text>
+    <rect x="380" y="284" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="412" y="312">4</text>
+    <!-- row 5 -->
+    <rect x="60" y="332" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="92" y="360">8</text>
+    <rect x="124" y="332" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="156" y="360">1</text>
+    <rect x="188" y="332" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="220" y="360">3</text>
+    <rect x="252" y="332" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="284" y="360">5</text>
+    <rect x="316" y="332" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="348" y="360">7</text>
+    <rect x="380" y="332" width="64" height="48" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1" filter="url(#sk)"/><text x="412" y="360">9</text>
+  </g>
+
+  <!-- Window 1 highlight (3x3) -->
+  <g filter="url(#sk)">
+    <rect x="60" y="92" width="192" height="144" fill="none" stroke="#d6a040" stroke-width="2.4" stroke-dasharray="6,3"/>
+  </g>
+  <text x="156" y="392" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">窗口1: max=9（红框为最大值）</text>
+
+  <!-- arrow to output -->
+  <path d="M 500 200 L 540 200" stroke="#5a5a5a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="500" y="186" font-size="10" fill="#888">stride=2</text>
+
+  <!-- Output grid -->
+  <text x="560" y="66" font-size="12" font-weight="bold" fill="#2e6e2e">输出 output[n, c, H_out, W_out]</text>
+  <text x="560" y="82" font-size="10" fill="#888">H_out = (H+2·pad−K)/stride + 1</text>
+  <g font-size="12" fill="#2e6e2e" text-anchor="middle" font-weight="bold">
+    <rect x="560" y="92" width="56" height="48" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4" filter="url(#sk)"/><text x="588" y="120">9</text>
+    <rect x="616" y="92" width="56" height="48" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4" filter="url(#sk)"/><text x="644" y="120">8</text>
+    <rect x="672" y="92" width="56" height="48" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4" filter="url(#sk)"/><text x="700" y="120">5</text>
+    <rect x="560" y="140" width="56" height="48" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4" filter="url(#sk)"/><text x="588" y="168">7</text>
+    <rect x="616" y="140" width="56" height="48" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4" filter="url(#sk)"/><text x="644" y="168">9</text>
+    <rect x="672" y="140" width="56" height="48" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4" filter="url(#sk)"/><text x="700" y="168">6</text>
+    <rect x="560" y="188" width="56" height="48" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4" filter="url(#sk)"/><text x="588" y="216">8</text>
+    <rect x="616" y="188" width="56" height="48" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4" filter="url(#sk)"/><text x="644" y="216">7</text>
+    <rect x="672" y="188" width="56" height="48" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4" filter="url(#sk)"/><text x="700" y="216">9</text>
+  </g>
+  <text x="616" y="258" text-anchor="middle" font-size="10" fill="#2e6e2e">每 cell = 对应 K×K 窗口的 max</text>
+
+  <!-- parallelization -->
+  <text x="560" y="294" font-size="12" font-weight="bold" fill="#446688">并行化：Grid 覆盖 (N·C·H_out·W_out)</text>
+  <g filter="url(#sk)">
+    <rect x="560" y="304" width="280" height="100" rx="8" fill="#f6f6f6" stroke="#bbb" stroke-width="1" stroke-dasharray="5,3"/>
+  </g>
+  <g font-family="monospace" font-size="10" fill="#333">
+    <text x="574" y="324">for (ky in 0..K)</text>
+    <text x="574" y="340">  for (kx in 0..K)</text>
+    <text x="574" y="356">    ih = oy*stride - pad + ky</text>
+    <text x="574" y="372">    iw = ox*stride - pad + kx</text>
+    <text x="574" y="388" fill="#888">    if (in bounds) m = max(m, in[ih*W+iw])</text>
+  </g>
+
+  <!-- insight -->
+  <g filter="url(#sk)">
+    <rect x="60" y="406" width="780" height="44" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/>
+  </g>
+  <text x="80" y="428" font-size="11" font-weight="bold" fill="#444">关键点：</text>
+  <text x="140" y="428" font-size="10" fill="#444">padding 外圈当 -∞ 处理（不参与 max）；每 thread 算一个输出；K 小（3）→ 直接 global 访存，无需 shared memory</text>
+  <text x="80" y="444" font-size="10" fill="#888">H_out、W_out 由 kernel_size/stride/padding 决定；输出四维索引映射到全局线性地址</text>
+</svg>

@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="90" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="880" height="440" fill="#fdfcf7"/>
+
+  <text x="440" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#2b2b2b">Causal Depthwise Conv1d：因果 + 通道独立</text>
+  <path d="M 280 38 Q 440 46 600 38" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- Input sequence -->
+  <text x="60" y="66" font-size="12" font-weight="bold" fill="#2b6e9e">输入 x[b, l, d]（通道 d 固定，沿时间 l 排开）</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="76" width="56" height="32" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="116" y="76" width="56" height="32" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="172" y="76" width="56" height="32" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="228" y="76" width="56" height="32" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="284" y="76" width="56" height="32" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+  </g>
+  <g font-size="11" fill="#2b6e9e" text-anchor="middle">
+    <text x="88" y="96">x[l-3]</text>
+    <text x="144" y="96">x[l-2]</text>
+    <text x="200" y="96">x[l-1]</text>
+    <text x="256" y="96">x[l]</text>
+    <text x="312" y="96">x[l+1]</text>
+  </g>
+  <text x="60" y="122" font-size="10" fill="#888">因果：output[l] 只看 x[l-K+1 .. l]（左侧），不看未来</text>
+
+  <!-- causal window highlight (K=4) -->
+  <g filter="url(#sk)">
+    <rect x="58" y="72" width="228" height="40" rx="6" fill="none" stroke="#d6a040" stroke-width="2.2" stroke-dasharray="6,3"/>
+  </g>
+  <text x="172" y="132" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">K=4 因果窗口（output[l] 的输入范围）</text>
+
+  <!-- weight vector -->
+  <text x="430" y="66" font-size="12" font-weight="bold" fill="#7a5415">weight[d, K]</text>
+  <g filter="url(#sk)">
+    <rect x="430" y="76" width="48" height="32" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
+    <rect x="478" y="76" width="48" height="32" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
+    <rect x="526" y="76" width="48" height="32" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
+    <rect x="574" y="76" width="48" height="32" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
+  </g>
+  <g font-size="11" fill="#7a5415" text-anchor="middle">
+    <text x="454" y="96">w₀</text>
+    <text x="502" y="96">w₁</text>
+    <text x="550" y="96">w₂</text>
+    <text x="598" y="96">w₃</text>
+  </g>
+  <text x="430" y="122" font-size="10" fill="#888">每个通道 d 独立一份权重（depthwise）</text>
+
+  <!-- arrows x * w -> output -->
+  <path d="M 256 110 L 256 150 L 360 150 L 360 180" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 454 110 L 454 150 L 360 150" stroke="#5a5a5a" stroke-width="1.3" fill="none" stroke-dasharray="3,2" filter="url(#sk)"/>
+
+  <!-- formula -->
+  <text x="60" y="170" font-size="12" font-weight="bold" fill="#b85450">公式：output[b,l,d] = bias[d] + Σ_{k=0..K-1} weight[d,k] · x[b, l-K+1+k, d]</text>
+  <text x="60" y="186" font-size="10" fill="#888">负索引用 0 填充（左侧 padding），保证 l=0 也能算</text>
+
+  <!-- output -->
+  <text x="60" y="216" font-size="12" font-weight="bold" fill="#2e6e2e">输出 output[b, l, d]（与输入同形状 B×L×D）</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="226" width="56" height="32" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="116" y="226" width="56" height="32" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="172" y="226" width="56" height="32" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="228" y="226" width="56" height="32" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="284" y="226" width="56" height="32" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <g font-size="11" fill="#2e6e2e" text-anchor="middle">
+    <text x="88" y="246">out[l-3]</text>
+    <text x="144" y="246">out[l-2]</text>
+    <text x="200" y="246">out[l-1]</text>
+    <text x="256" y="246">out[l]</text>
+    <text x="312" y="246">out[l+1]</text>
+  </g>
+
+  <!-- parallelization -->
+  <text x="60" y="294" font-size="12" font-weight="bold" fill="#446688">并行化：Grid = (B·L·D) 或 (B·L, D)，每 thread 算一个 output[b,l,d]</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="304" width="760" height="56" rx="8" fill="#f6f6f6" stroke="#bbb" stroke-width="1" stroke-dasharray="5,3"/>
+  </g>
+  <g font-family="monospace" font-size="11" fill="#333">
+    <text x="80" y="324">int idx = b*L*D + l*D + d;   // 输入/输出线性索引</text>
+    <text x="80" y="340">for (int k = 0; k &lt; K; k++) { int li = l - K + 1 + k; if (li &gt;= 0) acc += weight[d*K+k] * x[b*L*D + li*D + d]; }</text>
+    <text x="80" y="356" fill="#888">// D 维连续 → 同 warp 内 d 连续 → coalesced global 访存</text>
+  </g>
+
+  <!-- insight -->
+  <g filter="url(#sk)">
+    <rect x="60" y="372" width="760" height="56" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/>
+  </g>
+  <text x="80" y="394" font-size="11" font-weight="bold" fill="#444">关键点：</text>
+  <text x="140" y="394" font-size="10" fill="#444">① 因果 → 只看左侧，负索引补 0；② depthwise → 通道 d 独立，无跨通道混合；③ K 小（4）→ 无需 shared memory，直接 global</text>
+  <text x="80" y="414" font-size="10" fill="#888">D 维是连续内存方向，沿 D 展开 thread → 合并访存，访存效率高</text>
+</svg>

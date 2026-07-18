@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 460" font-family="'Comic Sans MS','Marker Felt','Kaiti SC',楷体,'Segoe UI',cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="11" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8"/>
+    </filter>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#3a3a3a"/>
+    </marker>
+  </defs>
+
+  <rect width="780" height="460" fill="#fdfcf7"/>
+
+  <text x="390" y="32" text-anchor="middle" font-size="18" fill="#2b2b2b" font-weight="bold">Group Normalization：C 个通道分 G 组，每组独立归一化</text>
+  <path d="M 240 42 Q 390 50 540 42" stroke="#2b2b2b" stroke-width="1.4" fill="none" filter="url(#sk)"/>
+  <text x="390" y="58" text-anchor="middle" font-size="11" fill="#888">一个 block 处理一个 (n, g) 对，对 C/G × H × W 个元素做 mean/var 归约</text>
+
+  <!-- 左侧：输入张量 X[N,C,H,W]，N=1 C=6 G=2 -->
+  <text x="130" y="82" text-anchor="middle" font-size="12" fill="#666" font-weight="bold">X[N=1, C=6, H=2, W=2]</text>
+
+  <!-- Group 0: channels 0-2 (蓝色) -->
+  <g filter="url(#sk)">
+    <rect x="40" y="92" width="50" height="40" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="92" y="92" width="50" height="40" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="144" y="92" width="50" height="40" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+  </g>
+  <text x="65" y="116" text-anchor="middle" font-size="10" fill="#2b6e9e">ch0</text>
+  <text x="117" y="116" text-anchor="middle" font-size="10" fill="#2b6e9e">ch1</text>
+  <text x="169" y="116" text-anchor="middle" font-size="10" fill="#2b6e9e">ch2</text>
+  <text x="117" y="84" text-anchor="middle" font-size="10" fill="#4a8edb" font-weight="bold">Group 0（C/G=3 通道）</text>
+
+  <!-- Group 1: channels 3-5 (绿色) -->
+  <g filter="url(#sk)">
+    <rect x="40" y="148" width="50" height="40" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="92" y="148" width="50" height="40" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="144" y="148" width="50" height="40" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="65" y="172" text-anchor="middle" font-size="10" fill="#2e6e2e">ch3</text>
+  <text x="117" y="172" text-anchor="middle" font-size="10" fill="#2e6e2e">ch4</text>
+  <text x="169" y="172" text-anchor="middle" font-size="10" fill="#2e6e2e">ch5</text>
+  <text x="117" y="202" text-anchor="middle" font-size="10" fill="#4a8e4a" font-weight="bold">Group 1（C/G=3 通道）</text>
+
+  <!-- 箭头到中间 -->
+  <path d="M 200 130 L 270 130" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 200 168 L 270 168" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- 中间：block 映射 -->
+  <g filter="url(#sk)">
+    <rect x="278" y="110" width="100" height="40" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
+  </g>
+  <text x="328" y="128" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">block(n=0, g=0)</text>
+  <text x="328" y="142" text-anchor="middle" font-size="9" fill="#888">3×2×2=12 元素</text>
+
+  <g filter="url(#sk)">
+    <rect x="278" y="158" width="100" height="40" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
+  </g>
+  <text x="328" y="176" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">block(n=0, g=1)</text>
+  <text x="328" y="190" text-anchor="middle" font-size="9" fill="#888">3×2×2=12 元素</text>
+
+  <!-- 箭头到右侧流程 -->
+  <path d="M 382 130 L 440 130" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 382 178 L 440 178" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- 右侧：两遍 scan 流程 -->
+  <g filter="url(#sk)">
+    <rect x="448" y="92" width="140" height="36" rx="6" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+  </g>
+  <text x="518" y="115" text-anchor="middle" font-size="11" fill="#2b6e9e" font-weight="bold">① Pass 1: 求 mean</text>
+
+  <g filter="url(#sk)">
+    <rect x="448" y="140" width="140" height="36" rx="6" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.3"/>
+  </g>
+  <text x="518" y="163" text-anchor="middle" font-size="11" fill="#8e5db8" font-weight="bold">② Pass 2: 求 var</text>
+
+  <g filter="url(#sk)">
+    <rect x="448" y="188" width="140" height="36" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="518" y="211" text-anchor="middle" font-size="11" fill="#4a8e4a" font-weight="bold">③ Pass 3: 归一化写回</text>
+
+  <!-- 依赖箭头 -->
+  <path d="M 518 128 L 518 138" stroke="#4a8edb" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)" stroke-dasharray="3,2"/>
+  <path d="M 518 176 L 518 186" stroke="#8e5db8" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)" stroke-dasharray="3,2"/>
+
+  <!-- 右下：关键公式 -->
+  <g filter="url(#sk)">
+    <rect x="448" y="240" width="280" height="80" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-width="1.2" stroke-dasharray="4,3"/>
+  </g>
+  <text x="460" y="262" font-size="11" fill="#444" font-weight="bold">关键公式：</text>
+  <text x="460" y="280" font-size="11" fill="#444">μ = mean(x over C/G × H × W)</text>
+  <text x="460" y="296" font-size="11" fill="#444">σ² = var(x over C/G × H × W)</text>
+  <text x="460" y="312" font-size="11" fill="#444">y = (x - μ) / √(σ² + ε) · γ[c] + β[c]</text>
+
+  <!-- 底部：与 BatchNorm/LayerNorm 对比 -->
+  <text x="390" y="360" text-anchor="middle" font-size="12" fill="#888">归约维度对比：</text>
+  <g filter="url(#sk)">
+    <rect x="30" y="372" width="220" height="36" rx="6" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+  </g>
+  <text x="140" y="395" text-anchor="middle" font-size="10" fill="#4a8edb" font-weight="bold">BatchNorm：reduce 跨 (N,H,W)</text>
+  <g filter="url(#sk)">
+    <rect x="270" y="372" width="220" height="36" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.2"/>
+  </g>
+  <text x="380" y="395" text-anchor="middle" font-size="10" fill="#c98a2b" font-weight="bold">LayerNorm：reduce 跨 (C,H,W)</text>
+  <g filter="url(#sk)">
+    <rect x="510" y="372" width="240" height="36" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+  </g>
+  <text x="630" y="395" text-anchor="middle" font-size="10" fill="#4a8e4a" font-weight="bold">GroupNorm：reduce 跨 (C/G, H, W)</text>
+
+  <text x="390" y="430" text-anchor="middle" font-size="11" fill="#666">grid = (N × G,)，每 block 对一组通道做两遍 scan（mean → var → 归一化）</text>
+</svg>

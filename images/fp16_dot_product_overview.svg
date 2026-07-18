@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="58" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="900" height="400" fill="#fdfcf7"/>
+
+  <text x="450" y="32" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">FP16 Dot Product：half→float 转换 + FP32 两级归约</text>
+  <path d="M 280 40 Q 450 48 620 40" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- input half vectors -->
+  <text x="60" y="74" font-size="12" font-weight="bold" fill="#2b6e9e">输入：A[] / B[]（half, N 个，结果 = Σ A[i]×B[i] → half）</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="84" width="64" height="34" rx="4" fill="#fce4ec" stroke="#b85450" stroke-width="1.3"/>
+    <rect x="124" y="84" width="64" height="34" rx="4" fill="#fce4ec" stroke="#b85450" stroke-width="1.3"/>
+    <rect x="188" y="84" width="64" height="34" rx="4" fill="#fce4ec" stroke="#b85450" stroke-width="1.3"/>
+  </g>
+  <text x="92" y="106" text-anchor="middle" font-size="11" fill="#b85450">A₀(half)</text>
+  <text x="156" y="106" text-anchor="middle" font-size="11" fill="#b85450">A₁(half)</text>
+  <text x="220" y="106" text-anchor="middle" font-size="11" fill="#b85450">A₂(half)</text>
+  <text x="262" y="106" font-size="12" fill="#444">...</text>
+
+  <!-- convert step -->
+  <path d="M 140 122 L 140 144" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="60" y="160" font-size="12" font-weight="bold" fill="#7a5415">① 转换：__half2float() → float（保证累加精度）</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="170" width="780" height="44" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.4"/>
+  </g>
+  <text x="80" y="192" font-family="monospace" font-size="11" fill="#7a5415">float af = __half2float(A[i]);  float bf = __half2float(B[i]);  sum += af * bf;</text>
+  <text x="80" y="208" font-size="10" fill="#888">half 仅 10 bit 尾数，直接累加丢精度 → 必须升 FP32 累加，最后再转回 half</text>
+
+  <path d="M 450 214 L 450 236" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- block reduce -->
+  <text x="60" y="252" font-size="12" font-weight="bold" fill="#2e6e2e">② FP32 block 归约（warp shuffle + shared memory）</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="262" width="240" height="44" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+  </g>
+  <text x="180" y="282" text-anchor="middle" font-size="11" fill="#2e6e2e">block 0: warp reduce → block_sum₀</text>
+  <text x="180" y="298" text-anchor="middle" font-size="9" fill="#888">__shfl_down_sync 树形归约（FP32）</text>
+
+  <g filter="url(#sk)">
+    <rect x="330" y="262" width="240" height="44" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+  </g>
+  <text x="450" y="282" text-anchor="middle" font-size="11" fill="#2e6e2e">block 1: warp reduce → block_sum₁</text>
+  <text x="450" y="298" text-anchor="middle" font-size="9" fill="#888">...</text>
+
+  <g filter="url(#sk)">
+    <rect x="600" y="262" width="240" height="44" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+  </g>
+  <text x="720" y="282" text-anchor="middle" font-size="11" fill="#2e6e2e">block M: warp reduce → block_sum_M</text>
+
+  <path d="M 450 306 L 450 322" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- cross block + convert back -->
+  <text x="60" y="338" font-size="12" font-weight="bold" fill="#446688">③ 跨 block atomicAdd（FP32）→ __float2half() 写回 result</text>
+  <g filter="url(#sk)">
+    <rect x="280" y="348" width="340" height="34" rx="8" fill="#e8f0fe" stroke="#446688" stroke-width="1.6"/>
+  </g>
+  <text x="450" y="370" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">result[0] = __float2half(Σ block_sum)</text>
+
+  <!-- analogy -->
+  <g filter="url(#sk)">
+    <rect x="60" y="390" width="780" height="0" rx="0" fill="none"/>
+  </g>
+</svg>
