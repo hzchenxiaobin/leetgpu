@@ -11,7 +11,7 @@
 
 $$O_{b,h} = \text{softmax}\!\left(\frac{Q_{b,h}\, K_{b,h}^{\mathsf{T}}}{\sqrt{d}}\right) V_{b,h}, \qquad b \in [0,B),\ h \in [0,H)$$
 
-每个 head 是一组独立的 `N×d` 序列，head 之间互不通信——这正是"Multi-Head"的本质：**把一个大 head 拆成 `H` 个小 head 并行计算**，既增加表达力又天然适合 GPU 的批量并行。
+每个 head 是一组独立的 `N×d` 序列，head 之间互不通信——这正是"Multi-Head"的本质：**把一个大 head 拆成** `H` **个小 head 并行计算**，既增加表达力又天然适合 GPU 的批量并行。
 
 **约束**：`1 ≤ B ≤ 128`，`1 ≤ H ≤ 16`，`1 ≤ N ≤ 4096`，`1 ≤ d ≤ 128`；容差 `atol=rtol=1e-3`。
 
@@ -722,7 +722,7 @@ extern "C" void solve(const float* Q, const float* K, const float* V, float* out
 
 本文件包含两个 kernel：`mha_standard_kernel`（朴素版，物化 S/P 到 HBM，用于对比）和 `mha_flash_kernel`（Flash 版，online softmax + tiling，不物化 S/P）。两者共享 **batched launch** 结构（`blockIdx.z=batch, blockIdx.y=head`），区别在于 block 内是否物化中间矩阵。
 
-**`mha_standard_kernel` 逐段解析**（4 步串行，每步过 HBM）：
+`mha_standard_kernel` **逐段解析**（4 步串行，每步过 HBM）：
 
 1. **加载 Q 行到 shared**：`q_shm[t] = Q[bhQ + i*d + t]`，block 协作加载第 `i` 行 query。
 2. **算 S = QK^T / √d → 写 HBM**：`for (k...)` 遍历所有 key，`s += q_shm[t] * K[...]`，结果写 `S[bhS + i*N + k]`。
@@ -730,7 +730,7 @@ extern "C" void solve(const float* Q, const float* K, const float* V, float* out
 4. **算 O = P · V**：`for (t...) for (k...) acc += P[...] * V[...]`，最后 `O = acc / rsum`。
 - 致命问题：S/P 各占 `B·H·N²×4B`，大规模下 OOM。
 
-**`mha_flash_kernel` 逐段解析**（online softmax + tiling，S/P 不落 HBM）：
+`mha_flash_kernel` **逐段解析**（online softmax + tiling，S/P 不落 HBM）：
 
 1. **shared memory tile 声明**
    - `s_Q[Br][D_MAX]`、`s_K[Bc][D_MAX]`、`s_V[Bc][D_MAX]`：Q tile（`Br=8` 行）、K/V tile（`Bc=32` 行），head 维 `D_MAX=128`。
@@ -812,10 +812,10 @@ ncu --kernel-name regex:"mha_standard_kernel|mha_flash_kernel" \
 
 ### 5.3 优化方向
 
-1. **`cp.async` 异步加载**：用 `cp.async`（sm_120+）在计算当前 K/V tile 时预取下一 tile 到 shared memory，隐藏 HBM 延迟（double buffer）。
+1. `cp.async` **异步加载**：用 `cp.async`（sm_120+）在计算当前 K/V tile 时预取下一 tile 到 shared memory，隐藏 HBM 延迟（double buffer）。
 2. **FP16/BF16 混合精度 + Tensor Core**：`Q/K/V` 用 fp16，`mma` 指令做 GEMM（`QK^T` 和 `PV`），累加器和 softmax 用 fp32 保精度。这是工业级 FlashAttention 的标配，吞吐提升 4-8×。
 3. **FlashAttention-2 warp group 调度**：FA2 把 `QK^T` 和 `PV` 的 GEMM 重排为 warp group 级别的流水线，减少 rescale（non-matmul FLOPs），提升算术强度。
-4. **增大 `Br`**：本实现 `Br=8`，K/V 仅复用 8×。增大 `Br`（如 64）可进一步减少 K/V HBM 流量，但受 shared memory 容量限制（`s_K[Bc][d]` 随 `Bc` 增大）。
+4. **增大** `Br`：本实现 `Br=8`，K/V 仅复用 8×。增大 `Br`（如 64）可进一步减少 K/V HBM 流量，但受 shared memory 容量限制（`s_K[Bc][d]` 随 `Bc` 增大）。
 5. **分块 d 维**：`d=128` 时 `o_reg[4]` 占用较多寄存器，可把 d 维也做 tiling（split-d），用 atomic 合并部分和。
 
 > 💡 优化 2（FP16 + Tensor Core）是从"教学版"到"工业级"的核心一跃：Tensor Core 的 `mma` 指令把 GEMM 吞吐提升到 FP32 的 4-8×，且 fp16 数据量减半，HBM 流量再降一半。FlashAttention-2 的论文核心贡献就是**重排循环让 Tensor Core 利用率逼近峰值**。
@@ -825,12 +825,12 @@ ncu --kernel-name regex:"mha_standard_kernel|mha_flash_kernel" \
 | 维度 | 标准 MHA（物化 S/P） | Flash MHA（本实现，Br=8） | 工业级 FlashAttention（Br→N·d/M） |
 |------|---------------------|--------------------------|----------------------------------|
 | **时间复杂度** | `O(B·H·N²·d)` | `O(B·H·N²·d)` | `O(B·H·N²·d)` |
-| **中间矩阵显存** | `O(B·H·N²)`（S、P 各 B·H·N²） | **`O(B·H·N·d)`**（仅 Q/K/V/O） | `O(B·H·N·d)` |
+| **中间矩阵显存** | `O(B·H·N²)`（S、P 各 B·H·N²） | `O(B·H·N·d)`（仅 Q/K/V/O） | `O(B·H·N·d)` |
 | **HBM IO（S/P 部分）** | `O(B·H·N²)` 写读 | `0` | `0` |
-| **HBM IO（K/V 部分）** | `O(B·H·N²·d)`（每 query 重读） | `O(B·H·N²·d/Br)`（Br× 复用） | `O(B·H·N·d²/M)` → 趋于 **`O(B·H·N·d)`** |
+| **HBM IO（K/V 部分）** | `O(B·H·N²·d)`（每 query 重读） | `O(B·H·N²·d/Br)`（Br× 复用） | `O(B·H·N·d²/M)` → 趋于 `O(B·H·N·d)` |
 | **算术强度** | 极低（被 S/P IO 拖累） | 中（无 S/P，K/V 8× 复用） | 高（K/V 大幅复用，逼近 compute-bound） |
 | **瓶颈类型** | memory-bound（S/P 物化） | memory-bound（K/V 仍部分重读） | softmax 段 memory-bound + GEMM 段 compute-bound |
 | **kernel 启动数** | 1（融合）或 3（拆分） | **1**（batched launch） | 1 |
 | **O(B·H·N²) 来源** | 物化 `B·H` 组各两个 `N×N` 矩阵 | 已消除 | 已消除 |
 
-> 💡 **一句话总结**：Multi-Head Attention 的本质是 `B·H` 组独立的单头 attention 并行。朴素方法把 `B·H` 组各两个 `N×N` 中间矩阵物化到 HBM，导致 `O(B·H·N²)` 的显存与 IO——大规模下直接 OOM。FlashAttention 的 **batched kernel launch（`gridDim=(N/Br, H, B)`）+ online softmax + K/V tiling** 三板斧让 `S/P` 永不落 HBM、K/V 被 `Br` 个 query 行复用，把显存降到 `O(B·H·N·d)`、HBM IO 趋近 `O(B·H·N·d)`。这就是长序列 Transformer 能跑起来的根本原因，也是本系列最难的题——**它综合了 batched launch、warp 级并行、shared memory tiling、online softmax 四大 CUDA 技术**。
+> 💡 **一句话总结**：Multi-Head Attention 的本质是 `B·H` 组独立的单头 attention 并行。朴素方法把 `B·H` 组各两个 `N×N` 中间矩阵物化到 HBM，导致 `O(B·H·N²)` 的显存与 IO——大规模下直接 OOM。FlashAttention 的 **batched kernel launch（**`gridDim=(N/Br, H, B)`**）+ online softmax + K/V tiling** 三板斧让 `S/P` 永不落 HBM、K/V 被 `Br` 个 query 行复用，把显存降到 `O(B·H·N·d)`、HBM IO 趋近 `O(B·H·N·d)`。这就是长序列 Transformer 能跑起来的根本原因，也是本系列最难的题——**它综合了 batched launch、warp 级并行、shared memory tiling、online softmax 四大 CUDA 技术**。

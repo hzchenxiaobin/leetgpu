@@ -73,7 +73,7 @@ void dequant_cpu(const float* X, const float* S, float* Y, int M, int N, int T) 
 ### 3.3 关键技巧
 
 1. **coalesced 访问**：相邻 thread 处理相邻 `j`（行内连续），保证 X 和 Y 的读写合并。
-2. **vector load（`float4`）**：每 thread 一次读 4 个 float，减少访存指令数。
+2. **vector load（**`float4`**）**：每 thread 一次读 4 个 float，减少访存指令数。
 3. **scale 缓存**：`S` 很小（`M/T × N/T`，如 `8192/128=64`，64×64=4096 个 float = 16KB），几乎全在 L2 cache，无需显式 shared。
 4. **grid-stride**：用 grid-stride loop 让 grid 覆盖任意 M·N，block 数适配 SM 数。
 
@@ -295,7 +295,7 @@ ncu --kernel-name regex:weight_dequant_kernel \
 
 ### 5.3 优化方向
 
-1. **vector load（`float4`）**：每 thread 一次读 4 个 float，减少访存指令、提升 coalescing 效率。
+1. **vector load（**`float4`**）**：每 thread 一次读 4 个 float，减少访存指令、提升 coalescing 效率。
 2. **shared memory 缓存 scale 行**：若 T 很小，S 的某行可载入 shared 供 block 内所有 thread 复用（本实现靠 L2 已够，S 仅 16KB）。
 3. **fp16 输入**：X 用 fp16 存储，反量化时转 fp32，减半读 HBM（量化推理的常见做法）。
 4. **与后续 GEMM 融合**：反量化后直接进 GEMM，不物化 Y（ CUTLASS 的 epilogue fusion 思路）——消除 Y 的 HBM 写读往返。

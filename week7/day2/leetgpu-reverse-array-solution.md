@@ -61,7 +61,7 @@ __global__ void reverse_naive(float* input, int N) {
 
 ![In-place Array Reversal：线程对交换](../../images/reverse_array_overview.svg)
 
-核心思想：**只启动 `N/2` 个 thread**（或用 `if (i < N/2)` 过滤），每个 thread 负责一对对称元素的交换。thread `i` 交换 `input[i]` 和 `input[N-1-i]`，互不重叠。
+核心思想：**只启动** `N/2` **个 thread**（或用 `if (i < N/2)` 过滤），每个 thread 负责一对对称元素的交换。thread `i` 交换 `input[i]` 和 `input[N-1-i]`，互不重叠。
 
 | 设计要点 | 说明 |
 |----------|------|
@@ -80,11 +80,11 @@ __global__ void reverse_naive(float* input, int N) {
 
 ### 3.3 关键技巧
 
-1. **`i < N / 2` 过滤**：这是本题的核心——只让前半段 thread 工作，避免对称重复交换。
+1. `i < N / 2` **过滤**：这是本题的核心——只让前半段 thread 工作，避免对称重复交换。
 2. **grid-stride loop**：`N` 可能很大（25M），但 thread 总数有限，用 stride 循环覆盖所有 `N/2` 对。
 3. **coalesced 读写**：前半段 thread 访问 `input[0..N/2-1]`（连续地址）→ 读 coalesced；写回 `input[0..N/2-1]` 和 `input[N/2..N-1]`（两段各自连续）→ 写也 coalesced。
 
-> 💡 **为什么不需要 `__syncthreads()`？** 每对 `(i, N-1-i)` 只被一个 thread 修改，不同 thread 操作的元素对互不重叠 → 无数据依赖 → 无需同步屏障。
+> 💡 **为什么不需要** `__syncthreads()`**？** 每对 `(i, N-1-i)` 只被一个 thread 修改，不同 thread 操作的元素对互不重叠 → 无数据依赖 → 无需同步屏障。
 
 ## 4. Kernel 实现
 
@@ -271,7 +271,7 @@ verify: PASS
 
 ### 5.3 优化方向
 
-1. **`float4` 向量化**：用 `float4` 一次读写 16B，减少内存事务数，理论上可进一步提升带宽利用率。
+1. `float4` **向量化**：用 `float4` 一次读写 16B，减少内存事务数，理论上可进一步提升带宽利用率。
 2. **warp-level swap**：用 `__shfl_sync` 在 warp 内交换对称 lane 的值，避免 global memory 的反向写。但实现复杂度高，收益有限（瓶颈在带宽而非指令）。
 3. **减少 grid 规模**：当 `N/2` 很大时，grid-stride loop 已覆盖，无需启动过多 block（限制在 SM 数的 2-4 倍即可）。
 

@@ -252,7 +252,7 @@ extern "C" void solve(const float* input, float* output, int N, int k) {
 
 本文件包含教学版的 `bitonic_sort_kernel`（global memory，简化演示）和 `bitonic_sort_block`（shared memory，单 block），以及提交版的 `bitonic_step` + `copy_topk_desc`。核心是 bitonic sort 的 **compare-swap 网络**：`tid ^ j` 配对、`(tid & k) == 0` 定方向。
 
-**`bitonic_sort_block`（教学版）逐段解析**：
+`bitonic_sort_block`**（教学版）逐段解析**：
 
 1. **加载数据到 shared memory**
    - `__shared__ int sdata[2 * BLOCK]`：排序缓冲区。
@@ -271,7 +271,7 @@ extern "C" void solve(const float* input, float* output, int N, int k) {
 3. **写回**
    - `data[tid] = sdata[tid]`：排序完成后写回 global memory。取后 k 个即 top-k（升序排列）。
 
-**`bitonic_step`（提交版）逐段解析**：
+`bitonic_step`**（提交版）逐段解析**：
 
 - 与 `bitonic_sort_block` 的内层逻辑相同，但拆成单步 kernel，由 host 端双重循环 `for (kk...) for (j...)` 逐步 launch。
 - `int ixj = i ^ j`：配对索引。
@@ -280,7 +280,7 @@ extern "C" void solve(const float* input, float* output, int N, int k) {
 - compare-swap 直接在 global memory 上操作（无 shared memory 中转）。
 - 补齐到 2 的幂次 `P`，空位填 `-1e30f`（`fill_neg_inf`），排序后沉底。
 
-**`copy_topk_desc`**：
+`copy_topk_desc`：
 - `output[i] = data[P - 1 - i]`：从排序数组末尾逆序取 k 个（最大的 k 个），降序输出。
 
 **关键变量说明**：

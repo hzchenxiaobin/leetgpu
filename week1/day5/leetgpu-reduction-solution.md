@@ -120,7 +120,7 @@ for (int offset = WARP_SIZE / 2; offset > 0; offset >>= 1)
 | 4 | 2  | `val[i] += val[i+2]`  | lane 0–1（各含 16 个元素和）|
 | 5 | 1  | `val[i] += val[i+1]`  | lane 0（含 32 个元素和）|
 
-5 步后 **lane 0** 持有整个 warp 32 个值的和，其余 lane 的值是中间结果（不再使用）。整个过程在寄存器内完成，**不访问 shared memory，也不需要 `__syncthreads`**——warp 内指令是 SIMT 同步执行的。
+5 步后 **lane 0** 持有整个 warp 32 个值的和，其余 lane 的值是中间结果（不再使用）。整个过程在寄存器内完成，**不访问 shared memory，也不需要** `__syncthreads`——warp 内指令是 SIMT 同步执行的。
 
 #### `reduce_kernel`：单 block 归约（两阶段结构）
 
@@ -137,7 +137,7 @@ if (lane == 0)
 
 256 个线程 = 8 个 warp。阶段 A 结束后，`warp_sums[0..7]` 存放 8 个 warp 各自的部分和。
 
-**`__syncthreads()` 的作用**
+`__syncthreads()` **的作用**
 
 ```cuda
 __syncthreads();
@@ -184,13 +184,13 @@ final_reduce<<<1, BLOCK_SIZE>>>(output, output, gridSize);
 设 `input = [1, 1, ..., 1]`（1024 个 1，期望和为 1024）。
 
 1. **gridSize** = `(1024 + 256 - 1) / 256 = 4` 个 block。
-2. **`reduce_kernel`（每个 block，互不相关地各算 256 个元素）**：
+2. `reduce_kernel`**（每个 block，互不相关地各算 256 个元素）**：
    - 256 个线程各加载 1 个元素（值为 1）。
    - 8 个 warp 各自 `warp_reduce`：每个 warp 的 32 个 1 → lane 0 得到 32。
    - `warp_sums = [32, 32, 32, 32, 32, 32, 32, 32]`，`__syncthreads()`。
    - 第一个 warp：前 8 个 lane 加载 `[32,...,32]`，`warp_reduce` → lane 0 得到 `32×8 = 256`。
    - `output[blockIdx.x] = 256`。4 个 block 各写入 256 → `output = [256, 256, 256, 256]`。
-3. **`final_reduce`（1 个 block，输入 4 个部分和）**：
+3. `final_reduce`**（1 个 block，输入 4 个部分和）**：
    - 前 4 个线程加载 `[256, 256, 256, 256]`，其余线程加载 0。
    - `warp_reduce`：lane 0 得到 `256×4 = 1024`。
    - `output[0] = 1024`。✓

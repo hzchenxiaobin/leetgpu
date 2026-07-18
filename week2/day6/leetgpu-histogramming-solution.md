@@ -90,7 +90,7 @@ __global__ void histogram_naive(const int* input, int* hist, int N, int B) {
 | 阶段① | `atomicAdd(&shared_hist[b], 1)` | `N`（1000 万） | 低（单 block 内抢 256 址） | shared，~几十周期 |
 | 阶段② | `atomicAdd(&hist[b], shared_hist[b])` | `B × blocks`（~11 万） | 极低（每址仅 blocks 个写者） | global，但并发低 |
 
-> ⚠️ **不要省掉阶段②的 `if (shared_hist[b] > 0)` 判断**。即使某 bin 计数为 0 也发 atomicAdd 会让 global 端多做无谓事务。虽然逻辑等价，但能减少阶段②的 global 写流量约一半（稀疏分布时收益更大）。
+> ⚠️ **不要省掉阶段②的** `if (shared_hist[b] > 0)` **判断**。即使某 bin 计数为 0 也发 atomicAdd 会让 global 端多做无谓事务。虽然逻辑等价，但能减少阶段②的 global 写流量约一半（稀疏分布时收益更大）。
 
 ## 4. Kernel 实现
 
@@ -385,8 +385,8 @@ ncu --kernel-name regex:histogram \
 
 1. **bin 数调优 / 分桶**：`B=256` 时 shared 占 1KB，毫无压力。若 `B` 很大（如 4096，占 16KB），需评估单 block shared 配额；超过 48KB 时改用 **2-pass histogram**（先按高位分块，每 pass 只统计一部分 bin）。
 2. **2-pass histogram**：当 `B` 过大无法塞进 shared 时，第一遍只处理 `bin ∈ [0, B/2)`，第二遍处理 `[B/2, B)`，每 pass 的 shared histogram 减半。代价是读两遍 input，适合 `B` 极大但 input 可重复扫描的场景。
-3. **warp-level reduce（`__shfl`）**：让同一 warp 内先聚合相同 bin 的计数——例如用 `__ballot_sync` / `__shfl_sync` 统计 warp 内有多少 thread 的 `bin == b`，只由一个代表 thread 发 shared atomic。把 warp 内 32 次共享 atomic 压成 1 次，对**高重复 bin**（如 `B` 很小、数据倾斜）收益显著。
-4. **vector load（`int4`）**：每线程一次读 16B（4 个 int），减少地址计算与内存事务数，提升 input 读带宽利用率。
+3. **warp-level reduce（**`__shfl`**）**：让同一 warp 内先聚合相同 bin 的计数——例如用 `__ballot_sync` / `__shfl_sync` 统计 warp 内有多少 thread 的 `bin == b`，只由一个代表 thread 发 shared atomic。把 warp 内 32 次共享 atomic 压成 1 次，对**高重复 bin**（如 `B` 很小、数据倾斜）收益显著。
+4. **vector load（**`int4`**）**：每线程一次读 16B（4 个 int），减少地址计算与内存事务数，提升 input 读带宽利用率。
 5. **shared memory bank conflict 检查**：`B=256` 时 `shared_hist` 是 `int[256]`，32 个 bank 各 8 元素，相邻 bin 落不同 bank，**通常无冲突**。但若 `B` 是 32 的倍数且访问模式特殊，需加 padding（如 `int[257]`）规避。
 
 > 💡 优化 1+3 是直方图的进阶套路：`B` 小时 privatization 已经够快；`B` 大时上 2-pass；数据倾斜严重时上 warp-level 聚合。三者组合可应对绝大多数 histogram 变体（图像、radix sort 的计数阶段、词频统计等）。

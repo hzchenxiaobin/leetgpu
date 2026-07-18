@@ -186,7 +186,7 @@ extern "C" void solve(const float* input, float* output, int M, int N) {
 
 ![Warp Shuffle 归约详解](../../images/softmax_warp_shuffle.svg)
 
-> **图：`__shfl_down_sync` 逐步归约。** 左侧 `warp_reduce_sum` 以 8 个 lane 为例（实际 32 个），offset 从 4→2→1 折半，每步 lane[i] 与 lane[i+offset] 运算，最终 lane 0 持有全局 sum。右侧 `warp_reduce_max` 结构完全对称，只把 `+=` 换成 `fmaxf`。
+> **图：**`__shfl_down_sync` **逐步归约。** 左侧 `warp_reduce_sum` 以 8 个 lane 为例（实际 32 个），offset 从 4→2→1 折半，每步 lane[i] 与 lane[i+offset] 运算，最终 lane 0 持有全局 sum。右侧 `warp_reduce_max` 结构完全对称，只把 `+=` 换成 `fmaxf`。
 
 ```cuda
 __inline__ __device__ float warp_reduce_sum(float val) {
@@ -197,11 +197,11 @@ __inline__ __device__ float warp_reduce_sum(float val) {
 }
 ```
 
-- **`offset` 折半**：从 16→8→4→2→1，5 步完成 32→1 归约（`log₂32 = 5`），每步数据量减半
-- **`__shfl_down_sync(mask, val, offset)`**：lane i 收到 lane (i+offset) 的 `val`；超出 warp 边界的 lane 值不变
-- **`#pragma unroll`**：编译器展开 5 次迭代，零循环开销，便于指令级并行
+- `offset` **折半**：从 16→8→4→2→1，5 步完成 32→1 归约（`log₂32 = 5`），每步数据量减半
+- `__shfl_down_sync(mask, val, offset)`：lane i 收到 lane (i+offset) 的 `val`；超出 warp 边界的 lane 值不变
+- `#pragma unroll`：编译器展开 5 次迭代，零循环开销，便于指令级并行
 - **结果只在 lane 0**：归约后其余 lane 的值是中间结果，需用 shared memory 广播给全 block
-- **`warp_reduce_max` 完全对称**：只把 `+=` → `fmaxf`，shuffle 机制不变
+- `warp_reduce_max` **完全对称**：只把 `+=` → `fmaxf`，shuffle 机制不变
 
 > 💡 Shuffle 在寄存器间直接传递数据，不经过 shared memory，零 bank conflict、零内存延迟，是 GPU 上最快的归约方式。
 

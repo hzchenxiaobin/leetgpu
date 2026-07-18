@@ -74,7 +74,7 @@ __global__ void naive_segmented_scan(const int* input, int* output, const int* s
 
 ### 3.3 关键技巧
 
-- **warp scan `__shfl_up_sync`**：段内做 Hillis-Steele exclusive scan（同 Week2 Day1）
+- **warp scan** `__shfl_up_sync`：段内做 Hillis-Steele exclusive scan（同 Week2 Day1）
 - **段首归零**：scan 累加时，若路径上遇到段首，则截断（不 carry 跨段和）。实现上：每个 thread 记录自己是否段首，scan 时把段首之前的前缀清零
 - **block 间段 carry**：若一个段跨越多个 block，需要 block 间的段和传递（类似三阶段 scan 的 block 间修正，但只在同段内 carry）
 
@@ -355,11 +355,11 @@ extern "C" void solve(const float* values, const int* flags, float* output, int 
 
 本文件包含教学版 `segmented_excl_scan_kernel`（假设每段不跨 block）和提交版的三个 kernel（`block_seg_scan_kernel` + `block_carry_scan` + `add_carry_kernel`，支持跨 block 长段）。核心思路：在 warp scan 中检测段首标记，段首元素的前缀强制归零（不 carry 跨段和）。
 
-**辅助函数 `warp_excl_scan`（教学版）/ `warp_seg_incl_scan`（提交版）**：
+**辅助函数** `warp_excl_scan`**（教学版）/** `warp_seg_incl_scan`**（提交版）**：
 - 教学版：标准 Hillis-Steele exclusive scan，`__shfl_up_sync` 倍增累加。
 - 提交版 `warp_seg_incl_scan`：用 `__ballot_sync` 收集段首标记位图，累加时检查路径上是否有段首——`if ((ballot & mask) == 0) sum += v`，若累加路径跨越段首则不 carry。
 
-**`segmented_excl_scan_kernel`（教学版）逐段解析**：
+`segmented_excl_scan_kernel`**（教学版）逐段解析**：
 
 1. **读取值与段首标记**
    - `int val = (tid < N) ? input[tid] : 0`：元素值。
@@ -376,7 +376,7 @@ extern "C" void solve(const float* values, const int* flags, float* output, int 
    - `if (seg_flag) block_excl = 0`：段首元素强制前缀为 0（清除前序段 carry 过来的和）。
    - `output[tid] = block_excl`。
 
-**`block_seg_scan_kernel`（提交版）逐段解析**：
+`block_seg_scan_kernel`**（提交版）逐段解析**：
 
 1. **加载到 shared memory**：`sval[threadIdx.x]`、`sflag[threadIdx.x]` 缓存值和段首标记。
 
@@ -390,7 +390,7 @@ extern "C" void solve(const float* values, const int* flags, float* output, int 
    - thread 0 串行计算各 warp 的 carry：`carry += warp_last_sum[w-1]`，若 `warp_first_flag[w]` 则 `carry = 0`（段首归零）。
    - `if (!flag && lane < warp_first_start[warp_id]) excl += warp_carry[warp_id]`：段首前的元素加上前序 warp 的 carry。
 
-4. **block 间 carry（`block_carry_scan` + `add_carry_kernel`）**
+4. **block 间 carry（**`block_carry_scan` **+** `add_carry_kernel`**）**
    - `block_seg_scan_kernel` 记录每 block 的最后一个段的和（`block_sum`）和首段信息。
    - `block_carry_scan`：串行扫描各 block 的 `block_sum`，若 block 首元素是段首则 carry 归零。
    - `add_carry_kernel`：把前序 block 的 carry 加到本 block 段首之前的元素上。

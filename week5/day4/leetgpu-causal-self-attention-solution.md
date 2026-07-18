@@ -454,7 +454,7 @@ ncu --kernel-name regex:causal_self_attention_kernel \
 
 1. **FlashAttention tiling**：本实现一个 block 处理一行 query，K/V 被多个 query 重读。FlashAttention 让一个 block 处理 `Br` 行 query，K/V tile 载入 shared 后供 `Br` 个 query 复用，把 K/V 的 HBM IO 从 `O(M²d)` 降到 `O(Md)`。causal 版可进一步利用"query i 的 tile 只需 key ≤ i 的 tile"提前终止内层循环。
 2. **causal 提前终止**：query tile `[i, i+Br)` 的 key 循环只需到 `i+Br-1`，而非 `M`——分块后可提前 break。
-3. **vector load（`float4`）**：K/V 按 d 维连续，用 `float4` 一次读 4 个 float。
+3. **vector load（**`float4`**）**：K/V 按 d 维连续，用 `float4` 一次读 4 个 float。
 4. **混合精度**：Q/K/V 用 fp16，Tensor Core `mma` 做 GEMM。
 
 ## 6. 复杂度分析
@@ -462,7 +462,7 @@ ncu --kernel-name regex:causal_self_attention_kernel \
 | 维度 | 标准 self-attention | causal self-attention（本实现） |
 |------|--------------------|-----------------------------|
 | **时间复杂度** | `O(M²d)` | `O(M²d/2)`（下三角） |
-| **中间矩阵显存** | `O(M²)`（S、P 各 M×M） | **`O(d)`**（仅 m/l/o 寄存器） |
+| **中间矩阵显存** | `O(M²)`（S、P 各 M×M） | `O(d)`（仅 m/l/o 寄存器） |
 | **HBM IO（S/P 部分）** | `O(M²)` 写读 | `0` |
 | **HBM IO（K/V 部分）** | `O(M²d)`（每 query 重读） | `O(M²d/2)`（causal 截断） |
 | **瓶颈类型** | memory-bound（S/P 物化） | memory-bound（K/V 重读），tiling 后趋 compute-bound |

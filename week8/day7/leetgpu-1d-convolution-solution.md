@@ -87,7 +87,7 @@ void cpu_conv1d(const float* x, const float* kernel, float* y, int N, int K) {
 
 1. **Halo region（边界光晕）**：每个 tile 左右各需要 `half = K/2` 个额外元素（来自相邻 tile），这些就是 halo。加载时块内线程协作把 halo 一起搬进 shared memory。
 2. **shared memory 复用**：相邻输出的 `K-1` 个重叠输入只从全局读一次，后续从 shared memory 读（~20 cycles vs ~400-800 cycles）。
-3. **`__constant__` 内存**：`kernel` 长度小且所有线程访问相同，放 constant memory 有广播缓存收益。
+3. `__constant__` **内存**：`kernel` 长度小且所有线程访问相同，放 constant memory 有广播缓存收益。
 4. **边界处理**：tile 起始/结束的 halo 可能越界，加载时用条件判断填 0（zero padding）。
 
 ---

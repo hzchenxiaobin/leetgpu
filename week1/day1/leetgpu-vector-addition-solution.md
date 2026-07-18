@@ -57,7 +57,7 @@ __global__ void vector_add_naive(const float* A, const float* B, float* C, int N
 
 启动配置 `blocks = (N + 255) / 256`，即开到将近 **10 万个 block**。它能跑对、也能跑得比 CPU 快，但有两个隐患：
 
-1. **`N` 很大时 grid 规模爆炸**：`N = 1e8` 时要开 ~39 万个 block，超过多数 GPU 的 `MaxGridDimX` 上限（`2^31-1` 其实够，但 SM 队列会被压满、调度开销显现）。
+1. `N` **很大时 grid 规模爆炸**：`N = 1e8` 时要开 ~39 万个 block，超过多数 GPU 的 `MaxGridDimX` 上限（`2^31-1` 其实够，但 SM 队列会被压满、调度开销显现）。
 2. **block 数量与 SM 数量不匹配**：开过多空 block 没收益，反而让启动开销变大。
 
 > ⚠️ 朴素写法在「正确性」上无懈可击，问题在于**它没有用「最少」的线程把数组吃干净**。这正是 grid-stride loop 要解决的。
@@ -83,7 +83,7 @@ for (int i = tid; i < N; i += stride)
     C[i] = A[i] + B[i];
 ```
 
-**为什么这样选 grid 规模？** 经验上让 block 总数 ≈ `SM 数 × (2~4)`，就能填满 SM 的并发驻留 block、又不过度启动。grid-stride 自动保证：**不管 `N` 多大、线程多少，每个元素恰好被一个 thread 处理一次**。
+**为什么这样选 grid 规模？** 经验上让 block 总数 ≈ `SM 数 × (2~4)`，就能填满 SM 的并发驻留 block、又不过度启动。grid-stride 自动保证：**不管** `N` **多大、线程多少，每个元素恰好被一个 thread 处理一次**。
 
 ### 3.2 存储层次使用
 
@@ -97,7 +97,7 @@ for (int i = tid; i < N; i += stride)
 
 ### 3.3 关键技巧：合并访存（coalesced access）
 
-grid-stride 的索引 `i = tid, tid+stride, ...` 中，`tid` 在 warp 内连续（`threadIdx.x = 0..31`），所以**同一 warp 的 32 个 thread 在同一次循环里访问的是 `A[tid], A[tid+1], ..., A[tid+31]`——地址完全连续**。
+grid-stride 的索引 `i = tid, tid+stride, ...` 中，`tid` 在 warp 内连续（`threadIdx.x = 0..31`），所以**同一 warp 的 32 个 thread 在同一次循环里访问的是** `A[tid], A[tid+1], ..., A[tid+31]`**——地址完全连续**。
 
 硬件会把这 32 次 `float` 读（共 128 字节）合并成 **一次 128B 的内存事务**，带宽利用率拉满。这就是「合并访存」：
 
@@ -243,19 +243,19 @@ extern "C" void solve(const float* A, const float* B, float* C, int N) {
 |---|--------|------|------|
 | ① | `int tid = blockIdx.x * blockDim.x + threadIdx.x;` | 计算全局线程 ID | `blockIdx.x` 是 block 编号，`blockDim.x` 是每 block 线程数（256），`threadIdx.x` 是块内编号。三者乘加得到**全 grid 唯一**的线程序号，范围 `[0, blocks×threads)` |
 | ② | `int stride = gridDim.x * blockDim.x;` | 计算跨步 | `gridDim.x` 是 block 总数。`stride = 总线程数`，即每"跳一次"跨越的元素数。这是 grid-stride 的核心参数 |
-| ③ | `for (int i = tid; i < N; i += stride)` | grid-stride 主循环 | 从 `tid` 出发，每次加 `stride`，直到越界。**循环条件 `i < N` 兼任越界保护**——无需单独 `if (i < N)` |
+| ③ | `for (int i = tid; i < N; i += stride)` | grid-stride 主循环 | 从 `tid` 出发，每次加 `stride`，直到越界。**循环条件** `i < N` **兼任越界保护**——无需单独 `if (i < N)` |
 | ④ | `C[i] = A[i] + B[i];` | 核心计算 | 逐元素加法。一次循环体执行 = 读 A + 读 B + 写 C |
 
 **关键索引/变量**：
 
 - `tid`：线程的"身份证号"。同一 warp 内 `threadIdx.x` 连续（0..31），所以 warp 内 `tid` 也连续 → 保证合并访存。
 - `stride`：让少量线程"扫"完整个数组。当 `N=25M`、`blocks×threads=110592` 时，每个 thread 只需循环 `ceil(25M/110592) ≈ 226` 次。
-- `i`：当前 thread 本次循环负责的元素下标。**每个 `i` 恰好被一个 thread 处理一次**（grid-stride 的不变式）。
+- `i`：当前 thread 本次循环负责的元素下标。**每个** `i` **恰好被一个 thread 处理一次**（grid-stride 的不变式）。
 
 **关键洞察**：grid-stride loop 把"线程数"与"问题规模 `N`"彻底解耦——
 
 - 朴素写法：`blocks = (N+255)/256`，线程数随 `N` 线性增长，`N=1e8` 时要开 ~39 万个 block。
-- grid-stride：`blocks = num_sm × 4`（如 432），线程数固定 ~11 万，**不论 `N` 多大都不变**。每个 thread 多循环几次即可，既填满 SM 又避免 grid 爆炸。
+- grid-stride：`blocks = num_sm × 4`（如 432），线程数固定 ~11 万，**不论** `N` **多大都不变**。每个 thread 多循环几次即可，既填满 SM 又避免 grid 爆炸。
 
 > 💡 **worked example**：设 `N=10, blocks=2, threads=4`，则 `stride=8`。8 个 thread 的 `tid` 为 0..7，第一轮处理 `i = 0..7`；`tid=0,1` 的 thread 还会进入第二轮处理 `i=8,9`，其余 thread 的 `i=8..14` 已 ≥10 退出。最终 10 个元素被全覆盖、无重复——这就是 grid-stride 的正确性保证。
 
@@ -281,7 +281,7 @@ verify: PASS  (0 / 25000000 mismatch)
 effective bandwidth: 312.5 GB/s
 ```
 
-RTX 5090 的 HBM 理论带宽约 1.5–1.9 TB/s，这里跑到 ~312 GB/s 看似不高，但要注意 **`cudaEvent` 计时含一次冷启动**；用 `ncu` 在稳态下重复采样会更接近峰值。
+RTX 5090 的 HBM 理论带宽约 1.5–1.9 TB/s，这里跑到 ~312 GB/s 看似不高，但要注意 `cudaEvent` **计时含一次冷启动**；用 `ncu` 在稳态下重复采样会更接近峰值。
 
 ### 5.2 用 ncu profiling
 
@@ -310,8 +310,8 @@ ncu --metrics gpu__time_duration.sum, \
 
 ### 5.3 优化方向
 
-1. **`float4` 向量化访存**：把 `A/B/C` 当 `float4*` 看，每个 thread 一次读 16 字节、处理 4 个元素，减少指令数与地址计算开销，对带宽受限 kernel 通常有 5–15% 提升。需处理 `N % 4 != 0` 的尾部。
-2. **`__ldg` / `const float* __restrict__`**：提示编译器走只读缓存（texture/L1.5）路径，对某些架构有帮助。
+1. `float4` **向量化访存**：把 `A/B/C` 当 `float4*` 看，每个 thread 一次读 16 字节、处理 4 个元素，减少指令数与地址计算开销，对带宽受限 kernel 通常有 5–15% 提升。需处理 `N % 4 != 0` 的尾部。
+2. `__ldg` **/** `const float* __restrict__`：提示编译器走只读缓存（texture/L1.5）路径，对某些架构有帮助。
 3. **launch bound 调参**：`blocks = num_sm × k` 中 `k` 取 2~8 扫一遍，找带宽拐点；过多 block 会让 SM 驻留 block 数下降、反而降低延迟隐藏能力。
 4. **CUDA Graph / 流水线**：若 kernel 在更大管线里被反复调用，用 Graph 摊掉启动开销。
 5. **多流并发**：单个 vector add 没用，但在批量处理多个向量时，多流可让 HBM 带宽与 PCIe 传输重叠。

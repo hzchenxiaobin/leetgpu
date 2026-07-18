@@ -319,12 +319,12 @@ extern "C" void solve(const float* x, float* output, const float* weights, int s
 
 #### 4.2.2 各子 kernel 解析
 
-- **`layerNorm` / `layerNorm2`**：3 趟扫描（mean → var → normalize），每行只用 1 个线程（`threadIdx.x == 0`），是"正确但低效"的简化实现。优化方向：用 warp/block 归约把 3 趟融合为 1 趟，并与下游 QKV/FFN 融合。
-- **`qkv`**：带偏置的 GEMM，每个 block 处理一行，线程以 grid-stride 遍历 `kDModel*3` 个输出列。权重布局为行主 `[in_dim, out_dim]`，内层循环串行累加 `kDModel` 个乘加。
-- **`attn`**：grid 维度为 `(seq_len, n_heads)`，每个 block 处理一个 (row, head)。`lane==0` 串行计算该行对所有 key 的 score、在线 softmax（max → exp → sum → 归一），结果存入 `__shared__ scores[]`；所有 lane 再并行做 PV 加权求和。**注意：本实现未加 causal mask**，仅做了 `scale + softmax + PV`。优化方向：FlashAttention 分块 + causal。
-- **`linear_bias`**：通用带偏置 GEMM，用于注意力输出投影（`attn_concat → attn_proj`）。grid 为 `(ceil(out_dim/256), rows)`，每个线程算一个输出元素。
-- **`ffn`**：两层 GEMM（`d_model → ffn_dim → d_model`），中间 GELU 激活。第一层结果存入 `__shared__ up[kFfnDim]`，`__syncthreads()` 后第二层直接从 shared memory 读取，省去一次 HBM 往返。这是本实现中唯一的"算子内融合"。
-- **`add_residual`**：标准 element-wise 加法，1D grid 覆盖所有 token 元素。
+- `layerNorm` **/** `layerNorm2`：3 趟扫描（mean → var → normalize），每行只用 1 个线程（`threadIdx.x == 0`），是"正确但低效"的简化实现。优化方向：用 warp/block 归约把 3 趟融合为 1 趟，并与下游 QKV/FFN 融合。
+- `qkv`：带偏置的 GEMM，每个 block 处理一行，线程以 grid-stride 遍历 `kDModel*3` 个输出列。权重布局为行主 `[in_dim, out_dim]`，内层循环串行累加 `kDModel` 个乘加。
+- `attn`：grid 维度为 `(seq_len, n_heads)`，每个 block 处理一个 (row, head)。`lane==0` 串行计算该行对所有 key 的 score、在线 softmax（max → exp → sum → 归一），结果存入 `__shared__ scores[]`；所有 lane 再并行做 PV 加权求和。**注意：本实现未加 causal mask**，仅做了 `scale + softmax + PV`。优化方向：FlashAttention 分块 + causal。
+- `linear_bias`：通用带偏置 GEMM，用于注意力输出投影（`attn_concat → attn_proj`）。grid 为 `(ceil(out_dim/256), rows)`，每个线程算一个输出元素。
+- `ffn`：两层 GEMM（`d_model → ffn_dim → d_model`），中间 GELU 激活。第一层结果存入 `__shared__ up[kFfnDim]`，`__syncthreads()` 后第二层直接从 shared memory 读取，省去一次 HBM 往返。这是本实现中唯一的"算子内融合"。
+- `add_residual`：标准 element-wise 加法，1D grid 覆盖所有 token 元素。
 
 #### 4.2.3 HBM IO 与优化机会一览
 

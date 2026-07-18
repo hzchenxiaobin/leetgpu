@@ -75,7 +75,7 @@ __global__ void swiglu_naive(const float* input, float* output, int halfN) {
 ### 3.3 关键技巧
 
 - **kernel fusion**：SiLU + 乘法融合，省 2 次 HBM 往返（最大收益）
-- **`__expf` 快速数学**：比 `expf` 快 ~10x，精度满足 `atol=1e-4`
+- `__expf` **快速数学**：比 `expf` 快 ~10x，精度满足 `atol=1e-4`
 - **grid-stride loop**：任意 `halfN` 一次覆盖
 - **coalesced access**：连续 thread 访问连续地址
 
@@ -254,7 +254,7 @@ ncu --set full --kernel swiglu_kernel ./swiglu 2>&1 | rg -i "Memory Throughput|D
 **优化方向**：
 
 1. **kernel fusion**（最大收益）：省 2 次 HBM 往返，带宽利用率从 26% → 45%
-2. **`__expf` 快速数学**：计算开销降低 ~10x，带宽利用率 45% → 71%
+2. `__expf` **快速数学**：计算开销降低 ~10x，带宽利用率 45% → 71%
 3. **grid-stride loop**：任意 N 一次覆盖
 4. **与上游 GEMM 融合**：SwiGLU 的 `x₁`/`x₂` 来自 gate/up 投影的 GEMM 输出 → 融合后省 GEMM → HBM → SwiGLU 的往返（LLaMA 实际部署的做法）
 

@@ -17,7 +17,7 @@ $$C[i][j] = \alpha \sum_{k=0}^{K-1} A[i][k] \times B[k][j] + \beta \cdot C_{init
 
 **关键要求**：
 
-- `A`、`B`、`C` 均为 **FP16（`half`）**，行主序；`α`、`β` 为 **FP32**。
+- `A`、`B`、`C` 均为 **FP16（**`half`**）**，行主序；`α`、`β` 为 **FP32**。
 - 乘加累加必须在 **FP32** 下进行（提升精度），最终结果转回 FP16 写入 `C`。
 - 允许使用 **WMMA**（其他外部库禁止）。
 - **函数签名固定**：`void solve(const half* A, const half* B, half* C, int M, int N, int K, float alpha, float beta)`。
@@ -77,7 +77,7 @@ __global__ void gemm_naive(const half* A, const half* B, half* C, int M, int N, 
 
 ### 2.3 优化 GPU（CUDA Core，非 TensorCore）
 
-在切换到 WMMA 之前，先用 CUDA Core 把 **Shared Memory Tiling + Register Blocking** 做到极致，是理解 GEMM 优化范式的标准路径。下面这个版本**完全不使用 `wmma::mma_sync`**，完全靠 FP32 FMA 计算；它的性能天花板被 CUDA Core 算力限制，通常只有 Tensor Core 版的 1/10 左右，但代码更直观，也更容易和后面的 WMMA 版对比 IO 复用策略。
+在切换到 WMMA 之前，先用 CUDA Core 把 **Shared Memory Tiling + Register Blocking** 做到极致，是理解 GEMM 优化范式的标准路径。下面这个版本**完全不使用** `wmma::mma_sync`，完全靠 FP32 FMA 计算；它的性能天花板被 CUDA Core 算力限制，通常只有 Tensor Core 版的 1/10 左右，但代码更直观，也更容易和后面的 WMMA 版对比 IO 复用策略。
 
 ```cuda
 // gemm_cuda_core.cu —— FP16 GEMM，CUDA Core 优化版（无 Tensor Core）
@@ -287,9 +287,9 @@ int main(int argc, char** argv) {
 
 题目用 FP16 输入 + 允许 WMMA，是明确的 Tensor Core 信号：
 
-- **单条 `mma.sync` = 8192 FLOP**：一次完成 `16×16×16` 矩阵乘加，由 Tensor Core 在一个时钟周期内吞吐，远超 CUDA Core 的标量 FMA。
+- **单条** `mma.sync` **= 8192 FLOP**：一次完成 `16×16×16` 矩阵乘加，由 Tensor Core 在一个时钟周期内吞吐，远超 CUDA Core 的标量 FMA。
 - **FP32 累加天然满足**：WMMA 的 `wmma::fragment<accumulator, ..., float>` 就是 FP32 累加器，题目「FP32 累加、结果转 FP16」的要求无需额外代码。
-- **`α/β` 由 epilogue 处理**：WMMA 只做 `A×B` 累加，`α·(·)+β·C` 在写回阶段统一套用（见 3.4）。
+- `α/β` **由 epilogue 处理**：WMMA 只做 `A×B` 累加，`α·(·)+β·C` 在写回阶段统一套用（见 3.4）。
 
 > 💡 相比之下，若坚持用 FP32 CUDA Core 做 Register Blocking（Week 1 范式搬到 FP16→FP32），即便分块做得再好，也只能跑到 peak 的个位数百分比——因为算力天花板被 CUDA Core 锁死，完全没用上 Tensor Core。本题的正确方向只有一个：**WMMA**。
 
@@ -339,7 +339,7 @@ staging (dyn) = Cs[128×128] fp32 = 64 KB   （epilogue 暂存累加器）
 
 - **WMMA fragment 三件套**：`wmma::load_matrix_sync` 从 shared 载入 `a_frag`/`b_frag`，`wmma::mma_sync` 做 `D = A×B + C`，`wmma::store_matrix_sync` 把 fp32 累加器写回 shared。
 - **FP32 累加**：accumulator fragment 声明为 `float`，全程 FP32 累加，天然满足精度要求。
-- **`α/β` epilogue**：WMMA 只算 `Σ A·B`。写回前把累加器存入 shared staging（fp32），再由全体 thread 协作读出，套 `α·acc + β·C_initial`，转 half 写回 global `C`。`β=0` 时跳过读 `C`。
+- `α/β` **epilogue**：WMMA 只算 `Σ A·B`。写回前把累加器存入 shared staging（fp32），再由全体 thread 协作读出，套 `α·acc + β·C_initial`，转 half 写回 global `C`。`β=0` 时跳过读 `C`。
 - **边界填零**：`M/N/K` 非 tile 整数倍时，加载阶段越界补 `__float2half(0)`，省去内层分支；写回阶段仍判 `gr<M && gc<N`。
 - **大 shared opt-in**：staging 64KB 超过默认 48KB，需 `cudaFuncSetAttribute(..., cudaFuncAttributeMaxDynamicSharedMemorySize, ...)` 放开 dynamic shared 上限。
 
@@ -797,9 +797,9 @@ for (int bk = 0; bk < K; bk += BK) {
 ```
 
 - **① 协作加载**：256 thread 平摊 `As` 的 `128×16=2048` 与 `Bs` 的 `16×128=2048` 个 half，每 thread 各搬 `LOAD_A=LOAD_B=8` 个（`leetgpu-gemm-solution.md:678` 起）。越界处填 `__float2half(0)`，使内层 `mma` 无需判边界。
-- **② `__syncthreads`**：保证所有 thread 装完本 tile，才能开始 `load_matrix_sync` 读 shared。
-- **③ `2×4=8` 次 `mma`**：每个 warp 用自己的 `acc[i][j]` 累加，8 个 warp 互不干扰地并行跑 Tensor Core。累加器常驻寄存器，K 循环里不落盘。
-- **④ `__syncthreads`**：本 tile 的 `As/Bs` 已读完，下一轮迭代才能覆盖写入，故再同步一次。
+- **②** `__syncthreads`：保证所有 thread 装完本 tile，才能开始 `load_matrix_sync` 读 shared。
+- **③** `2×4=8` **次** `mma`：每个 warp 用自己的 `acc[i][j]` 累加，8 个 warp 互不干扰地并行跑 Tensor Core。累加器常驻寄存器，K 循环里不落盘。
+- **④** `__syncthreads`：本 tile 的 `As/Bs` 已读完，下一轮迭代才能覆盖写入，故再同步一次。
 
 > ⚠️ 两个 `__syncthreads` 缺一不可：② 防「没装完就读」，④ 防「没读完就覆盖」。少任何一个都会产生跨 tile 的数据竞争。
 
@@ -817,7 +817,7 @@ wmma::load_matrix_sync(b_frag, &Bs[0][warp_col + j*WMMA_N], BN);  // ld = BN
 
 两个 fragment 都声明为 `wmma::row_major`，与 C 行主序矩阵及 shared 的 C 风格二维数组布局一致，无需转置。若把 `ld` 写反（如 `b_frag` 误用 `BK`），WMMA 会按错误 stride 拼元素，结果完全错位。
 
-> 💡 判断 `ld` 的口诀：**「数组哪一维连续，`ld` 就等于那一维的大小」**。`As` 第二维 `BK` 连续 → `ld=BK`；`Bs` 第二维 `BN` 连续 → `ld=BN`。
+> 💡 判断 `ld` 的口诀：**「数组哪一维连续，**`ld` **就等于那一维的大小」**。`As` 第二维 `BK` 连续 → `ld=BK`；`Bs` 第二维 `BN` 连续 → `ld=BN`。
 
 #### 4.2.5 `mma_sync`：D = A×B + C
 
@@ -849,7 +849,7 @@ for (int i = 0; i < total/NUM_THREADS; ++i) {     // 16384 元素 / 256 = 64 / t
 ```
 
 - **为何要 staging**：`α·acc + β·C` 是逐元素标量运算，而 `acc` 元素分布在 fragment 寄存器里、lane→元素映射架构相关、不可移植地直接索引。用 `store_matrix_sync` 把 fp32 累加器先落到连续 shared `Cs`，再用普通 256-thread 协作循环做标量运算，清晰且可移植。
-- **`β=0` 短路**：仅 `beta != 0.0f` 时才读 `C_initial`，省掉无意义的 global 读。
+- `β=0` **短路**：仅 `beta != 0.0f` 时才读 `C_initial`，省掉无意义的 global 读。
 - **写回判边界**：`if (gr < M && gc < N)` 处理 `M/N` 非 tile 整数倍的尾块。
 
 > ⚠️ `store_matrix_sync` 后必须 `__syncthreads`：要等所有 warp 都把各自 fragment 写进 `Cs`，协作循环才能读到完整的 128×128。5.4 第 3 点提到「直接索引 `acc.x[]` 就地缩放」可省掉这 64KB staging 与一次同步，但牺牲可移植性。
@@ -867,7 +867,7 @@ for (int i = 0; i < total/NUM_THREADS; ++i) {     // 16384 元素 / 256 = 64 / t
 | `warp_row` | 0 | `0 * WARP_TILE_M(32) = 0` |
 | `warp_col` | 0 | `0 * WARP_TILE_N(64) = 0` |
 
-所以 warp 0 负责 **输出 `C[0..31][0..63]`**（`32×64` 子块），由 `FRAGS_M×FRAGS_N = 2×4 = 8` 个 16×16 fragment 拼成，每个 fragment 对应一次 `mma_sync`：
+所以 warp 0 负责 **输出** `C[0..31][0..63]`（`32×64` 子块），由 `FRAGS_M×FRAGS_N = 2×4 = 8` 个 16×16 fragment 拼成，每个 fragment 对应一次 `mma_sync`：
 
 | fragment `(i,j)` | 行范围（block 内） | 列范围（block 内） | `a_frag` 来源 | `b_frag` 来源 |
 |------------------|--------------------|--------------------|---------------|---------------|
@@ -891,7 +891,7 @@ for (int i = 0; i < total/NUM_THREADS; ++i) {     // 16384 元素 / 256 = 64 / t
 | **Block tile** | `128×128` | 1 / block | 1 block = 256 thread / 8 warp | shared `As[128×16]`、`Bs[16×128]`，block 内 8 warp 复用同一 `A/B` tile |
 | **Warp tile** | `32×64` | 8 / block（`4×2`） | 1 warp = 32 lane | warp 内 8 fragment 复用同一组 `a_frag`/`b_frag` 行列块 |
 | **Fragment** | `16×16` | 8 / warp（`2×4`） | 1 warp 协作 | 累加器 `acc[i][j]` 常驻寄存器，沿 K 全程累加 |
-| **`mma` 指令** | `16×16×16`（8192 FLOP）| 8 / warp / K-step | Tensor Core，~1 cycle | — |
+| `mma` **指令** | `16×16×16`（8192 FLOP）| 8 / warp / K-step | Tensor Core，~1 cycle | — |
 
 三级 tiling 把「全局矩阵 → block tile → warp tile → fragment → mma」逐层缩小，每一层都把数据留在更近的存储里复用：global → shared（block 级）→ fragment 寄存器（warp 级）→ Tensor Core（指令级）。这是所有现代 GEMM（cuBLAS / CUTLASS / `wgmma`）的共同骨架，差别只在每一层换更高效的指令与布局。
 
@@ -965,10 +965,10 @@ ncu --metrics gpu__time_duration.sum, \
 ### 5.4 优化方向
 
 1. **Double Buffering（软件流水线）**：双 shared buffer，当前 tile 计算时预取下一 tile，让 Tensor Core 计算与 global→shared 传输重叠。预计 +15-25%，性价比最高。
-2. **向量化加载 `int4` / `half8`**：协作加载阶段一次读 8 个 half（`reinterpret_cast`），指令数减 7/8，缓解加载端口压力。
+2. **向量化加载** `int4` **/** `half8`：协作加载阶段一次读 8 个 half（`reinterpret_cast`），指令数减 7/8，缓解加载端口压力。
 3. **消除 staging**：直接访问 `acc[i][j].x[]` 元素做 `α` 缩放并就地转 half 写回，省掉 64KB dynamic shared 与一次 `store_matrix_sync`+`__syncthreads`。代价是 fragment 元素布局是架构相关的，可移植性下降。
-4. **`WMMA_M=16,N=16,K=16` → 更大 warp tile**：增大 `WARP_TILE_M/N`（如 64×64 = 16 fragment/warp），提升每 warp 的算术强度、减少 block 数量带来的尾块损失。
-5. **改用 `mma` PTX / `wgmma`（Hopper+）**：WMMA 是封装层，直接用 `mma.sync.aligned` PTX 或 Blackwell 的 `wgmma` 可获得更细粒度控制与更高吞吐，是 cuBLAS 的实现方式。
+4. `WMMA_M=16,N=16,K=16` **→ 更大 warp tile**：增大 `WARP_TILE_M/N`（如 64×64 = 16 fragment/warp），提升每 warp 的算术强度、减少 block 数量带来的尾块损失。
+5. **改用** `mma` **PTX /** `wgmma`**（Hopper+）**：WMMA 是封装层，直接用 `mma.sync.aligned` PTX 或 Blackwell 的 `wgmma` 可获得更细粒度控制与更高吞吐，是 cuBLAS 的实现方式。
 6. **Auto-tuning**：`BM/BN/BK/WARPS_M/WARPS_N` 在不同 `M/N/K` 与架构下最优不同，可对几组配置做 sweep。
 
 > ⚠️ 上述 1-3 全做完可达 cuBLAS 70-80%；再上 `wgmma` + 异步拷贝（`cp.async` / TMA）+ swizzle 布局才能逼近 95%+——那是 CUTLASS 的范畴，但底层范式与本 kernel 一脉相承。

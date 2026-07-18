@@ -74,7 +74,7 @@ __global__ void naive_compact(const int* input, int* output, int* count, int N) 
 
 ### 3.3 关键技巧
 
-- **warp scan `__shfl_up_sync`**：用 warp 内 shuffle 做 prefix sum，零 bank conflict、零同步开销
+- **warp scan** `__shfl_up_sync`：用 warp 内 shuffle 做 prefix sum，零 bank conflict、零同步开销
 - **三阶段分块 scan**（Week2 Day1）：block 内 scan → block 和的 scan → block 内修正
 - **scatter 是写发散**：只有 `pred[i]==1` 的 thread 写，但写地址 `ps[i]` 连续 → 合并写
 
@@ -339,18 +339,18 @@ extern "C" void solve(const float* A, int N, float* out) {
 
 Stream Compaction 由 **三个 kernel 串行** 组成：`predicate_kernel`（标记非零元素）→ `block_excl_scan_kernel`（两遍 exclusive scan 算紧凑下标）→ `scatter_kernel`（按下标写入）。核心是 `warp_excl_scan` 用 `__shfl_up_sync` 实现 Hillis-Steele scan。
 
-**辅助函数 `warp_excl_scan`**：
+**辅助函数** `warp_excl_scan`：
 - `for (int offset = 1; offset < WARP; offset *= 2)`：5 步倍增，`__shfl_up_sync` 从 `offset` 距离的 lane 取值累加。
 - `if (lane >= offset) sum += v`：只在前 `offset` 个 lane 之后累加（exclusive 语义）。
 - `return sum - orig`：inclusive 转 exclusive（减回自己的值）。
 
 **kernel 逐段解析**：
 
-1. **`predicate_kernel`：标记非零**
+1. `predicate_kernel`**：标记非零**
    - `int i = blockIdx.x * blockDim.x + threadIdx.x`：全局下标。
    - `pred[i] = (input[i] != 0) ? 1 : 0`：非零标记为 1，零标记为 0。后续 scan 对 `pred` 求前缀和。
 
-2. **`block_excl_scan_kernel`：block 内 exclusive scan**
+2. `block_excl_scan_kernel`**：block 内 exclusive scan**
    - `int val = (tid < N) ? pred[tid] : 0`：读取 predicate，越界补 0。
    - `int warp_excl = warp_excl_scan(val)`：warp 内 exclusive prefix sum。
    - `int warp_total = warp_excl + val`：warp 的 inclusive 总和（最后一个 lane 持有）。
@@ -360,11 +360,11 @@ Stream Compaction 由 **三个 kernel 串行** 组成：`predicate_kernel`（标
    - `ps[tid] = block_excl`：写入全局 `ps` 数组（即每个非零元素在 output 中的下标）。
    - `if (threadIdx.x == blockDim.x - 1) block_sums[blockIdx.x] = block_excl + val`：最后一个 thread 记录本 block 的总和，供第二级 scan 使用。
 
-3. **第二级 scan + `add_prev_blocks`：跨 block 修正**
+3. **第二级 scan +** `add_prev_blocks`**：跨 block 修正**
    - 对 `block_sums` 数组再做一遍 `block_excl_scan_kernel`，得到每个 block 的前序累加偏移 `block_sums_excl`。
    - `add_prev_blocks`：`ps[tid] += block_sums_excl[blockIdx.x]`，把前序 block 的元素数加到每个 `ps` 上（block 0 不加）。
 
-4. **`scatter_kernel`：紧凑写入**
+4. `scatter_kernel`**：紧凑写入**
    - `if (i < N && pred[i] == 1)`：只处理非零元素。
    - `output[ps[i]] = input[i]`：用 `ps[i]` 作为目标下标。由于 `ps` 对非零元素是连续递增的（`0, 1, 2, ...`），写入地址 coalesced 且保序。
    - `count = ps[N-1] + pred[N-1]`：总元素数 = 最后一个元素的前缀和 + 它自己的 predicate。

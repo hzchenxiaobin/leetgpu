@@ -67,7 +67,7 @@ __global__ void matrix_copy_naive(const float* in, float* out, int N) {
 
 由于矩阵在显存中是**行主序连续存储**的，`M×N` 矩阵等价于长度 `M*N` 的一维 `float` 数组。因此**无需 2D block / tiling**——直接用 **1D grid-stride loop**（[Day 1 Vector Addition](../../leetgpu/week1/day1/leetgpu-vector-addition-solution.md) 同款）把线程映射到线性下标，自然保证 warp 内地址连续，coalesced 自动满足。
 
-在此基础上叠加 **`float4` 向量化**：每 thread 一次搬运 4 个 `float`（128-bit），把 4 条 32-bit `load`/`store` 合并为 1 条 128-bit 事务。
+在此基础上叠加 `float4` **向量化**：每 thread 一次搬运 4 个 `float`（128-bit），把 4 条 32-bit `load`/`store` 合并为 1 条 128-bit 事务。
 
 ![float4 向量化：4 条 4B 事务合并为 1 条 16B 事务](../../images/matrix_addition_float4_vectorization.svg)
 
@@ -94,7 +94,7 @@ for (int i = tid; i < N/4; i += stride)
 
 ### 3.3 关键技巧 1：coalesced access（读 + 写双向合并）
 
-grid-stride 的索引 `i = tid, tid+stride, ...` 中，`tid` 在 warp 内连续（`threadIdx.x = 0..31`），所以**同一 warp 的 32 个 thread 在同一次循环里访问的是 `in[tid], in[tid+1], ..., in[tid+31]`——地址完全连续**。硬件把这 32 次 `float` 读（128 字节）合并成 **一次 128B load 事务**；写同理。
+grid-stride 的索引 `i = tid, tid+stride, ...` 中，`tid` 在 warp 内连续（`threadIdx.x = 0..31`），所以**同一 warp 的 32 个 thread 在同一次循环里访问的是** `in[tid], in[tid+1], ..., in[tid+31]`**——地址完全连续**。硬件把这 32 次 `float` 读（128 字节）合并成 **一次 128B load 事务**；写同理。
 
 ![合并访存：warp 内 32 个线程访问连续地址，合并为 1 条 128B 事务](../../images/vector_addition_coalesced.svg)
 
@@ -289,7 +289,7 @@ extern "C" void solve(const float* A, float* B, int N) {
 
 两个 kernel 共用 **1D grid-stride** 框架，区别在于每 thread 搬运的粒度：标量版每次 1 个 float（4B），向量化版每次 1 个 float4（16B）。矩阵在显存中行主序连续，1D 映射天然 coalesced。
 
-**`matrix_copy_kernel`（标量版）逐段解析**：
+`matrix_copy_kernel`**（标量版）逐段解析**：
 
 1. **索引计算**
    - `int tid = blockIdx.x * blockDim.x + threadIdx.x`：全局线程下标。
@@ -298,7 +298,7 @@ extern "C" void solve(const float* A, float* B, int N) {
    - `for (int i = tid; i < N; i += stride)`：每 thread 跨步搬运多个元素，少量 block 覆盖全部 N。
    - `out[i] = in[i]`：warp 内 32 个 thread 的 `i` 连续（`tid` 连续），合并成 1 次 128B load + 1 次 128B store。但每事务只搬 4B，指令/事务开销偏高。
 
-**`matrix_copy_vectorized`（float4 版）逐段解析**：
+`matrix_copy_vectorized`**（float4 版）逐段解析**：
 
 1. **float4 转型**
    - `int vec_n = N / 4`：float4 元素数（每 4 个 float 一组）。
@@ -385,11 +385,11 @@ ncu --kernel-name regex:matrix_copy_vectorized \
 
 ### 5.3 优化方向
 
-1. **`float4` 向量化（必做）**：4 条 32-bit 事务合并为 1 条 128-bit 事务，事务/指令数减 4×，对纯拷贝提升 `20-30%`。本题最值得动手的优化，可迁移到所有 elementwise kernel。
+1. `float4` **向量化（必做）**：4 条 32-bit 事务合并为 1 条 128-bit 事务，事务/指令数减 4×，对纯拷贝提升 `20-30%`。本题最值得动手的优化，可迁移到所有 elementwise kernel。
 2. **block size 调优**：`BLOCK_SIZE=256` 是经验甜点。memory-bound kernel 不需要 100% occupancy——`128` 并发请求略少、`512` 资源压力大收益饱和。可扫 `128/256/512` 找拐点。
 3. **pinned memory（host 侧）**：`cudaMallocHost` 分配页锁定内存，可把 PCIe 带宽从 ~10 拉到 ~25 GB/s。本题 D2D 纯显存拷贝对 kernel 无影响，但能加速外层 H2D 预热。
 4. **launch bound 调参**：`blocks = num_sm × k`，`k` 取 `2~8` 扫一遍。纯拷贝极短，过多 block 让 SM 驻留 block 数下降、延迟隐藏变差。
-5. **直接用 `cudaMemcpy`**：生产环境若只需拷贝，`cudaMemcpyDeviceToDevice` 已是高度优化的内置内核，手写 kernel 难以超越。本题的价值在于**理解它为什么快**，而非替代它。
+5. **直接用** `cudaMemcpy`：生产环境若只需拷贝，`cudaMemcpyDeviceToDevice` 已是高度优化的内置内核，手写 kernel 难以超越。本题的价值在于**理解它为什么快**，而非替代它。
 
 > 💡 **优化 1（float4）最值得动手**：只要 coalesced + float4 做对，手写 kernel 就能逼近 `cudaMemcpy` 的 `~95%` 带宽，这正是 memory-bound 算子的优化终点。
 

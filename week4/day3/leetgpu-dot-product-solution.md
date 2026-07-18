@@ -66,7 +66,7 @@ __global__ void naive_dot(const float* a, const float* b, float* result, int N) 
 
 ### 3.3 关键技巧
 
-- **warp shuffle `__shfl_down_sync`**：warp 内树形归约，零 bank conflict、零同步开销
+- **warp shuffle** `__shfl_down_sync`：warp 内树形归约，零 bank conflict、零同步开销
 - **block 两级归约**：warp 归约 → shared memory → 第一个 warp 归约 warp_sums → block_sum
 - **kernel 融合**：乘法和归约在一个 kernel 完成（`a[i]*b[i]` 在归约前算，避免中间数组）
 - **atomicAdd 跨 block**：简单但有竞争；大 N 时用两遍 kernel（先写 block_sums，再归约）
@@ -220,7 +220,7 @@ extern "C" void solve(const float* A, const float* B, float* result, int N) {
 
 `dot_product_kernel` 采用 **"乘法与归约融合 + 两级归约"** 结构：每 thread 先用 grid-stride 算自己负责元素的乘积和，再 warp 内 `__shfl_down_sync` 树形归约，最后 block 间用 `atomicAdd` 汇总。乘法在归约前完成，避免中间数组。
 
-**辅助函数 `warp_reduce`**：
+**辅助函数** `warp_reduce`：
 - `for (int offset = WARP/2; offset > 0; offset /= 2)`：5 步折半，`__shfl_down_sync` 把高半 lane 的值加到低半，最终 lane 0 持有 warp 内总和。全程寄存器，零 bank conflict。
 
 **kernel 逐段解析**：

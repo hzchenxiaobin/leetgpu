@@ -70,7 +70,7 @@ __global__ void silu_naive(const float* input, float* output, int N) {
 
 ### 3.3 关键技巧
 
-- **`__expf` 快速数学函数**：CUDA 内置 intrinsics，比标准 `expf` 快约 10x，精度略低但在 `atol=1e-5` 内完全够用。这是本题最重要的优化。
+- `__expf` **快速数学函数**：CUDA 内置 intrinsics，比标准 `expf` 快约 10x，精度略低但在 `atol=1e-5` 内完全够用。这是本题最重要的优化。
 - **grid-stride loop**：任意 N 一次覆盖，减少 launch 开销
 - **coalesced access**：thread 映射连续地址，1 次 128-byte 事务
 - **float4 向量化**（进阶）：每 thread 处理 4 个 float，减少指令数、提升带宽
@@ -229,7 +229,7 @@ ncu --set full --kernel silu_kernel ./silu 2>&1 | rg -i "Memory Throughput|DRAM|
 
 **优化方向**：
 
-1. **`__expf` 快速数学**：本题最大单点收益——`expf` 是标准库函数，内部有精度修正分支；`__expf` 是硬件近似的 intrinsics，~10x 快，精度 `atol=1e-5` 完全满足
+1. `__expf` **快速数学**：本题最大单点收益——`expf` 是标准库函数，内部有精度修正分支；`__expf` 是硬件近似的 intrinsics，~10x 快，精度 `atol=1e-5` 完全满足
 2. **grid-stride loop**：任意 N 一次覆盖，避免多次 launch
 3. **float4 向量化**：每 thread 处理 4 个 float（16 byte），减少指令数、提升带宽
 4. **kernel fusion**（最大收益）：把 SiLU 与上游算子（如 GEMM 的 bias add）融合，省一次 HBM 往返——这是 LLaMA 推理中 SwiGLU 实际用的做法

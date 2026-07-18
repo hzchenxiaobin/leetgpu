@@ -64,7 +64,7 @@ void attention_cpu(const float* Q, const float* K, const float* V, float* O, int
 }
 ```
 
-三步各自 `O(N²d)`，总计 `O(N²d)`。关键是 **必须物化 `S`、`P`**——因为 softmax 的归一化因子依赖整行的 max/sum。
+三步各自 `O(N²d)`，总计 `O(N²d)`。关键是 **必须物化** `S`**、**`P`——因为 softmax 的归一化因子依赖整行的 max/sum。
 
 ### 2.2 朴素 GPU：物化 S/P 到 HBM
 
@@ -77,7 +77,7 @@ void attention_cpu(const float* Q, const float* K, const float* V, float* O, int
 2. **IO 浪费**：`S` 写一次读两次（max + exp）、`P` 写一次读一次，共约 `4N²×4B` 的额外 HBM 流量。
 3. **长序列不可用**：`N` 翻倍，显存与 IO 四倍增长。
 
-> ⚠️ 朴素 Attention 的本质瓶颈不是算力，而是 **把两个 `N×N` 中间矩阵搬到 HBM 来回读写**。只要能避免物化 `S/P`，显存和 IO 都会大幅下降——这就是 online softmax + FlashAttention 的出发点。
+> ⚠️ 朴素 Attention 的本质瓶颈不是算力，而是 **把两个** `N×N` **中间矩阵搬到 HBM 来回读写**。只要能避免物化 `S/P`，显存和 IO 都会大幅下降——这就是 online softmax + FlashAttention 的出发点。
 
 ## 3. GPU 设计
 
@@ -549,9 +549,9 @@ float o_local = 0.f;            // 每 thread 持有 O 的一个维度
 const float scale = 1.0f / sqrtf((float)d);
 ```
 
-- **`q_shm[d]`**：把当前 query 行 `Q[i]` 载入 shared memory。后续 N 次循环都要用它做点积，载入一次复用 N 次，避免重复读 HBM。
-- **`o_local`**：每个 thread 持有输出向量 `O[i]` 的一个分量（`tid < d` 时有效）。`d=64` 时 256 个 thread 中只有前 64 个有效，其余 idle。这是本实现的简化——工业级 FlashAttention 会用 thread tiling 让所有 thread 都参与计算。
-- **`m`、`l`**：running max 和 running sum，初始为 `-∞` 和 `0`。注意这两个变量虽然每 thread 都声明了，但**只有 tid=0 的值是有效的**（在 ② 步只由 tid=0 更新）。
+- `q_shm[d]`：把当前 query 行 `Q[i]` 载入 shared memory。后续 N 次循环都要用它做点积，载入一次复用 N 次，避免重复读 HBM。
+- `o_local`：每个 thread 持有输出向量 `O[i]` 的一个分量（`tid < d` 时有效）。`d=64` 时 256 个 thread 中只有前 64 个有效，其余 idle。这是本实现的简化——工业级 FlashAttention 会用 thread tiling 让所有 thread 都参与计算。
+- `m`**、**`l`：running max 和 running sum，初始为 `-∞` 和 `0`。注意这两个变量虽然每 thread 都声明了，但**只有 tid=0 的值是有效的**（在 ② 步只由 tid=0 更新）。
 
 #### 4.2.2 主循环三步骤
 
@@ -559,7 +559,7 @@ const float scale = 1.0f / sqrtf((float)d);
 for (int k = 0; k < N; ++k) {
 ```
 
-**① 点积：`s_k = Q[i]·K[k]·scale`**
+**① 点积：**`s_k = Q[i]·K[k]·scale`
 
 ```cuda
 float part = 0.f;
@@ -572,7 +572,7 @@ s_k = s_k_shm;
 ```
 
 - 每个 thread 算 `q_shm[tid] * K[k][tid]`（自己那维的部分积），`block_reduce_sum` 汇总为标量 `s_k`
-- tid=0 把结果写入 `s_k_shm`，`__syncthreads` 后全 block 读取——**所有 thread 需要同一个 `s_k` 值**来更新各自的 `m`
+- tid=0 把结果写入 `s_k_shm`，`__syncthreads` 后全 block 读取——**所有 thread 需要同一个** `s_k` **值**来更新各自的 `m`
 - `K[k]` 直接从 global memory 读（本实现未缓存 K tile，见 5.3 优化方向）
 
 **② Online softmax 更新（仅 tid=0）**
@@ -592,10 +592,10 @@ __syncthreads();
 ```
 
 - **为什么只有 tid=0？** `m`、`l` 是标量（不是向量），只需一个 thread 计算。如果所有 256 个 thread 都算，既浪费算力又需要额外归约。
-- **`alpha_shm` 和 `beta_shm`**：这两个是**广播给全 block 的共享标量**。每个 thread 的 `o_local` 都需要用它们更新，所以必须通过 shared memory 传递（tid=0 写 → `__syncthreads` → 全 block 读）。
+- `alpha_shm` **和** `beta_shm`：这两个是**广播给全 block 的共享标量**。每个 thread 的 `o_local` 都需要用它们更新，所以必须通过 shared memory 传递（tid=0 写 → `__syncthreads` → 全 block 读）。
 - **数值稳定**：所有 `expf` 都减去 `m_new`（当前 running max），保证指数 ≤ 0，永不溢出。
 
-**③ 累加输出：`o_local = o_local × α + β × V[k]`**
+**③ 累加输出：**`o_local = o_local × α + β × V[k]`
 
 ```cuda
 if (tid < d)
@@ -615,7 +615,7 @@ if (tid < d)
     O[i * d + tid] = o_local;
 ```
 
-循环结束后，`o_local` 已包含所有 N 个 key 的贡献，且 `alpha_shm` / `beta_shm` 在每步更新中已用 `l_new` 做了归一化——**末尾无需再除以 `l`**。这是 online softmax 的精妙之处：归一化被"摊"进了每步的增量更新。
+循环结束后，`o_local` 已包含所有 N 个 key 的贡献，且 `alpha_shm` / `beta_shm` 在每步更新中已用 `l_new` 做了归一化——**末尾无需再除以** `l`。这是 online softmax 的精妙之处：归一化被"摊"进了每步的增量更新。
 
 #### 4.2.4 三次 `__syncthreads` 的作用
 
@@ -675,7 +675,7 @@ ncu --kernel-name regex:attention_naive_kernel|attention_fused_kernel \
 
 2. **减少 non-matmul FLOPs**：online softmax 的 `exp`、rescale 不是矩阵乘，算术强度低。FlashAttention-2 通过重排循环让每个 thread 做更多 GEMM、少做 rescale。
 3. **shared memory 缓存 K/V tile**：内层循环从 shared 读 `K[k]`、`V[k]` 而非 global，降低延迟。
-4. **vector load（`float4`）**：`Q/K/V` 按行连续，用 `float4` 一次读 4 个 float。
+4. **vector load（**`float4`**）**：`Q/K/V` 按行连续，用 `float4` 一次读 4 个 float。
 5. **混合精度 + Tensor Core**：`Q/K/V` 用 fp16/bf16，`mma` 指令做 GEMM，reduce 用 fp32 保精度（FlashAttention 标配）。
 
 > 💡 优化 1（FlashAttention tiling）是从"简化 fused"到"工业级 FlashAttention"的关键一跃，它把 HBM IO 真正降到 **O(Nd)**，是长序列 Attention 能跑起来的根本原因。
@@ -685,11 +685,11 @@ ncu --kernel-name regex:attention_naive_kernel|attention_fused_kernel \
 | 维度 | naive（物化 S/P） | fused（简化，本实现） | FlashAttention（全 tiling） |
 |------|------------------|---------------------|---------------------------|
 | **时间复杂度** | `O(N²d)` | `O(N²d)` | `O(N²d)` |
-| **中间矩阵显存** | `O(N²)`（S、P 各 N×N） | **`O(d)`**（仅 m/l/o 寄存器） | `O(d)` |
+| **中间矩阵显存** | `O(N²)`（S、P 各 N×N） | `O(d)`（仅 m/l/o 寄存器） | `O(d)` |
 | **HBM IO（S/P 部分）** | `O(N²)` 写读 | `0` | `0` |
-| **HBM IO（K/V 部分）** | `O(N²d)`（每 query 重读） | `O(N²d)`（每 query 重读） | `O(N²d²/M)` → 趋于 **`O(Nd)`** |
+| **HBM IO（K/V 部分）** | `O(N²d)`（每 query 重读） | `O(N²d)`（每 query 重读） | `O(N²d²/M)` → 趋于 `O(Nd)` |
 | **算术强度** | 低（被 S/P IO 拖累） | 中（无 S/P，但 K/V 重读） | 高（K/V 复用，逼近 compute-bound） |
 | **瓶颈类型** | memory-bound（S/P 物化） | memory-bound（K/V 重读） | Prefill 偏 compute-bound，Decode 偏 memory-bound |
 | **O(N²) 来源** | 物化两个 `N×N` 矩阵 `S`、`P` | 已消除 | 已消除 |
 
-> 💡 **一句话总结**：Attention 的 `O(N²)` 灾难来自 **把 `S=QK^T` 和 `P=softmax(S)` 两个 `N×N` 中间矩阵写回 HBM**。online softmax 的三公式让 max/sum/output 在一遍扫描里增量更新，`S/P` 永不落 HBM——显存从 `O(N²)` 降到 `O(d)`，IO 的 `O(N²)` 中间部分归零。本实现的简化 fused 已消除 `S/P` 物化；再叠加 FlashAttention 的 `Br×Bc` tiling 复用 `K/V`，即可把总 HBM IO 压到 **O(Nd)**，这就是长序列 Attention 的工业级解法。
+> 💡 **一句话总结**：Attention 的 `O(N²)` 灾难来自 **把** `S=QK^T` **和** `P=softmax(S)` **两个** `N×N` **中间矩阵写回 HBM**。online softmax 的三公式让 max/sum/output 在一遍扫描里增量更新，`S/P` 永不落 HBM——显存从 `O(N²)` 降到 `O(d)`，IO 的 `O(N²)` 中间部分归零。本实现的简化 fused 已消除 `S/P` 物化；再叠加 FlashAttention 的 `Br×Bc` tiling 复用 `K/V`，即可把总 HBM IO 压到 **O(Nd)**，这就是长序列 Attention 的工业级解法。

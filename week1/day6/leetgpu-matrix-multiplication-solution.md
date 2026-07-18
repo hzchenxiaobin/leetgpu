@@ -80,7 +80,7 @@ __global__ void matmul_naive(const float* A, const float* B, float* C, int M, in
 **算法**：把 `K` 维分成 `N/TILE` 段，每段 `TILE` 个元素。每次迭代：
 
 1. **合并加载**：block 内所有线程协作，把 `A` 的 `TILE×TILE` 子块和 `B` 的 `TILE×TILE` 子块从 global 读到 shared memory（每 thread 读 1 个元素，合并访存）。
-2. **`__syncthreads()`**：等 tile 全加载完。
+2. `__syncthreads()`：等 tile 全加载完。
 3. **乘加计算**：每 thread 从 shared memory 读数据做乘加（shared 延迟 ~20 cycle，远低于 global ~400 cycle）。
 4. **滑动**：沿 `K` 维滑动到下一个 tile，累加到同一个 `sum`。
 
@@ -375,9 +375,9 @@ ncu --metrics gpu__time_duration.sum, \
 ### 5.3 优化方向
 
 1. **register tiling（TM×TN）**：每 thread 算 `4×4` 或 `8×8` 个输出，用寄存器数组 `float sum[TM][TN]` 累积。这是从"教学级"到"工业级"GEMM 的关键一步，通常再提升 2-4×。
-2. **`float4` 向量化加载**：从 shared memory 一次读 4 个 float（`float4`），减少指令数。
+2. `float4` **向量化加载**：从 shared memory 一次读 4 个 float（`float4`），减少指令数。
 3. **双缓冲（double buffering）**：用两个 shared buffer，一个给当前 tile 计算、另一个预加载下一个 tile，让计算和访存重叠。
-4. **Tensor Core（`mma` 指令）**：用 `wmma` 或 `mma.sync` 指令调用 Tensor Core，做 fp16/bf16 矩阵乘，性能再提升 4-8×。本题要 fp32，不直接适用，但 #22 GEMM 和 #57 FP16 Batched MatMul 会用到。
+4. **Tensor Core（**`mma` **指令）**：用 `wmma` 或 `mma.sync` 指令调用 Tensor Core，做 fp16/bf16 矩阵乘，性能再提升 4-8×。本题要 fp32，不直接适用，但 #22 GEMM 和 #57 FP16 Batched MatMul 会用到。
 5. **内存布局优化**：`B` 矩阵按行主序访问时，读 `B[k][j]` 的列方向是跨步访问。把 `B` 预转置成 `K×N` 可让读写都合并，但需额外转置开销。
 
 > 💡 优化 1（register tiling）是性价比最高的下一步。CUTLASS 的 GEMM 模板本质上就是"shared tiling + register tiling + 向量化 + 双缓冲"的组合，把这些都做到极致才能逼近峰值。

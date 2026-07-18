@@ -246,7 +246,7 @@ extern "C" void solve(float* Q, float* cos, float* sin, float* output, int M, in
    row 对应 M 维，grid-stride 覆盖所有行。
 
 3. **内层列循环** `for (int col = blockIdx.x * blockDim.x + threadIdx.x; col < D; col += gridDim.x * blockDim.x)`
-   col 对应 D 维。blockDim.x 映射到连续的 D 维，warp 内 thread 的 col 连续 → 访问连续地址 → coalesced。用 `(row, col)` 二维坐标而非 1D idx，**避免 `idx/D`、`idx%D` 整数除法**（省 20+ cycle）。
+   col 对应 D 维。blockDim.x 映射到连续的 D 维，warp 内 thread 的 col 连续 → 访问连续地址 → coalesced。用 `(row, col)` 二维坐标而非 1D idx，**避免** `idx/D`**、**`idx%D` **整数除法**（省 20+ cycle）。
 
 4. **线性索引** `int idx = row * D + col`
    row-major 一维化，用于访问 Q/cos/sin/output。

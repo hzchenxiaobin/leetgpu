@@ -112,9 +112,9 @@ __global__ void softmax_naive(const float* x, float* y, int M, int D) {
 
 ![三遍扫描数据流：max → sum(exp) → normalize](../../images/softmax_three_pass.svg)
 
-- **`warp_reduce_max`**：`__shfl_down_sync` + `fmaxf` 折半比较，lane 0 持有 warp 最大值
-- **`block_reduce_max`**：warp 间写 shared → 第一个 warp 再 `warp_reduce_max` → 写 `shared[0]` 广播
-- **`block_reduce_sum`**：同结构，把 `fmaxf` 换回 `+`，初值换 `-INFINITY` → `0.0f`
+- `warp_reduce_max`：`__shfl_down_sync` + `fmaxf` 折半比较，lane 0 持有 warp 最大值
+- `block_reduce_max`：warp 间写 shared → 第一个 warp 再 `warp_reduce_max` → 写 `shared[0]` 广播
+- `block_reduce_sum`：同结构，把 `fmaxf` 换回 `+`，初值换 `-INFINITY` → `0.0f`
 
 > 💡 `__shfl_down_sync` 对 `int`/`float` 都原生支持，`fmaxf` 也是一条指令。所以 `warp_reduce_max` 和 `warp_reduce_sum` 几乎逐行对称——把 `+=` 换 `fmaxf`、初值换 `-INFINITY` 即可。**一个归约模板，max/sum/min 通用**，这是 CUDA 编程的核心复用模式。
 
@@ -295,7 +295,7 @@ Softmax kernel 的核心是**两次块归约**（`block_reduce_max` + `block_red
 
 ![Warp Shuffle 归约详解](../../images/softmax_warp_shuffle.svg)
 
-> **图：`__shfl_down_sync` 逐步归约。** 左侧 `warp_reduce_sum` 以 8 个 lane 为例（实际 32 个），offset 从 4→2→1 折半，每步 lane[i] 与 lane[i+offset] 运算，最终 lane 0 持有全局 sum。右侧 `warp_reduce_max` 结构完全对称，只把 `+=` 换成 `fmaxf`。
+> **图：**`__shfl_down_sync` **逐步归约。** 左侧 `warp_reduce_sum` 以 8 个 lane 为例（实际 32 个），offset 从 4→2→1 折半，每步 lane[i] 与 lane[i+offset] 运算，最终 lane 0 持有全局 sum。右侧 `warp_reduce_max` 结构完全对称，只把 `+=` 换成 `fmaxf`。
 
 ```cuda
 __inline__ __device__ float warp_reduce_sum(float val) {
@@ -308,21 +308,21 @@ __inline__ __device__ float warp_reduce_sum(float val) {
 
 **逐行解释**：
 
-1. **`offset = WARP_SIZE / 2`（初始值 16）**：第一轮，lane i 从 lane i+16 收到数据并累加。32 个 lane 变成 16 个有效结果（lane 0~15 各持有两个值的和）。
+1. `offset = WARP_SIZE / 2`**（初始值 16）**：第一轮，lane i 从 lane i+16 收到数据并累加。32 个 lane 变成 16 个有效结果（lane 0~15 各持有两个值的和）。
 
-2. **`offset >>= 1`（16→8→4→2→1）**：每轮 offset 折半，有效数据量减半。5 轮后（`log₂32 = 5`），lane 0 持有全部 32 个 lane 的总和。
+2. `offset >>= 1`**（16→8→4→2→1）**：每轮 offset 折半，有效数据量减半。5 轮后（`log₂32 = 5`），lane 0 持有全部 32 个 lane 的总和。
 
-3. **`__shfl_down_sync(0xffffffff, val, offset)`**：
+3. `__shfl_down_sync(0xffffffff, val, offset)`：
    - `mask = 0xffffffff`：32 位全 1，warp 内所有 lane 参与同步
    - `val`：当前 lane 要发送出去的值
    - `offset`：从下方第 offset 个 lane 拉取数据
    - lane i 收到 lane (i+offset) 的 `val`；若 i+offset ≥ 32（超出 warp 边界），lane i 的值不变
 
-4. **`#pragma unroll`**：编译器展开 5 次迭代，消除循环判断开销，便于指令级并行（ILP）。
+4. `#pragma unroll`：编译器展开 5 次迭代，消除循环判断开销，便于指令级并行（ILP）。
 
 5. **结果位置**：归约完成后，**只有 lane 0** 持有正确的最终结果。其余 lane 的值是中间结果，不能直接使用。
 
-**`warp_reduce_max` 的对称性**：
+`warp_reduce_max` **的对称性**：
 
 ```cuda
 __inline__ __device__ float warp_reduce_max(float val) {
@@ -376,12 +376,12 @@ __inline__ __device__ float block_reduce_sum(float val, float* shared) {
 | **屏障 2** | `__syncthreads()` | 确保 warp 0 写完 `shared[0]` 后全 block 才读 |
 | **阶段 3：广播** | `return shared[0]` | 全 block 256 个 thread 同时读 `shared[0]`，获得最终结果 |
 
-> 💡 **为什么需要两次 `__syncthreads`？**
+> 💡 **为什么需要两次** `__syncthreads`**？**
 > - 第一次：保证 8 个 warp 都写完 `shared[warpId]` → warp 0 能读到完整数据
 > - 第二次：保证 warp 0 写完 `shared[0]` → 其他 warp 读到的不是旧值
 > - 缺少任一屏障都会导致数据竞争（读到未完成的写入）
 
-**`block_reduce_max` 的对称性**：与 `block_reduce_sum` 结构完全相同，只把 `warp_reduce_sum` → `warp_reduce_max`，默认值 `0.0f` → `-INFINITY`（max 归约的幺元是负无穷，不是 0）。
+`block_reduce_max` **的对称性**：与 `block_reduce_sum` 结构完全相同，只把 `warp_reduce_sum` → `warp_reduce_max`，默认值 `0.0f` → `-INFINITY`（max 归约的幺元是负无穷，不是 0）。
 
 #### 4.1.3 三遍扫描中的归约调用
 
@@ -409,13 +409,13 @@ for (int i = threadIdx.x; i < D; i += BLOCK_SIZE)
 
 **关键点**：
 
-1. **`for (i = threadIdx.x; i < D; i += BLOCK_SIZE)`**：grid-stride loop。256 个 thread 把 D 个元素分摊——每 thread 处理 `D/256` 个元素，各自累加局部 `local_max` / `local_sum`。
+1. `for (i = threadIdx.x; i < D; i += BLOCK_SIZE)`：grid-stride loop。256 个 thread 把 D 个元素分摊——每 thread 处理 `D/256` 个元素，各自累加局部 `local_max` / `local_sum`。
 
 2. **Pass 2 依赖 Pass 1**：`expf(xr[i] - row_max)` 中的 `row_max` 必须先算完。这就是为什么不能把 max 和 sum 合并到同一遍扫描——**除非用 online softmax**（见 5.4 优化方向）。
 
 3. **广播后全 block 一致**：`block_reduce_*` 返回后，256 个 thread 拿到的 `row_max` / `row_sum` 完全相同（都从 `shared[0]` 读取），Pass 3 各 thread 独立写自己的 output 元素，无需再同步。
 
-4. **`1.0f / row_sum` 替代除法**：除法 `expf(...) / row_sum` 变成乘法 `expf(...) * inv_sum`，因为 GPU 上乘法比除法快 ~4 倍。`inv_sum` 只算一次、全 block 复用。
+4. `1.0f / row_sum` **替代除法**：除法 `expf(...) / row_sum` 变成乘法 `expf(...) * inv_sum`，因为 GPU 上乘法比除法快 ~4 倍。`inv_sum` 只算一次、全 block 复用。
 
 ### 4.2 LeetGPU 提交版本
 

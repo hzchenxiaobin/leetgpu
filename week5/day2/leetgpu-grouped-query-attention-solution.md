@@ -496,7 +496,7 @@ ncu --kernel-name regex:gqa_kernel \
 1. **shared memory 缓存 KV tile**：同一 group 的 `group` 个 Q head 读同一份 KV——把一个 KV tile 载入 shared，供同 group 的多个 block 复用，减少 global 重读。（本实现每个 block 独立读 KV，靠 L2 自然复用；显式缓存可进一步提升。）
 2. **合并同 group 的 Q head 到一个 block**：让一个 block 处理同一 group 的多个 `(h, s)`，共享 `q_shm` 之外的 KV tile，提升数据复用。
 3. **FlashAttention tiling**：当 `seq_len` 很大时，把 KV 分块载入 shared，Q tile 常驻，把 HBM IO 从 `O(nq × S² × d)` 降到 `O(S × d)` 级别（与 [Week4 FlashAttention](../../leetgpu/week4/day1/leetgpu-softmax-attention-solution.md) 同理）。
-4. **vector load（`float4`）**：K/V 按 `d` 维连续，用 `float4` 一次读 4 个 float。
+4. **vector load（**`float4`**）**：K/V 按 `d` 维连续，用 `float4` 一次读 4 个 float。
 5. **混合精度**：Q/K/V 用 fp16/bf16，Tensor Core `mma` 做点积（d 大时收益大）。
 
 ## 6. 复杂度分析

@@ -77,7 +77,7 @@ __global__ void naive_batched_matmul(const float* A, const float* B, float* C, i
 
 ### 3.3 关键技巧
 
-- **`blockIdx.z` 索引 batch**：grid 第三维天然映射 batch 维，各 batch 独立
+- `blockIdx.z` **索引 batch**：grid 第三维天然映射 batch 维，各 batch 独立
 - **stride 寻址**：`A[b][i][k] = A_flat[b * M * K + i * K + k]`，batch 间 stride = `M*K`
 - **tiled matmul**：沿 K 方向分块，shared memory 缓存，减少 global 读取（同 Week1 Day6 的 tiling）
 

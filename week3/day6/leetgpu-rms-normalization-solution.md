@@ -350,7 +350,7 @@ extern "C" void solve(const float* input, float gamma, float beta, float* output
    - `for (int i = threadIdx.x; i < D; i += BLOCK_SIZE)`：再扫一遍该行。
    - `yr[i] = xr[i] * rrms * gamma[i]`：`y = x · (1/RMS) · γ`，逐元素归一化并乘以可学习权重。此时 `rrms` 已广播到所有 thread，无需再次归约。
 
-**错误对比 `rmsnorm_wrong`**：每 thread 独立 `for (int j = 0; j < D; ++j)` 扫整行求 `sq`，导致 `O(D²)` 重复读——256 个 thread 各读 8192 次，HBM 读量爆炸。正确做法是一个 block 协作求一次 `sq` 再共享。
+**错误对比** `rmsnorm_wrong`：每 thread 独立 `for (int j = 0; j < D; ++j)` 扫整行求 `sq`，导致 `O(D²)` 重复读——256 个 thread 各读 8192 次，HBM 读量爆炸。正确做法是一个 block 协作求一次 `sq` 再共享。
 
 > **关键洞察**：RMSNorm 比 LayerNorm 快的根因是"一次归约"——LayerNorm 需先归约求 mean，再用 mean 归约求 variance（两次 HBM 读）；RMSNorm 直接对 `x²` 求和，省掉 mean，只需一次归约。归约次数直接决定 global memory 读取遍数，这是 Llama 选 RMSNorm 的性能原因。
 

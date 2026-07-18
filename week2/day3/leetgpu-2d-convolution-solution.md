@@ -19,7 +19,7 @@ output[oy][ox] = Σ_{ky=0..K-1} Σ_{kx=0..K-1} input[oy+ky][ox+kx] · kernel[ky]
 - `1 ≤ H, W ≤ 4096`，`K ∈ {3, 5}`（odd）
 - `solve` 函数签名不可改，禁用外部库，结果必须写入 `output`
 
-> 💡 这是 **shared memory halo** 的经典题。每个输出要读 K×K 邻域，相邻输出的邻域高度重叠——朴素实现会反复读同一批 input，带宽爆炸。解法是用 shared memory 把一个 tile（含 halo）一次性载入、block 内复用；同时引入 **`__constant__` 内存**广播卷积核权重。
+> 💡 这是 **shared memory halo** 的经典题。每个输出要读 K×K 邻域，相邻输出的邻域高度重叠——朴素实现会反复读同一批 input，带宽爆炸。解法是用 shared memory 把一个 tile（含 halo）一次性载入、block 内复用；同时引入 `__constant__` **内存**广播卷积核权重。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
@@ -81,7 +81,7 @@ __global__ void conv2d_naive(const float* input, const float* kernel, float* out
 
 ### 3.1 并行化策略：shared memory halo tiling
 
-核心思想：**一个 block 负责一个 `OT×OT` 的输出 tile**，block 内线程协作把该 tile 计算所需的全部 input 一次性载入 shared memory，之后每个 thread 的 K×K 窗口全从 shared 读，避免重复访问 global。
+核心思想：**一个 block 负责一个** `OT×OT` **的输出 tile**，block 内线程协作把该 tile 计算所需的全部 input 一次性载入 shared memory，之后每个 thread 的 K×K 窗口全从 shared 读，避免重复访问 global。
 
 输出 tile `OT×OT` 需要的 input 区域是 `(OT+K-1)×(OT+K-1)`——多出的 `K-1` 圈边界就是 **halo（光晕/apron）**，供 tile 边缘输出的卷积窗口读取邻域。
 
@@ -94,7 +94,7 @@ __global__ void conv2d_naive(const float* input, const float* kernel, float* out
 
 流程（每 block）：
 1. **协作加载**：`OT×OT` 个线程用 strided loop 把 `(OT+K-1)²` 个 input（含 halo）载入 `smem`。
-2. **调用 `__syncthreads()` 同步**：等 tile 全部就绪。
+2. **调用** `__syncthreads()` **同步**：等 tile 全部就绪。
 3. **卷积计算**：每 thread 读 `smem[ty..ty+K-1][tx..tx+K-1]` 的 K×K 窗口，乘加 `c_kernel`，写一个输出像素。
 
 > 💡 halo 的本质：把"多个输出共享的邻域"在 shared memory 里**只存一份**。载入时每 input cell 只读 1 次 global（含 halo 冗余约 `(IT/OT)²≈1.27×`，K=3），计算时 K² 次读全打在 shared memory（~20 cycle、~19 TB/s），global 读次数从 `H·W·K²` 降到 `~H·W·1.27`。
@@ -105,10 +105,10 @@ __global__ void conv2d_naive(const float* input, const float* kernel, float* out
 |------|----------|------|
 | **global memory** | ✓ | `input` 读、`output` 写；只在加载 tile 时访问，每 cell ~1 次 |
 | **shared memory** | ✓ | **本题核心**：`(OT+K-1)²` 的 halo tile 缓冲，block 内复用 |
-| **`__constant__` memory** | ✓ | 卷积核权重 `c_kernel[K²]`，全 thread 读同一地址 → 硬件广播 |
+| `__constant__` **memory** | ✓ | 卷积核权重 `c_kernel[K²]`，全 thread 读同一地址 → 硬件广播 |
 | **register** | ✓（隐式） | 累加器 `acc`、线程局部坐标 |
 
-**为什么 kernel 权重放 `__constant__` 内存**：64 KB 常量内存有专属 cache，且支持 **broadcast**——一个 warp 内 32 个 thread 读同一地址（如 `c_kernel[4]`）时只花 1 cycle、不触发 bank conflict。卷积核只有 `K²≤25` 个权重，每个 thread 都读同一份，完美匹配常量内存的广播语义。若放 global 则走 L1/L2 cache（延迟更高）；若放 shared 则每个 block 都要拷一份（浪费）。
+**为什么 kernel 权重放** `__constant__` **内存**：64 KB 常量内存有专属 cache，且支持 **broadcast**——一个 warp 内 32 个 thread 读同一地址（如 `c_kernel[4]`）时只花 1 cycle、不触发 bank conflict。卷积核只有 `K²≤25` 个权重，每个 thread 都读同一份，完美匹配常量内存的广播语义。若放 global 则走 L1/L2 cache（延迟更高）；若放 shared 则每个 block 都要拷一份（浪费）。
 
 | 特性 | global (HBM) | shared (SRAM) | `__constant__` |
 |------|--------------|---------------|----------------|
@@ -120,9 +120,9 @@ __global__ void conv2d_naive(const float* input, const float* kernel, float* out
 ### 3.3 关键技巧
 
 1. **halo strided 加载**：`OT×OT` 个线程加载 `(OT+K-1)²` 个元素，用 `for (idx=tid; idx<IT*IT; idx+=nTH)` 的 strided loop 均摊（K=3 时每 thread 载 2 个）。
-2. **`__constant__` 广播权重**：`cudaMemcpyToSymbol(c_kernel, ...)` 一次性载入，kernel 内 `c_kernel[ky*K+kx]` 全 warp 广播。
+2. `__constant__` **广播权重**：`cudaMemcpyToSymbol(c_kernel, ...)` 一次性载入，kernel 内 `c_kernel[ky*K+kx]` 全 warp 广播。
 3. **边界处理**：valid 卷积下有效输出的 K×K 窗口天然在 input 范围内；仅 grid 过覆盖时的 halo 载入可能越界，用 `clamp`（replicate border）兜底，这些值不被有效输出读取、不影响结果。
-4. **`#pragma unroll` 展开**：K 是编译期小常量（3/5），展开 K² 内层循环，消除循环开销、便于指令级并行。
+4. `#pragma unroll` **展开**：K 是编译期小常量（3/5），展开 K² 内层循环，消除循环开销、便于指令级并行。
 
 > ⚠️ **bank conflict 检查**：卷积读 `smem[ty+ky][tx+kx]`，同 warp 内 `tx` 连续 → 读 `smem[*][tx..tx+31]`，地址按 4B 递增，32 个 thread 落在 32 个不同 bank → **零冲突**。这是卷积相比转置更"友好"的地方（转置按列读会冲突，卷积按行读不会）。
 
@@ -440,7 +440,7 @@ extern "C" void solve(const float* input, const float* kernel, float* output,
 }
 ```
 
-> **关于 `smem_bytes`（第三个尖括号参数）**：CUDA kernel 启动语法 `<<<blocks, threads, smem_bytes>>>` 的第三个参数表示**每个 block 动态分配的 shared memory 字节数**。它与 kernel 里的 `extern __shared__ float smem[];` 配合，运行时会为每个 block 分配这么多字节。本题中它等于 `(OT+KH-1)*(OT+KW-1)*sizeof(float)`，也就是包含 halo 的整个输入 tile 大小。
+> **关于** `smem_bytes`**（第三个尖括号参数）**：CUDA kernel 启动语法 `<<<blocks, threads, smem_bytes>>>` 的第三个参数表示**每个 block 动态分配的 shared memory 字节数**。它与 kernel 里的 `extern __shared__ float smem[];` 配合，运行时会为每个 block 分配这么多字节。本题中它等于 `(OT+KH-1)*(OT+KW-1)*sizeof(float)`，也就是包含 halo 的整个输入 tile 大小。
 >
 > 如果不传第三个参数，`extern __shared__` 数组的大小就是 0，访问会越界；传得过大则可能超过 GPU 每 block 的 shared memory 上限（通常 48 KB，可扩展至 99 KB）。
 
@@ -494,17 +494,17 @@ for (int idx = tid; idx < tileH * tileW; idx += nTH) {
 
 **逐行解释**：
 
-1. **`for (idx = tid; idx < tileH*tileW; idx += nTH)`**：线程 `tid` 从自己的编号开始，每次跨 `nTH` 步。`tid=0` 处理 `idx=0, 16, 32`；`tid=1` 处理 `idx=1, 17, 33`……36 个 cell 被 16 个线程分摊，每线程加载 2~3 个。
+1. `for (idx = tid; idx < tileH*tileW; idx += nTH)`：线程 `tid` 从自己的编号开始，每次跨 `nTH` 步。`tid=0` 处理 `idx=0, 16, 32`；`tid=1` 处理 `idx=1, 17, 33`……36 个 cell 被 16 个线程分摊，每线程加载 2~3 个。
 
-2. **`sy = idx / tileW`**：把一维线性索引 `idx` 转成 shared memory 的行号。`tileW=6` 时 `idx=7` → `sy=1`。这和行优先存储一致：`idx = sy * tileW + sx` 的逆运算。
+2. `sy = idx / tileW`：把一维线性索引 `idx` 转成 shared memory 的行号。`tileW=6` 时 `idx=7` → `sy=1`。这和行优先存储一致：`idx = sy * tileW + sx` 的逆运算。
 
-3. **`sx = idx % tileW`**：列号 = `idx` 对 `tileW` 取模。`idx=7` → `sx=1`。
+3. `sx = idx % tileW`：列号 = `idx` 对 `tileW` 取模。`idx=7` → `sx=1`。
 
-4. **`gx = ox0 + sx`**：shared memory 坐标偏移到全局坐标。`ox0=4, sx=1` → `gx=5`。这一步是"tile 内坐标"到"全局坐标"的核心桥梁。
+4. `gx = ox0 + sx`：shared memory 坐标偏移到全局坐标。`ox0=4, sx=1` → `gx=5`。这一步是"tile 内坐标"到"全局坐标"的核心桥梁。
 
-5. **`gy = oy0 + sy`**：同理，行方向偏移。
+5. `gy = oy0 + sy`：同理，行方向偏移。
 
-6. **`smem[sy * tileW + sx] = input[gy * W + gx]`**：把全局 input 按 `gy*W+gx` 线性寻址读出，按 `sy*tileW+sx` 线性寻址写入 smem。注意 smem 用一维 `extern __shared__ float smem[]`，所以也是行优先线性地址。
+6. `smem[sy * tileW + sx] = input[gy * W + gx]`：把全局 input 按 `gy*W+gx` 线性寻址读出，按 `sy*tileW+sx` 线性寻址写入 smem。注意 smem 用一维 `extern __shared__ float smem[]`，所以也是行优先线性地址。
 
 ![Strided Loading 示意图](../../images/conv2d_strided_loading.svg)
 
@@ -538,17 +538,17 @@ if (ox < outW && oy < outH) {
 
 **逐行解释**：
 
-1. **`ox = ox0 + tx`，`oy = oy0 + ty`**：thread `(tx, ty)` 负责输出 tile 中第 `ty` 行、第 `tx` 列的像素。这是"线程坐标→输出坐标"的直接映射。
+1. `ox = ox0 + tx`**，**`oy = oy0 + ty`：thread `(tx, ty)` 负责输出 tile 中第 `ty` 行、第 `tx` 列的像素。这是"线程坐标→输出坐标"的直接映射。
 
-2. **`if (ox < outW && oy < outH)`**：边界检查。当输出尺寸不是 `OT` 的整数倍时，最后一个 block 的部分线程会越界，需要跳过。
+2. `if (ox < outW && oy < outH)`：边界检查。当输出尺寸不是 `OT` 的整数倍时，最后一个 block 的部分线程会越界，需要跳过。
 
-3. **`srow = &smem[(ty + ky) * tileW + tx]`**：这是最关键的索引。thread 的输出像素对应 smem 中 `(ty, tx)` 位置，而卷积窗口从 `(ty, tx)` 开始向右下扩展 `K×K`。所以第 `ky` 行的起始地址是 `(ty+ky) * tileW + tx`。
+3. `srow = &smem[(ty + ky) * tileW + tx]`：这是最关键的索引。thread 的输出像素对应 smem 中 `(ty, tx)` 位置，而卷积窗口从 `(ty, tx)` 开始向右下扩展 `K×K`。所以第 `ky` 行的起始地址是 `(ty+ky) * tileW + tx`。
 
-4. **`srow[kx]`**：等价于 `smem[(ty+ky)*tileW + tx + kx]`。用指针 `srow + kx` 避免每次重算乘法，编译器会优化为寄存器寻址。
+4. `srow[kx]`：等价于 `smem[(ty+ky)*tileW + tx + kx]`。用指针 `srow + kx` 避免每次重算乘法，编译器会优化为寄存器寻址。
 
-5. **`krow = &c_kernel[ky * KW]`**：kernel 权重按行存储，第 `ky` 行起始地址是 `ky * KW`。
+5. `krow = &c_kernel[ky * KW]`：kernel 权重按行存储，第 `ky` 行起始地址是 `ky * KW`。
 
-6. **`output[oy * outW + ox] = acc`**：结果按行优先写入全局 output。
+6. `output[oy * outW + ox] = acc`：结果按行优先写入全局 output。
 
 #### 4.2.5 索引计算图解
 
@@ -587,7 +587,7 @@ tileW = OT + KW - 1 = 4 + 3 - 1 = 6
 tileH = OT + KH - 1 = 4 + 3 - 1 = 6
 ```
 
-**步骤 2：协作加载（以 `tid=5` 的线程为例）**
+**步骤 2：协作加载（以** `tid=5` **的线程为例）**
 
 ```
 tid = ty * OT + tx = 1 * 4 + 1 = 5
@@ -629,7 +629,7 @@ output[5*8 + 5] = output[45] = acc
 
 ### 4.3 cudaMemcpyToSymbol 详解
 
-`cudaMemcpyToSymbol` 是 CUDA runtime 提供的、向 **全局可见的 `__constant__` 符号** 拷贝数据的 API。它最常见的用途就是把 CPU 或 GPU 上的小型只读数据（如卷积核权重）写入常量内存，供整个 grid 的线程通过硬件广播读取。
+`cudaMemcpyToSymbol` 是 CUDA runtime 提供的、向 **全局可见的** `__constant__` **符号** 拷贝数据的 API。它最常见的用途就是把 CPU 或 GPU 上的小型只读数据（如卷积核权重）写入常量内存，供整个 grid 的线程通过硬件广播读取。
 
 #### 函数原型
 
@@ -655,14 +655,14 @@ cudaError_t cudaMemcpyToSymbol(
 
 #### 传输方向选择
 
-- **`cudaMemcpyHostToDevice` 方向**（默认值）：源地址在 host（CPU）内存。适用于从 CPU 数组初始化常量内存。
-- **`cudaMemcpyDeviceToDevice` 方向**：源地址已经在 GPU 全局内存。LeetGPU 的 starter 注释说明 `kernel` 是 device pointer，所以提交版本使用这个方向。
+- `cudaMemcpyHostToDevice` **方向**（默认值）：源地址在 host（CPU）内存。适用于从 CPU 数组初始化常量内存。
+- `cudaMemcpyDeviceToDevice` **方向**：源地址已经在 GPU 全局内存。LeetGPU 的 starter 注释说明 `kernel` 是 device pointer，所以提交版本使用这个方向。
 - 如果传错方向（例如把 device pointer 当成 host pointer 使用默认的 `HostToDevice`），会导致非法访问或数据错误。
 
 #### 常见错误
 
-1. **把 `symbol` 写成字符串**：`cudaMemcpyToSymbol("c_kernel", ...)` 会编译失败或找不到符号。应该直接写 `c_kernel`。
-2. **`__constant__` 变量和 `cudaMemcpyToSymbol` 不在同一编译单元**：`__constant__` 符号对 `.cu` 文件内部可见；跨文件访问需要用 `cudaMemcpyToSymbol` 配合外部声明，或在同一文件内定义。
+1. **把** `symbol` **写成字符串**：`cudaMemcpyToSymbol("c_kernel", ...)` 会编译失败或找不到符号。应该直接写 `c_kernel`。
+2. `__constant__` **变量和** `cudaMemcpyToSymbol` **不在同一编译单元**：`__constant__` 符号对 `.cu` 文件内部可见；跨文件访问需要用 `cudaMemcpyToSymbol` 配合外部声明，或在同一文件内定义。
 3. **超过常量内存容量**：每 SM 常量内存 64 KB，所有 `__constant__` 变量合计不能超过。本题 `K²≤25` 个 float，仅占 100 B，完全无压力。
 4. **偏移/大小没对齐**：常量内存支持按字节偏移，但为获得最佳性能，建议起始地址和大小至少 4 B 对齐（float 天然对齐）。
 
@@ -722,7 +722,7 @@ ncu --set full \
 ### 5.3 优化方向
 
 1. **tile 大小调优**：`OT=16` → `OT=32`（1024 threads/block）。更大 tile 让 halo 占比从 `(18/16)²=1.27×` 降到 `(34/32)²=1.13×`，但 1024 threads 会降 occupancy，需 ncu 权衡。一般 `OT=16~32` 之间选。
-2. **`float4` 向量化加载**：halo 载入时每 thread 用 `float4` 一次搬 4 个 float，减少载入指令数、提升合并度。需 IT 是 4 的倍数（如 OT=16,K=5→IT=20，刚好对齐 4）。
+2. `float4` **向量化加载**：halo 载入时每 thread 用 `float4` 一次搬 4 个 float，减少载入指令数、提升合并度。需 IT 是 4 的倍数（如 OT=16,K=5→IT=20，刚好对齐 4）。
 3. **kernel 权重寄存器缓存**：把 `c_kernel[K²]` 在卷积前一次性读进 K² 个 register，内层循环只读寄存器。`__constant__` 已是广播但仍走常量 cache；进寄存器后零延迟。需将 K 模板化为编译期常量（`template<int K>`），对 K=5/7 略有收益。
 4. **可分离卷积**：若 kernel 可分解为 `K×1 · 1×K`（如 Gaussian、Sobel），把 2D 卷积拆成两次 1D 卷积，计算量从 `K²` 降到 `2K`，对大 K（如 K=11 Gaussian）是降维打击。本题 K=3/5 一般不可分，仅作扩展。
 
