@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="23" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#3a3a3a"/>
+    </marker>
+  </defs>
+  <rect width="900" height="520" fill="#fdfcf7"/>
+  <text x="450" y="30" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">SwiGLU MLP Block：3 GEMM + 1 融合 Elementwise</text>
+  <path d="M 280 38 Q 450 46 620 38" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- formula -->
+  <g filter="url(#sk)">
+    <rect x="50" y="56" width="800" height="40" rx="8" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+  </g>
+  <text x="450" y="82" text-anchor="middle" font-size="12" fill="#2b6e9e" font-weight="bold" font-family="monospace">gate = x @ W_gate ,  up = x @ W_up ,  hidden = SiLU(gate) * up ,  output = hidden @ W_down</text>
+
+  <!-- ===== Pipeline ===== -->
+  <g font-size="11">
+    <!-- x input -->
+    <g filter="url(#sk)"><rect x="30" y="140" width="70" height="44" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/></g>
+    <text x="65" y="160" text-anchor="middle" fill="#7a5415" font-weight="bold">x</text>
+    <text x="65" y="176" text-anchor="middle" fill="#888" font-size="9">[M, d_model]</text>
+
+    <!-- Branch 1: gate GEMM -->
+    <path d="M 102 152 L 150 120" stroke="#888" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <g filter="url(#sk)"><rect x="160" y="98" width="90" height="44" rx="6" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/></g>
+    <text x="205" y="116" text-anchor="middle" fill="#2b6e9e" font-weight="bold">GEMM ①</text>
+    <text x="205" y="132" text-anchor="middle" fill="#888" font-size="9">x @ W_gate</text>
+
+    <!-- Branch 2: up GEMM -->
+    <path d="M 102 172 L 150 200" stroke="#888" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <g filter="url(#sk)"><rect x="160" y="182" width="90" height="44" rx="6" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/></g>
+    <text x="205" y="200" text-anchor="middle" fill="#2b6e9e" font-weight="bold">GEMM ②</text>
+    <text x="205" y="216" text-anchor="middle" fill="#888" font-size="9">x @ W_up</text>
+
+    <!-- gate / up temps -->
+    <path d="M 252 120 L 300 120" stroke="#888" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <g filter="url(#sk)"><rect x="310" y="98" width="70" height="44" rx="6" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/></g>
+    <text x="345" y="116" text-anchor="middle" fill="#b03a3a" font-weight="bold">gate</text>
+    <text x="345" y="132" text-anchor="middle" fill="#888" font-size="9">[M, d_ffn]</text>
+
+    <path d="M 252 204 L 300 204" stroke="#888" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <g filter="url(#sk)"><rect x="310" y="182" width="70" height="44" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/></g>
+    <text x="345" y="200" text-anchor="middle" fill="#2e6e2e" font-weight="bold">up</text>
+    <text x="345" y="216" text-anchor="middle" fill="#888" font-size="9">[M, d_ffn]</text>
+
+    <!-- Fused SwiGLU -->
+    <path d="M 382 120 Q 430 120 440 150" stroke="#888" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <path d="M 382 204 Q 430 204 440 175" stroke="#888" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <g filter="url(#sk)"><rect x="450" y="140" width="100" height="46" rx="6" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.4"/></g>
+    <text x="500" y="160" text-anchor="middle" fill="#5a3a7a" font-weight="bold">SwiGLU 融合</text>
+    <text x="500" y="176" text-anchor="middle" fill="#888" font-size="9">SiLU(gate)*up</text>
+
+    <!-- hidden -->
+    <path d="M 552 163 L 600 163" stroke="#888" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <g filter="url(#sk)"><rect x="610" y="140" width="70" height="46" rx="6" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/></g>
+    <text x="645" y="160" text-anchor="middle" fill="#b03a3a" font-weight="bold">hidden</text>
+    <text x="645" y="176" text-anchor="middle" fill="#888" font-size="9">[M, d_ffn]</text>
+
+    <!-- GEMM 3: down projection -->
+    <path d="M 682 163 L 730 163" stroke="#888" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <g filter="url(#sk)"><rect x="740" y="140" width="90" height="46" rx="6" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/></g>
+    <text x="785" y="160" text-anchor="middle" fill="#2b6e9e" font-weight="bold">GEMM ③</text>
+    <text x="785" y="176" text-anchor="middle" fill="#888" font-size="9">hidden@W_down</text>
+
+    <!-- output -->
+    <path d="M 832 163 L 860 163" stroke="#888" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+    <g filter="url(#sk)"><rect x="860" y="140" width="34" height="46" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/></g>
+    <text x="877" y="160" text-anchor="middle" fill="#7a5415" font-weight="bold" font-size="10">out</text>
+    <text x="877" y="176" text-anchor="middle" fill="#888" font-size="8">[M,d_m]</text>
+  </g>
+
+  <!-- ===== Kernel composition table ===== -->
+  <g filter="url(#sk)">
+    <rect x="30" y="230" width="400" height="270" rx="8" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+  </g>
+  <text x="230" y="254" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">4 个 Kernel 的职责与瓶颈</text>
+  <g font-size="10" fill="#444">
+    <text x="50" y="280"><tspan font-weight="bold" fill="#4a8edb">GEMM ①②</tspan> gate = x@W_gate, up = x@W_up</text>
+    <text x="60" y="296" fill="#888">compute-bound, shared mem tiling</text>
+    <text x="60" y="310" fill="#888">2 × 2·M·d_model·d_ffn FLOP</text>
+
+    <text x="50" y="336"><tspan font-weight="bold" fill="#8e5db8">SwiGLU 融合</tspan> hidden = SiLU(gate)*up</text>
+    <text x="60" y="352" fill="#888">memory-bound, kernel fusion</text>
+    <text x="60" y="366" fill="#888">读 gate+up → register 算 → 写 hidden</text>
+    <text x="60" y="380" fill="#2e6e2e">省 2 次 HBM 往返（不物化中间）</text>
+
+    <text x="50" y="406"><tspan font-weight="bold" fill="#4a8edb">GEMM ③</tspan> output = hidden@W_down</text>
+    <text x="60" y="422" fill="#888">compute-bound, shared mem tiling</text>
+    <text x="60" y="436" fill="#888">2·M·d_ffn·d_model FLOP</text>
+
+    <text x="50" y="462"><tspan font-weight="bold" fill="#b03a3a">总 FLOP</tspan> ≈ 2·M·d_ffn·d_model × 3</text>
+    <text x="60" y="478" fill="#888">LLaMA-3 8B: M=512, d=4096, d_ffn=14336</text>
+    <text x="60" y="492" fill="#b03a3a" font-weight="bold">≈ 180 GFLOP, GEMM 占 99.98%</text>
+  </g>
+
+  <!-- ===== Optimization ===== -->
+  <g filter="url(#sk)">
+    <rect x="450" y="230" width="420" height="270" rx="8" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="660" y="254" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">优化方向与 Fusion 机会</text>
+  <g font-size="10" fill="#444">
+    <text x="470" y="280"><tspan font-weight="bold" fill="#2e6e2e">① GEMM 用 register tiling</tspan></text>
+    <text x="480" y="296" fill="#888">BM×BN×BK 分块 + TM×TN 寄存器累加</text>
+    <text x="480" y="310" fill="#888">比朴素 tiling 快 4-8x</text>
+
+    <text x="470" y="336"><tspan font-weight="bold" fill="#2e6e2e">② 融合 gate + up GEMM</tspan></text>
+    <text x="480" y="352" fill="#888">x 共享 → 拼接 W_gate|W_up 一次 GEMM</text>
+    <text x="480" y="366" fill="#888">省 1 次 x 的 HBM 读取</text>
+
+    <text x="470" y="392"><tspan font-weight="bold" fill="#2e6e2e">③ 融合 SwiGLU 到 gate epilogue</tspan></text>
+    <text x="480" y="408" fill="#888">gate GEMM 写回时直接算 SiLU(gate)*up</text>
+    <text x="480" y="422" fill="#888">省 gate 的 HBM 写+读</text>
+
+    <text x="470" y="452"><tspan font-weight="bold" fill="#2e6e2e">④ 临时缓冲复用</tspan></text>
+    <text x="480" y="468" fill="#888">hidden 覆写 gate（in-place）</text>
+    <text x="480" y="482" fill="#888">仅 2 个 temp: gate + up</text>
+    <text x="480" y="496" fill="#888">= 2·M·d_ffn·4B ≈ 56 MB</text>
+  </g>
+</svg>
