@@ -293,6 +293,26 @@ int main(int argc, char** argv) {
 }
 ```
 
+#### 关于 `__restrict__`
+
+kernel 签名里 `input`/`output` 指针加了 `__restrict__`：
+
+```cuda
+__global__ void conv2d_shared_halo(const float* __restrict__ input,
+                                   float* __restrict__ output, ...)
+```
+
+它是 CUDA/C++ 的**指针别名提示符（qualifier）**，意思是：程序员向编译器保证，**该指针是访问其所指向内存的唯一方式**，不存在别的指针指向同一块内存并对其进行读写（no aliasing）。
+
+对 2D 卷积来说：
+- `input` 只读，`output` 只写，且两块 buffer 不重叠；
+- 加上 `__restrict__` 后，编译器可以把 `input[gy * W + gx]` 的加载值放心地缓存在寄存器里，不必每次用之前都重新从 global memory 读取；
+- 同时写 `output` 时也可以更激进地做 load/store 重排和指令级并行优化。
+
+如果不加，编译器会保守假设 `input` 和 `output` 可能指向同一块内存，写入 `output` 可能会使 `input` 失效，从而放弃寄存器缓存，导致更多冗余的 global memory 访问。
+
+> ⚠️ 这是程序员的承诺。如果实际传入的两个指针指向重叠内存，行为是未定义的，可能得到错误结果。
+
 > 💡 上面带 `main()` 的完整文件用于本地自测与 profiling。提交 LeetGPU 时，需要把 kernel 填入官方 starter 的 `__global__` 空壳，并适配它的 `solve` 函数签名。
 
 ### 4.1 LeetGPU 提交版本
