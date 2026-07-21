@@ -537,6 +537,8 @@ leetgpu/
 
 **所有插图统一为手绘 sketch 风**，与每日教程（`aiinfra/daily-tutorial/SKILL.md`）和 LeetCode 题解保持一致。具体要求：
 
+- **禁止 ASCII 图片**：所有示意图、流程图、架构图一律用 SVG，不要在 Markdown 中嵌入 ASCII 字符画（如用 `+---+`、`|   |` 拼成的表格或流程图）
+
 ### 4.1 视觉特征
 
 | 维度 | 要求 |
