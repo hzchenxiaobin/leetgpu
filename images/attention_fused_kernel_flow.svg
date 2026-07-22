@@ -1,129 +1,122 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="820" viewBox="0 0 1000 820">
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="780" viewBox="0 0 1100 780">
   <defs>
     <marker id="arr_f" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
       <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
     </marker>
   </defs>
 
-  <rect width="1000" height="820" fill="#fafafa"/>
+  <rect width="1100" height="780" fill="#fafafa"/>
 
   <!-- Title -->
-  <text x="500" y="36" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold" fill="#222">
+  <text x="550" y="34" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold" fill="#222">
     Fused Attention Kernel：单次 k 循环内部数据流
   </text>
-  <text x="500" y="60" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#666">
+  <text x="550" y="58" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#666">
     一个 block 处理一行 query（blockIdx.x = i），256 个 thread 协作遍历 N 个 key
   </text>
 
   <!-- ========== Init phase ========== -->
-  <rect x="30" y="80" width="940" height="55" rx="8" fill="#e8f0fe" stroke="#1565c0" stroke-width="1.5"/>
-  <text x="50" y="105" font-family="sans-serif" font-size="13" font-weight="bold" fill="#1565c0">初始化阶段</text>
-  <text x="50" y="125" font-family="monospace" font-size="12" fill="#333">
+  <rect x="40" y="78" width="1020" height="58" rx="8" fill="#e8f0fe" stroke="#1565c0" stroke-width="1.5"/>
+  <text x="60" y="103" font-family="sans-serif" font-size="13" font-weight="bold" fill="#1565c0">初始化阶段</text>
+  <text x="60" y="124" font-family="monospace" font-size="12" fill="#333">
     q_shm[d] ← Q[i]  （协作加载到 shared memory）    m=-∞  l=0.0  o_local=0.0  scale=1/√d
   </text>
 
   <!-- ========== Main loop ========== -->
-  <rect x="30" y="150" width="940" height="560" rx="8" fill="none" stroke="#333" stroke-width="2" stroke-dasharray="6,3"/>
-  <text x="50" y="175" font-family="sans-serif" font-size="14" font-weight="bold" fill="#333">
+  <rect x="40" y="150" width="1020" height="500" rx="8" fill="none" stroke="#333" stroke-width="2" stroke-dasharray="6,3"/>
+  <text x="60" y="174" font-family="sans-serif" font-size="14" font-weight="bold" fill="#333">
     for (k = 0; k &lt; N; ++k)  ——— 主循环，遍历 N 个 key
   </text>
 
   <!-- Step A: dot product -->
-  <rect x="50" y="190" width="900" height="105" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.2"/>
-  <text x="70" y="213" font-family="sans-serif" font-size="13" font-weight="bold" fill="#1565c0">
+  <rect x="60" y="188" width="900" height="140" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.2"/>
+  <text x="80" y="211" font-family="sans-serif" font-size="13" font-weight="bold" fill="#1565c0">
     ① 点积 s_k = Q[i] · K[k] · scale
   </text>
 
-  <!-- 256 threads, each computes partial -->
-  <g font-family="monospace" font-size="11">
-    <rect x="70" y="225" width="120" height="22" fill="#bbdefb" stroke="#90caf9" rx="2"/>
-    <text x="130" y="240" text-anchor="middle" fill="#0d47a1">tid=0: q_shm[0]*K[k][0]</text>
-    <rect x="200" y="225" width="120" height="22" fill="#bbdefb" stroke="#90caf9" rx="2"/>
-    <text x="260" y="240" text-anchor="middle" fill="#0d47a1">tid=1: q_shm[1]*K[k][1]</text>
-    <text x="335" y="240" font-size="11" fill="#888">... tid &lt; d 的线程各算一维部分积</text>
-  </g>
+  <!-- Row 1: 256 threads, each computes partial -> block_reduce_sum -> s_k -->
+  <rect x="80" y="226" width="145" height="24" fill="#bbdefb" stroke="#90caf9" rx="2"/>
+  <text x="152" y="242" text-anchor="middle" font-family="monospace" font-size="11" fill="#0d47a1">tid=0: q_shm[0]·K[k][0]</text>
+  <rect x="235" y="226" width="145" height="24" fill="#bbdefb" stroke="#90caf9" rx="2"/>
+  <text x="307" y="242" text-anchor="middle" font-family="monospace" font-size="11" fill="#0d47a1">tid=1: q_shm[1]·K[k][1]</text>
+  <text x="390" y="242" font-family="monospace" font-size="11" fill="#888">… tid&lt;d</text>
 
-  <path d="M 450 248 L 500 248" stroke="#1565c0" stroke-width="1.5" fill="none" marker-end="url(#arr_f)"/>
-  <text x="455" y="242" font-size="10" fill="#1565c0">block_reduce_sum</text>
+  <text x="448" y="234" font-family="sans-serif" font-size="10" fill="#1565c0">block_reduce_sum</text>
+  <path d="M 448 240 L 543 240" stroke="#1565c0" stroke-width="1.5" fill="none" marker-end="url(#arr_f)"/>
 
-  <rect x="510" y="225" width="180" height="22" fill="#1565c0" stroke="#0d47a1" stroke-width="1.5" rx="3"/>
-  <text x="600" y="240" text-anchor="middle" font-family="monospace" font-size="11" fill="#fff" font-weight="bold">
+  <rect x="545" y="226" width="180" height="24" fill="#1565c0" stroke="#0d47a1" stroke-width="1.5" rx="3"/>
+  <text x="635" y="242" text-anchor="middle" font-family="monospace" font-size="11" fill="#fff" font-weight="bold">
     s_k = Σ part × scale
   </text>
 
-  <!-- broadcast s_k -->
-  <path d="M 695 236 L 740 236" stroke="#1565c0" stroke-width="1.5" fill="none" marker-end="url(#arr_f)"/>
-  <text x="700" y="230" font-size="9" fill="#1565c0">tid=0 写</text>
-  <text x="700" y="252" font-size="9" fill="#1565c0">s_k_shm</text>
-  <rect x="745" y="225" width="80" height="22" fill="#fff3e0" stroke="#e65100" stroke-width="1" rx="2"/>
-  <text x="785" y="240" text-anchor="middle" font-size="10" fill="#e65100" font-weight="bold">s_k_shm</text>
-  <path d="M 830 236 L 870 236" stroke="#e65100" stroke-width="1.5" fill="none" marker-end="url(#arr_f)"/>
-  <text x="830" y="258" font-size="9" fill="#888">__syncthreads</text>
-  <text x="870" y="240" font-size="10" fill="#333">全 block 读 s_k</text>
+  <!-- Row 2: broadcast s_k via s_k_shm -->
+  <path d="M 635 250 L 635 268" stroke="#1565c0" stroke-width="1.5" fill="none" marker-end="url(#arr_f)"/>
+  <text x="645" y="263" font-family="sans-serif" font-size="10" fill="#1565c0">tid=0 写</text>
+  <rect x="585" y="268" width="100" height="24" fill="#fff3e0" stroke="#e65100" stroke-width="1" rx="2"/>
+  <text x="635" y="284" text-anchor="middle" font-size="10" fill="#e65100" font-weight="bold">s_k_shm</text>
+  <text x="693" y="274" font-family="monospace" font-size="9" fill="#888">__syncthreads</text>
+  <path d="M 688 280 L 740 280" stroke="#e65100" stroke-width="1.5" fill="none" marker-end="url(#arr_f)"/>
+  <text x="748" y="284" font-family="sans-serif" font-size="11" fill="#333">全 block 读 s_k</text>
 
-  <text x="70" y="280" font-family="monospace" font-size="11" fill="#666">
-    // 256 个线程各自算一维部分积 → block_reduce_sum 汇总为标量 s_k → 广播给全 block
+  <text x="80" y="316" font-family="monospace" font-size="11" fill="#666">
+    // 各 thread 算一维部分积 → 块归约汇总为标量 s_k → 广播给全 block（s_k 不落 HBM）
   </text>
 
   <!-- Step B: online softmax update (tid==0 only) -->
-  <rect x="50" y="310" width="900" height="135" rx="6" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.2"/>
-  <text x="70" y="333" font-family="sans-serif" font-size="13" font-weight="bold" fill="#6a1b9a">
+  <rect x="60" y="343" width="900" height="155" rx="6" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.2"/>
+  <text x="80" y="366" font-family="sans-serif" font-size="13" font-weight="bold" fill="#6a1b9a">
     ② Online softmax 更新（仅 tid==0 执行，算完后广播 α、β）
   </text>
 
   <g font-family="monospace" font-size="11" fill="#333">
-    <text x="70" y="355">m_new = fmaxf(m, s_k)              // 更新 running max</text>
-    <text x="70" y="372">α = expf(m - m_new)                 // 旧状态缩放因子（m 变大时 &lt; 1）</text>
-    <text x="70" y="389">p = expf(s_k - m_new)               // 新 key 的未归一化权重</text>
-    <text x="70" y="406">l_new = l * α + p                   // 更新 running sum</text>
-    <text x="70" y="423">alpha_shm = (l * α) / l_new          // O 的缩放因子（广播给全 block）</text>
-    <text x="70" y="440">beta_shm  = p / l_new               // 新 V 的权重（广播给全 block）</text>
+    <text x="80" y="389">m_new = fmaxf(m, s_k)              // 更新 running max</text>
+    <text x="80" y="406">α = expf(m - m_new)                 // 旧状态缩放因子（m 变大时 &lt; 1）</text>
+    <text x="80" y="423">p = expf(s_k - m_new)               // 新 key 的未归一化权重</text>
+    <text x="80" y="440">l_new = l * α + p                   // 更新 running sum</text>
+    <text x="80" y="457">alpha_shm = (l * α) / l_new          // O 的缩放因子（广播给全 block）</text>
+    <text x="80" y="474">beta_shm  = p / l_new               // 新 V 的权重（广播给全 block）</text>
   </g>
 
   <!-- broadcast alpha, beta -->
-  <rect x="700" y="345" width="80" height="24" fill="#fff3e0" stroke="#e65100" stroke-width="1" rx="2"/>
-  <text x="740" y="361" text-anchor="middle" font-size="10" fill="#e65100" font-weight="bold">alpha_shm</text>
-  <rect x="700" y="375" width="80" height="24" fill="#fff3e0" stroke="#e65100" stroke-width="1" rx="2"/>
-  <text x="740" y="391" text-anchor="middle" font-size="10" fill="#e65100" font-weight="bold">beta_shm</text>
-  <path d="M 785 357 L 830 357" stroke="#e65100" stroke-width="1" fill="none" marker-end="url(#arr_f)"/>
-  <path d="M 785 387 L 830 387" stroke="#e65100" stroke-width="1" fill="none" marker-end="url(#arr_f)"/>
-  <text x="835" y="375" font-size="10" fill="#888">__syncthreads</text>
-  <text x="835" y="390" font-size="10" fill="#333">全 block 读取</text>
+  <rect x="620" y="445" width="95" height="22" fill="#fff3e0" stroke="#e65100" stroke-width="1" rx="2"/>
+  <text x="667" y="460" text-anchor="middle" font-size="10" fill="#e65100" font-weight="bold">alpha_shm</text>
+  <rect x="620" y="470" width="95" height="22" fill="#fff3e0" stroke="#e65100" stroke-width="1" rx="2"/>
+  <text x="667" y="485" text-anchor="middle" font-size="10" fill="#e65100" font-weight="bold">beta_shm</text>
+  <path d="M 718 456 L 768 456" stroke="#e65100" stroke-width="1" fill="none" marker-end="url(#arr_f)"/>
+  <path d="M 718 481 L 768 481" stroke="#e65100" stroke-width="1" fill="none" marker-end="url(#arr_f)"/>
+  <text x="725" y="450" font-family="monospace" font-size="9" fill="#888">__syncthreads</text>
+  <text x="775" y="471" font-family="sans-serif" font-size="10" fill="#333">全 block 读取</text>
 
   <!-- Step C: accumulate output -->
-  <rect x="50" y="460" width="900" height="110" rx="6" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.2"/>
-  <text x="70" y="483" font-family="sans-serif" font-size="13" font-weight="bold" fill="#2e7d32">
+  <rect x="60" y="513" width="900" height="120" rx="6" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.2"/>
+  <text x="80" y="536" font-family="sans-serif" font-size="13" font-weight="bold" fill="#2e7d32">
     ③ 累加输出：o_local = o_local × α + β × V[k]
   </text>
 
-  <g font-family="monospace" font-size="11">
-    <!-- tid=0 -->
-    <rect x="70" y="495" width="140" height="24" fill="#c8e6c9" stroke="#2e7d32" rx="2"/>
-    <text x="140" y="511" text-anchor="middle" fill="#1b5e20">tid=0: o_local[0]</text>
-    <text x="225" y="511" fill="#333">= o_local[0] × alpha_shm + beta_shm × V[k][0]</text>
+  <rect x="80" y="550" width="150" height="24" fill="#c8e6c9" stroke="#2e7d32" rx="2"/>
+  <text x="155" y="566" text-anchor="middle" font-family="monospace" font-size="11" fill="#1b5e20">tid=0: o_local[0]</text>
+  <text x="240" y="566" font-family="monospace" font-size="11" fill="#333">= o_local[0] × alpha_shm + beta_shm × V[k][0]</text>
 
-    <!-- tid=1 -->
-    <rect x="70" y="525" width="140" height="24" fill="#c8e6c9" stroke="#2e7d32" rx="2"/>
-    <text x="140" y="541" text-anchor="middle" fill="#1b5e20">tid=1: o_local[1]</text>
-    <text x="225" y="541" fill="#333">= o_local[1] × alpha_shm + beta_shm × V[k][1]</text>
+  <rect x="80" y="580" width="150" height="24" fill="#c8e6c9" stroke="#2e7d32" rx="2"/>
+  <text x="155" y="596" text-anchor="middle" font-family="monospace" font-size="11" fill="#1b5e20">tid=1: o_local[1]</text>
+  <text x="240" y="596" font-family="monospace" font-size="11" fill="#333">= o_local[1] × alpha_shm + beta_shm × V[k][1]</text>
 
-    <text x="225" y="561" fill="#888" font-size="11">... tid &lt; d 的线程各持有一个输出维度，独立累加（无冲突）</text>
-  </g>
+  <text x="240" y="618" font-family="monospace" font-size="11" fill="#888">… tid&lt;d 的线程各持有一个输出维度，独立累加（无数据竞争）</text>
 
-  <!-- loop back arrow -->
-  <path d="M 500 575 Q 500 595 500 595 L 500 190" stroke="#333" stroke-width="1.5" stroke-dasharray="4,3" fill="none" marker-end="url(#arr_f)"/>
-  <text x="510" y="588" font-family="sans-serif" font-size="11" fill="#666">↑ k++，处理下一个 key</text>
+  <!-- loop back arrow (routed in right gutter, away from step content) -->
+  <path d="M 960 573 L 1010 573 L 1010 258 L 962 258" stroke="#333" stroke-width="1.5" stroke-dasharray="4,3" fill="none" marker-end="url(#arr_f)"/>
+  <text x="1030" y="415" text-anchor="middle" transform="rotate(-90 1030 415)" font-family="sans-serif" font-size="12" fill="#555">↻ k++，处理下一个 key</text>
 
   <!-- ========== Write output ========== -->
-  <rect x="30" y="725" width="940" height="80" rx="8" fill="#fff3e0" stroke="#e65100" stroke-width="1.5"/>
-  <text x="50" y="750" font-family="sans-serif" font-size="14" font-weight="bold" fill="#e65100">
+  <rect x="40" y="665" width="1020" height="95" rx="8" fill="#fff3e0" stroke="#e65100" stroke-width="1.5"/>
+  <text x="60" y="690" font-family="sans-serif" font-size="14" font-weight="bold" fill="#e65100">
     循环结束后：写回输出
   </text>
-  <text x="50" y="772" font-family="monospace" font-size="12" fill="#333">
+  <text x="60" y="712" font-family="monospace" font-size="12" fill="#333">
     if (tid &lt; d)  O[i * d + tid] = o_local;    // 每 thread 写自己负责的输出维度
   </text>
-  <text x="50" y="794" font-family="sans-serif" font-size="12" fill="#555">
-    💡 o_local 已包含所有 N 个 key 的贡献，且已除以 l（归一化）——因为 α、β 在更新时已用 l_new 缩放，末尾无需再除。
+  <text x="60" y="734" font-family="sans-serif" font-size="12" fill="#555">
+    💡 o_local 已包含所有 N 个 key 的贡献，且已归一化——α、β 在更新时已用 l_new 缩放，末尾无需再除。
   </text>
 </svg>
