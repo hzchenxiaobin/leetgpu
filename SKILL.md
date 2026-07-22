@@ -718,24 +718,23 @@ cp leetgpu/week2/day5/leetgpu-softmax-attention-solution.md \
 - [ ] `> 💡 关键洞察` blockquote 存在
 - [ ] 同 slug 的重复文件已同步（`diff` 无差异）
 - [ ] `## 同类练习题` 章节存在，且内容与 §1.6 推荐映射完全一致（4 条推荐 + 选材主线）
-- [ ] `python3 leetgpu/website/build.py` 构建成功
+- [ ] `python3 build.py` 构建成功
 - [ ] 生成的 HTML 中 SVG 路径正确（`./images/...svg`）
 
 ## 6. 网站构建集成
 
-题解写完后会被 `leetgpu/website/build.py` 自动读取并生成网页：
+题解写完后会被 `build/leetgpu.py` 自动读取并生成网页：
 
 - `build.py` **递归扫描** `leetgpu/` 下所有 `leetgpu-*.md` 文件（用 `rglob()`，自动识别 `weekN/dayM/` 子目录）。
 - 解析路径中的 `weekN/dayM/` 作为分组依据，侧边栏按 week→day 手风琴式分组。
 - 解析一级标题 `# LeetGPU <题目名> 题解` 作为侧边栏与列表页标题。
 - 图片路径 `images/xxx.svg` 在题解页被重写为 `./images/xxx.svg`（网站输出目录扁平化）。
-- 生成 `leetgpu/website/index.html`（概览页）和 `leetgpu/website/leetgpu-<slug>-solution.html`（各题解页，扁平输出到 `website/` 根）。
-- 根 `build.py` 会把 `leetgpu/website/` 和 `leetgpu/images/` 复制到 `public/leetgpu/` 部署。
+- 生成 `public/leetgpu/index.html`（概览页）和 `public/leetgpu/leetgpu-<slug>-solution.html`（各题解页，扁平输出）。
+- `leetgpu/images/` 自动复制到 `public/leetgpu/images/` 部署。
 
 **验证命令**：
 
 ```bash
-python3 leetgpu/website/build.py   # 单独构建 leetgpu 网站
 python3 build.py                     # 组合构建全站（含 leetgpu）
 ```
 
