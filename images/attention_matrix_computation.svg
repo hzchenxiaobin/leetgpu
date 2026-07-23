@@ -1,0 +1,174 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 680" font-family="'Segoe UI', 'Kaiti SC', 楷体, sans-serif">
+  <defs>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+  <rect width="780" height="680" fill="#fafafa"/>
+
+  <text x="390" y="28" text-anchor="middle" font-size="16" fill="#444" font-weight="bold">Attention 矩阵计算过程</text>
+  <text x="390" y="48" text-anchor="middle" font-size="13" fill="#666">O = softmax(QKᵀ / √d) · V</text>
+
+  <!-- ===== Part 1: 矩阵维度总览 ===== -->
+  <text x="30" y="78" font-size="12" fill="#444" font-weight="bold">① 矩阵维度总览（N ≫ d 时，S/P 是两个 N×N 中间矩阵）</text>
+
+  <!-- Q (N×d): tall narrow, center y=170 -->
+  <rect x="50" y="125" width="28" height="90" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3"/>
+  <text x="64" y="178" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">Q</text>
+  <text x="64" y="228" text-anchor="middle" font-size="9" fill="#888">N×d</text>
+
+  <text x="92" y="175" text-anchor="middle" font-size="14" fill="#555">·</text>
+
+  <!-- K^T (d×N): wide short -->
+  <rect x="100" y="156" width="90" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3"/>
+  <text x="145" y="176" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">Kᵀ</text>
+  <text x="145" y="200" text-anchor="middle" font-size="9" fill="#888">d×N</text>
+
+  <text x="205" y="175" text-anchor="middle" font-size="12" fill="#555">=</text>
+
+  <!-- S (N×N): big square, RED -->
+  <rect x="220" y="125" width="90" height="90" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3"/>
+  <text x="265" y="178" text-anchor="middle" font-size="12" fill="#b85450" font-weight="bold">S</text>
+  <text x="265" y="228" text-anchor="middle" font-size="9" fill="#b85450" font-weight="bold">N×N</text>
+
+  <!-- softmax arrow -->
+  <line x1="315" y1="170" x2="375" y2="170" stroke="#d6a040" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="345" y="162" text-anchor="middle" font-size="9" fill="#d6a040" font-weight="bold">softmax</text>
+  <text x="345" y="184" text-anchor="middle" font-size="8" fill="#888">row-wise</text>
+
+  <!-- P (N×N): big square, RED -->
+  <rect x="380" y="125" width="90" height="90" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="3"/>
+  <text x="425" y="178" text-anchor="middle" font-size="12" fill="#b85450" font-weight="bold">P</text>
+  <text x="425" y="228" text-anchor="middle" font-size="9" fill="#b85450" font-weight="bold">N×N</text>
+
+  <text x="482" y="175" text-anchor="middle" font-size="14" fill="#555">·</text>
+
+  <!-- V (N×d): tall narrow -->
+  <rect x="490" y="125" width="28" height="90" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3"/>
+  <text x="504" y="178" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">V</text>
+  <text x="504" y="228" text-anchor="middle" font-size="9" fill="#888">N×d</text>
+
+  <text x="530" y="175" text-anchor="middle" font-size="12" fill="#555">=</text>
+
+  <!-- O (N×d): tall narrow, GREEN -->
+  <rect x="540" y="125" width="28" height="90" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="3"/>
+  <text x="554" y="178" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">O</text>
+  <text x="554" y="228" text-anchor="middle" font-size="9" fill="#888">N×d</text>
+
+  <!-- highlight S and P -->
+  <rect x="212" y="116" width="268" height="128" fill="none" stroke="#b85450" stroke-width="1.2" stroke-dasharray="4,3" rx="6"/>
+  <text x="346" y="258" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">⚠ S、P 两个 N×N 中间矩阵 = O(N²) 显存 / IO 灾难根源</text>
+
+  <!-- divider -->
+  <line x1="20" y1="278" x2="760" y2="278" stroke="#eee" stroke-width="1"/>
+
+  <!-- ===== Part 2: 具体数值演算 ===== -->
+  <text x="30" y="302" font-size="12" fill="#444" font-weight="bold">② 具体数值演算（N=2, d=2, scale = 1/√2 ≈ 0.707）</text>
+
+  <!-- Step 1: Q · K^T /√d = S -->
+  <text x="30" y="326" font-size="10" fill="#b85450" font-weight="bold">Step 1:  S = Q · Kᵀ × (1/√d)</text>
+
+  <g font-size="10" fill="#333">
+    <!-- Q -->
+    <rect x="50" y="334" width="30" height="20" fill="#e8f0fe" stroke="#446688"/><text x="65" y="348" text-anchor="middle">1</text>
+    <rect x="80" y="334" width="30" height="20" fill="#e8f0fe" stroke="#446688"/><text x="95" y="348" text-anchor="middle">0</text>
+    <rect x="50" y="354" width="30" height="20" fill="#e8f0fe" stroke="#446688"/><text x="65" y="368" text-anchor="middle">0</text>
+    <rect x="80" y="354" width="30" height="20" fill="#e8f0fe" stroke="#446688"/><text x="95" y="368" text-anchor="middle">1</text>
+    <text x="80" y="388" text-anchor="middle" font-size="9" fill="#446688">Q</text>
+
+    <text x="120" y="358" text-anchor="middle" font-size="14" fill="#555">·</text>
+
+    <!-- K^T -->
+    <rect x="132" y="334" width="30" height="20" fill="#e8f0fe" stroke="#446688"/><text x="147" y="348" text-anchor="middle">1</text>
+    <rect x="162" y="334" width="30" height="20" fill="#e8f0fe" stroke="#446688"/><text x="177" y="348" text-anchor="middle">0</text>
+    <rect x="132" y="354" width="30" height="20" fill="#e8f0fe" stroke="#446688"/><text x="147" y="368" text-anchor="middle">0</text>
+    <rect x="162" y="354" width="30" height="20" fill="#e8f0fe" stroke="#446688"/><text x="177" y="368" text-anchor="middle">1</text>
+    <text x="162" y="388" text-anchor="middle" font-size="9" fill="#446688">Kᵀ</text>
+
+    <text x="202" y="358" text-anchor="middle" font-size="10" fill="#888">×0.707 =</text>
+
+    <!-- S -->
+    <rect x="268" y="334" width="34" height="20" fill="#fce4ec" stroke="#b85450"/><text x="285" y="348" text-anchor="middle">.707</text>
+    <rect x="302" y="334" width="34" height="20" fill="#fce4ec" stroke="#b85450"/><text x="319" y="348" text-anchor="middle">0</text>
+    <rect x="268" y="354" width="34" height="20" fill="#fce4ec" stroke="#b85450"/><text x="285" y="368" text-anchor="middle">0</text>
+    <rect x="302" y="354" width="34" height="20" fill="#fce4ec" stroke="#b85450"/><text x="319" y="368" text-anchor="middle">.707</text>
+    <text x="302" y="388" text-anchor="middle" font-size="9" fill="#b85450">S = QKᵀ/√d</text>
+  </g>
+
+  <!-- Step 2: softmax(S) = P -->
+  <text x="30" y="418" font-size="10" fill="#d6a040" font-weight="bold">Step 2:  P = softmax(S, row)   ← 减行最大值 → exp → 归一化</text>
+
+  <g font-size="10" fill="#333">
+    <!-- S reference -->
+    <rect x="50" y="426" width="34" height="20" fill="#fce4ec" stroke="#b85450"/><text x="67" y="440" text-anchor="middle">.707</text>
+    <rect x="84" y="426" width="34" height="20" fill="#fce4ec" stroke="#b85450"/><text x="101" y="440" text-anchor="middle">0</text>
+    <rect x="50" y="446" width="34" height="20" fill="#fce4ec" stroke="#b85450"/><text x="67" y="460" text-anchor="middle">0</text>
+    <rect x="84" y="446" width="34" height="20" fill="#fce4ec" stroke="#b85450"/><text x="101" y="460" text-anchor="middle">.707</text>
+    <text x="84" y="480" text-anchor="middle" font-size="9" fill="#b85450">S</text>
+
+    <!-- arrow -->
+    <line x1="130" y1="446" x2="185" y2="446" stroke="#d6a040" stroke-width="1.5" marker-end="url(#ar)"/>
+    <text x="157" y="438" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold">softmax</text>
+    <text x="157" y="460" text-anchor="middle" font-size="7" fill="#888">row-wise</text>
+
+    <!-- P -->
+    <rect x="200" y="426" width="38" height="20" fill="#fff8e1" stroke="#d6a040"/><text x="219" y="440" text-anchor="middle">0.67</text>
+    <rect x="238" y="426" width="38" height="20" fill="#fff8e1" stroke="#d6a040"/><text x="257" y="440" text-anchor="middle">0.33</text>
+    <rect x="200" y="446" width="38" height="20" fill="#fff8e1" stroke="#d6a040"/><text x="219" y="460" text-anchor="middle">0.33</text>
+    <rect x="238" y="446" width="38" height="20" fill="#fff8e1" stroke="#d6a040"/><text x="257" y="460" text-anchor="middle">0.67</text>
+    <text x="238" y="480" text-anchor="middle" font-size="9" fill="#d6a040">P（每行和=1）</text>
+  </g>
+
+  <!-- Step 3: P · V = O -->
+  <text x="30" y="510" font-size="10" fill="#4a7a3a" font-weight="bold">Step 3:  O = P · V   ← 注意力权重对 V 加权求和</text>
+
+  <g font-size="10" fill="#333">
+    <!-- P -->
+    <rect x="50" y="518" width="38" height="20" fill="#fff8e1" stroke="#d6a040"/><text x="69" y="532" text-anchor="middle">0.67</text>
+    <rect x="88" y="518" width="38" height="20" fill="#fff8e1" stroke="#d6a040"/><text x="107" y="532" text-anchor="middle">0.33</text>
+    <rect x="50" y="538" width="38" height="20" fill="#fff8e1" stroke="#d6a040"/><text x="69" y="552" text-anchor="middle">0.33</text>
+    <rect x="88" y="538" width="38" height="20" fill="#fff8e1" stroke="#d6a040"/><text x="107" y="552" text-anchor="middle">0.67</text>
+    <text x="88" y="572" text-anchor="middle" font-size="9" fill="#d6a040">P</text>
+
+    <text x="138" y="542" text-anchor="middle" font-size="14" fill="#555">·</text>
+
+    <!-- V -->
+    <rect x="152" y="518" width="30" height="20" fill="#e8f0fe" stroke="#446688"/><text x="167" y="532" text-anchor="middle">1</text>
+    <rect x="182" y="518" width="30" height="20" fill="#e8f0fe" stroke="#446688"/><text x="197" y="532" text-anchor="middle">0</text>
+    <rect x="152" y="538" width="30" height="20" fill="#e8f0fe" stroke="#446688"/><text x="167" y="552" text-anchor="middle">0</text>
+    <rect x="182" y="538" width="30" height="20" fill="#e8f0fe" stroke="#446688"/><text x="197" y="552" text-anchor="middle">1</text>
+    <text x="182" y="572" text-anchor="middle" font-size="9" fill="#446688">V</text>
+
+    <text x="222" y="542" text-anchor="middle" font-size="14" fill="#555">=</text>
+
+    <!-- O -->
+    <rect x="240" y="518" width="38" height="20" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2"/><text x="259" y="532" text-anchor="middle">0.67</text>
+    <rect x="278" y="518" width="38" height="20" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2"/><text x="297" y="532" text-anchor="middle">0.33</text>
+    <rect x="240" y="538" width="38" height="20" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2"/><text x="259" y="552" text-anchor="middle">0.33</text>
+    <rect x="278" y="538" width="38" height="20" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2"/><text x="297" y="552" text-anchor="middle">0.67</text>
+    <text x="278" y="572" text-anchor="middle" font-size="9" fill="#4a7a3a">O</text>
+  </g>
+
+  <!-- softmax detail annotation -->
+  <g font-size="9" fill="#555">
+    <text x="380" y="426" fill="#d6a040" font-weight="bold">softmax 计算细节（以第 0 行为例）：</text>
+    <text x="380" y="444">max = 0.707</text>
+    <text x="380" y="460">exp([0.707−0.707, 0−0.707]) = [1.0, 0.493]</text>
+    <text x="380" y="476">sum = 1.0 + 0.493 = 1.493</text>
+    <text x="380" y="492" fill="#d6a040" font-weight="bold">P[0] = [1.0/1.493, 0.493/1.493] = [0.67, 0.33]</text>
+  </g>
+
+  <!-- O computation annotation -->
+  <g font-size="9" fill="#555">
+    <text x="380" y="518" fill="#4a7a3a" font-weight="bold">O 计算细节（以第 0 行为例）：</text>
+    <text x="380" y="536">O[0] = 0.67·V[0] + 0.33·V[1]</text>
+    <text x="380" y="552">     = 0.67·[1,0] + 0.33·[0,1]</text>
+    <text x="380" y="568" fill="#4a7a3a" font-weight="bold">     = [0.67, 0.33]</text>
+  </g>
+
+  <!-- bottom note -->
+  <rect x="30" y="600" width="720" height="60" fill="#f6f6f6" stroke="#ccc" rx="6"/>
+  <text x="40" y="620" font-size="10" fill="#555">朴素实现：S、P 两个 N×N 矩阵必须写回 HBM（显存 O(N²)，IO O(N²)），长序列 OOM。</text>
+  <text x="40" y="638" font-size="10" fill="#555">例：N=8192, d=64 时 S、P 各占 256MB → 仅中间矩阵就 512MB。</text>
+  <text x="40" y="654" font-size="10" fill="#4a7a3a" font-weight="bold">FlashAttention：online softmax 三步融合，S/P 永不落 HBM → 显存 O(d)，IO 降至 O(Nd)。</text>
+</svg>

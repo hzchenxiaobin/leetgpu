@@ -20,6 +20,10 @@ P = softmax(S, row) ≈ [[0.67, 0.33],[0.33, 0.67]]
 O = P·V        ≈ [[0.67, 0.33],[0.33, 0.67]]
 ```
 
+![Attention 矩阵计算过程：三步矩阵运算的维度与数值演算](../../images/attention_matrix_computation.svg)
+
+> **图：Attention 矩阵计算全过程。** 上半部分展示矩阵维度总览——`Q(N×d)·K^T(d×N)=S(N×N)`，`softmax(S)=P(N×N)`，`P(N×N)·V(N×d)=O(N×d)`，红色虚框标出 `S`、`P` 两个 `N×N` 中间矩阵（`O(N²)` 灾难根源）。下半部分用 `N=2, d=2` 的具体数值演算三步计算，右侧附 softmax 和加权求和的计算细节。
+
 **约束**：`1 ≤ N, d`；性能测试取较大 `N`（如 `N=4096, d=64/128`）；容差 `atol=rtol=1e-3`。
 
 > 💡 这是 **FlashAttention 思想的入门题**。朴素实现要把 `S=QK^T`（`N×N`）和 `P=softmax(S)`（`N×N`）两个中间矩阵写回 HBM，导致 **O(N²) 显存占用 + O(N²) IO**——长序列（`N=8192`）时光 `S`、`P` 就各占 256MB，显存爆炸。优化核心是用 **online softmax** 把 `QK^T → softmax → PV` 融合成一个 kernel，**不物化** `S/P`，这正是 FlashAttention 的精髓。
