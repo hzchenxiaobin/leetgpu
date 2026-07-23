@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 460" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="19" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="920" height="460" fill="#fdfcf7"/>
+
+  <text x="460" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">CSR 格式：稠密矩阵 → 三元组（row_ptr / col_idx / values）</text>
+  <path d="M 260 42 Q 460 50 660 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- dense matrix -->
+  <text x="60" y="84" font-size="12" font-weight="bold" fill="#2b6e9e">稠密矩阵 A（M×N，存大量 0）</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="94" width="50" height="34" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="110" y="94" width="50" height="34" rx="3" fill="#f5f5f5" stroke="#ccc" stroke-width="1.0"/>
+    <rect x="160" y="94" width="50" height="34" rx="3" fill="#f5f5f5" stroke="#ccc" stroke-width="1.0"/>
+    <rect x="210" y="94" width="50" height="34" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+
+    <rect x="60" y="128" width="50" height="34" rx="3" fill="#f5f5f5" stroke="#ccc" stroke-width="1.0"/>
+    <rect x="110" y="128" width="50" height="34" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="160" y="128" width="50" height="34" rx="3" fill="#f5f5f5" stroke="#ccc" stroke-width="1.0"/>
+    <rect x="210" y="128" width="50" height="34" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+
+    <rect x="60" y="162" width="50" height="34" rx="3" fill="#f5f5f5" stroke="#ccc" stroke-width="1.0"/>
+    <rect x="110" y="162" width="50" height="34" rx="3" fill="#f5f5f5" stroke="#ccc" stroke-width="1.0"/>
+    <rect x="160" y="162" width="50" height="34" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="210" y="162" width="50" height="34" rx="3" fill="#f5f5f5" stroke="#ccc" stroke-width="1.0"/>
+  </g>
+  <text x="85" y="116" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">5</text>
+  <text x="235" y="116" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">1</text>
+  <text x="135" y="150" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">2</text>
+  <text x="235" y="150" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">3</text>
+  <text x="185" y="184" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">4</text>
+  <text x="85" y="106" font-size="9" fill="#888">行0</text>
+  <text x="85" y="140" font-size="9" fill="#888">行1</text>
+  <text x="85" y="174" font-size="9" fill="#888">行2</text>
+  <text x="120" y="214" font-size="10" fill="#aaa">灰色=零元素（不存）</text>
+
+  <!-- arrow -->
+  <path d="M 290 144 L 360 144" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="325" y="138" text-anchor="middle" font-size="10" fill="#7a5415">压缩</text>
+  <text x="325" y="156" text-anchor="middle" font-size="9" fill="#888">只存非零元</text>
+
+  <!-- CSR triple -->
+  <text x="400" y="84" font-size="12" font-weight="bold" fill="#7a5415">CSR 三元组（只存 nnz 个非零元）</text>
+
+  <!-- row_ptr -->
+  <g filter="url(#sk)">
+    <rect x="400" y="94" width="44" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="444" y="94" width="44" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="488" y="94" width="44" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="532" y="94" width="44" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="422" y="113" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">0</text>
+  <text x="466" y="113" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">2</text>
+  <text x="510" y="113" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">4</text>
+  <text x="554" y="113" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">5</text>
+  <text x="400" y="88" font-size="10" font-weight="bold" fill="#7a5415">row_ptr[M+1]</text>
+  <text x="400" y="140" font-size="9" fill="#888">行 i 的非零元在 [row_ptr[i], row_ptr[i+1])</text>
+
+  <!-- col_idx -->
+  <g filter="url(#sk)">
+    <rect x="400" y="162" width="44" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="444" y="162" width="44" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="488" y="162" width="44" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="532" y="162" width="44" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="576" y="162" width="44" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+  </g>
+  <text x="422" y="181" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">0</text>
+  <text x="466" y="181" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">3</text>
+  <text x="510" y="181" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">1</text>
+  <text x="554" y="181" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">3</text>
+  <text x="598" y="181" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">2</text>
+  <text x="400" y="156" font-size="10" font-weight="bold" fill="#2e6e2e">col_idx[nnz]</text>
+  <text x="400" y="208" font-size="9" fill="#888">第 k 个非零元的列号（用于 gather x[col]）</text>
+
+  <!-- values -->
+  <g filter="url(#sk)">
+    <rect x="400" y="230" width="44" height="30" rx="4" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="444" y="230" width="44" height="30" rx="4" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="488" y="230" width="44" height="30" rx="4" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="532" y="230" width="44" height="30" rx="4" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="576" y="230" width="44" height="30" rx="4" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+  </g>
+  <text x="422" y="249" text-anchor="middle" font-size="12" font-weight="bold" fill="#b85450">5</text>
+  <text x="466" y="249" text-anchor="middle" font-size="12" font-weight="bold" fill="#b85450">1</text>
+  <text x="510" y="249" text-anchor="middle" font-size="12" font-weight="bold" fill="#b85450">2</text>
+  <text x="554" y="249" text-anchor="middle" font-size="12" font-weight="bold" fill="#b85450">3</text>
+  <text x="598" y="249" text-anchor="middle" font-size="12" font-weight="bold" fill="#b85450">4</text>
+  <text x="400" y="224" font-size="10" font-weight="bold" fill="#b85450">values[nnz]</text>
+  <text x="400" y="276" font-size="9" fill="#888">第 k 个非零元的数值</text>
+
+  <!-- storage savings -->
+  <g filter="url(#sk)">
+    <rect x="640" y="94" width="250" height="166" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/>
+  </g>
+  <text x="765" y="118" text-anchor="middle" font-size="12" font-weight="bold" fill="#444">存储对比（M=1000, N=10000）</text>
+  <text x="655" y="142" font-size="11" fill="#2b6e9e">稠密：M×N×4B = 40 MB</text>
+  <text x="655" y="162" font-size="11" fill="#7a5415">CSR：nnz×(4+4)B + (M+1)×4B</text>
+  <text x="655" y="180" font-size="11" fill="#7a5415">　 = 3.5M×8 + 4K ≈ 28 MB</text>
+  <text x="655" y="204" font-size="11" fill="#2e6e2e">省 ~30%（35% 稀疏时）</text>
+  <text x="655" y="226" font-size="10" fill="#b85450">稀疏度越高，CSR 收益越大</text>
+  <text x="655" y="244" font-size="10" fill="#888">（90% 零时省 ~80%）</text>
+
+  <!-- bottom: SpMV formula -->
+  <g filter="url(#sk)">
+    <rect x="60" y="300" width="830" height="50" rx="8" fill="#f0f7ff" stroke="#4a8edb" stroke-width="1.3"/>
+  </g>
+  <text x="475" y="322" text-anchor="middle" font-size="13" font-weight="bold" fill="#2b6e9e">SpMV：y[i] = Σ_{k=row_ptr[i]}^{row_ptr[i+1]-1} values[k] × x[col_idx[k]]</text>
+  <text x="475" y="340" text-anchor="middle" font-size="10" fill="#888">每行只遍历自己的非零元，跳过所有 0，省带宽、省计算</text>
+
+  <!-- legend -->
+  <g filter="url(#sk)">
+    <rect x="60" y="370" width="830" height="70" rx="8" fill="#fafafa" stroke="#ccc" stroke-width="1.0"/>
+  </g>
+  <text x="80" y="392" font-size="11" font-weight="bold" fill="#444">图例：</text>
+  <rect x="130" y="382" width="16" height="14" rx="2" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1" filter="url(#sk)"/>
+  <text x="152" y="393" font-size="10" fill="#444">稠密矩阵非零元</text>
+  <rect x="260" y="382" width="16" height="14" rx="2" fill="#fff8e1" stroke="#d6a040" stroke-width="1" filter="url(#sk)"/>
+  <text x="282" y="393" font-size="10" fill="#444">row_ptr（行偏移）</text>
+  <rect x="400" y="382" width="16" height="14" rx="2" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1" filter="url(#sk)"/>
+  <text x="422" y="393" font-size="10" fill="#444">col_idx（列索引）</text>
+  <rect x="540" y="382" width="16" height="14" rx="2" fill="#fce4ec" stroke="#b85450" stroke-width="1" filter="url(#sk)"/>
+  <text x="562" y="393" font-size="10" fill="#444">values（非零值）</text>
+  <text x="80" y="424" font-size="10" fill="#888">CSR = Compressed Sparse Row。行内非零元连续存放，row_ptr 给出每行起点。SpMV 顺序读 values/col_idx，间接 gather x。</text>
+</svg>

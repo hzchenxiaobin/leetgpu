@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 480" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="41" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="940" height="480" fill="#fdfcf7"/>
+
+  <text x="470" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">warp-per-row SpMV：每行一个 warp，lane 分割非零元 + shuffle 归约</text>
+  <path d="M 250 42 Q 470 50 690 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- CSR input -->
+  <text x="40" y="78" font-size="12" font-weight="bold" fill="#7a5415">CSR 输入（按行连续）</text>
+
+  <!-- row 0 -->
+  <text x="40" y="100" font-size="10" font-weight="bold" fill="#2b6e9e">行0</text>
+  <g filter="url(#sk)">
+    <rect x="80" y="88" width="40" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="120" y="88" width="40" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="160" y="88" width="40" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+  </g>
+  <text x="100" y="106" text-anchor="middle" font-size="10" fill="#b85450">v0</text>
+  <text x="140" y="106" text-anchor="middle" font-size="10" fill="#b85450">v1</text>
+  <text x="180" y="106" text-anchor="middle" font-size="10" fill="#b85450">v2</text>
+  <text x="215" y="106" font-size="9" fill="#888">row_ptr[0..1]</text>
+
+  <!-- row 1 -->
+  <text x="40" y="134" font-size="10" font-weight="bold" fill="#2b6e9e">行1</text>
+  <g filter="url(#sk)">
+    <rect x="80" y="122" width="40" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="120" y="122" width="40" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+  </g>
+  <text x="100" y="140" text-anchor="middle" font-size="10" fill="#b85450">v3</text>
+  <text x="140" y="140" text-anchor="middle" font-size="10" fill="#b85450">v4</text>
+  <text x="215" y="140" font-size="9" fill="#888">row_ptr[1..2]</text>
+
+  <!-- row 2 -->
+  <text x="40" y="168" font-size="10" font-weight="bold" fill="#2b6e9e">行2</text>
+  <g filter="url(#sk)">
+    <rect x="80" y="156" width="40" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="120" y="156" width="40" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="160" y="156" width="40" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="200" y="156" width="40" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+  </g>
+  <text x="100" y="174" text-anchor="middle" font-size="10" fill="#b85450">v5</text>
+  <text x="140" y="174" text-anchor="middle" font-size="10" fill="#b85450">v6</text>
+  <text x="180" y="174" text-anchor="middle" font-size="10" fill="#b85450">v7</text>
+  <text x="220" y="174" text-anchor="middle" font-size="10" fill="#b85450">v8</text>
+  <text x="255" y="174" font-size="9" fill="#888">row_ptr[2..3]</text>
+
+  <!-- x vector gather -->
+  <text x="350" y="78" font-size="12" font-weight="bold" fill="#2b6e9e">向量 x[]（被 gather）</text>
+  <g filter="url(#sk)">
+    <rect x="350" y="88" width="34" height="26" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="384" y="88" width="34" height="26" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="418" y="88" width="34" height="26" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="452" y="88" width="34" height="26" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+  </g>
+  <text x="367" y="106" text-anchor="middle" font-size="10" fill="#2b6e9e">x0</text>
+  <text x="401" y="106" text-anchor="middle" font-size="10" fill="#2b6e9e">x1</text>
+  <text x="435" y="106" text-anchor="middle" font-size="10" fill="#2b6e9e">x2</text>
+  <text x="469" y="106" text-anchor="middle" font-size="10" fill="#2b6e9e">x3</text>
+  <text x="350" y="124" font-size="9" fill="#888">col_idx[k] 决定取哪个 x</text>
+
+  <!-- warps -->
+  <text x="540" y="78" font-size="12" font-weight="bold" fill="#2e6e2e">warp-per-row 并行</text>
+
+  <!-- warp 0 -->
+  <g filter="url(#sk)">
+    <rect x="540" y="88" width="360" height="34" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="555" y="109" font-size="10" font-weight="bold" fill="#2e6e2e">warp0</text>
+  <text x="600" y="109" font-size="9" fill="#444">lane0:v0·x  lane1:v1·x  lane2:v2·x  lane3-31:空</text>
+  <text x="890" y="109" font-size="9" fill="#2e6e2e" text-anchor="end">→ shuffle → y0</text>
+
+  <!-- warp 1 -->
+  <g filter="url(#sk)">
+    <rect x="540" y="126" width="360" height="34" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="555" y="147" font-size="10" font-weight="bold" fill="#2e6e2e">warp1</text>
+  <text x="600" y="147" font-size="9" fill="#444">lane0:v3·x  lane1:v4·x  lane2-31:空</text>
+  <text x="890" y="147" font-size="9" fill="#2e6e2e" text-anchor="end">→ shuffle → y1</text>
+
+  <!-- warp 2 -->
+  <g filter="url(#sk)">
+    <rect x="540" y="164" width="360" height="34" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="555" y="185" font-size="10" font-weight="bold" fill="#2e6e2e">warp2</text>
+  <text x="600" y="185" font-size="9" fill="#444">lane0:v5·x  lane1:v6·x  lane2:v7·x  lane3:v8·x  lane4-31:空</text>
+  <text x="890" y="185" font-size="9" fill="#2e6e2e" text-anchor="end">→ shuffle → y2</text>
+
+  <!-- arrows from CSR rows to warps -->
+  <path d="M 220 101 Q 380 95 540 105" stroke="#5a5a5a" stroke-width="1.1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 220 135 Q 380 130 540 143" stroke="#5a5a5a" stroke-width="1.1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 250 169 Q 380 165 540 181" stroke="#5a5a5a" stroke-width="1.1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- output -->
+  <text x="540" y="230" font-size="12" font-weight="bold" fill="#2b6e9e">输出 y[]</text>
+  <g filter="url(#sk)">
+    <rect x="540" y="240" width="40" height="30" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.4"/>
+    <rect x="580" y="240" width="40" height="30" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.4"/>
+    <rect x="620" y="240" width="40" height="30" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.4"/>
+  </g>
+  <text x="560" y="260" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5415">y0</text>
+  <text x="600" y="260" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5415">y1</text>
+  <text x="640" y="260" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5415">y2</text>
+
+  <!-- strategy comparison -->
+  <text x="40" y="300" font-size="13" font-weight="bold" fill="#2b2b2b">两种并行粒度对比</text>
+
+  <!-- scalar: thread-per-row -->
+  <g filter="url(#sk)">
+    <rect x="40" y="312" width="420" height="148" rx="8" fill="#fff5f5" stroke="#b85450" stroke-width="1.2"/>
+  </g>
+  <text x="250" y="334" text-anchor="middle" font-size="12" font-weight="bold" fill="#b85450">scalar 版：thread-per-row（每线程一行）</text>
+  <text x="55" y="358" font-size="11" fill="#444">• 一个线程串行遍历该行所有非零元</text>
+  <text x="55" y="378" font-size="11" fill="#444">• 简单，但长行成为瓶颈（load imbalance）</text>
+  <text x="55" y="398" font-size="11" fill="#444">• 短行时线程大量闲置（并行度不足）</text>
+  <text x="55" y="418" font-size="11" fill="#b85450">• 行内无并行，归约靠单线程累加</text>
+  <text x="55" y="442" font-size="10" fill="#888">适合每行非零元极少且均匀的矩阵</text>
+
+  <!-- warp: warp-per-row -->
+  <g filter="url(#sk)">
+    <rect x="480" y="312" width="420" height="148" rx="8" fill="#f5fbf5" stroke="#4a8e4a" stroke-width="1.2"/>
+  </g>
+  <text x="690" y="334" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">warp 版：warp-per-row（每 warp 一行）</text>
+  <text x="495" y="358" font-size="11" fill="#444">• 32 lane 协作处理一行，lane 分割非零元</text>
+  <text x="495" y="378" font-size="11" fill="#444">• __shfl_down_sync 行内归约（寄存器内）</text>
+  <text x="495" y="398" font-size="11" fill="#444">• 长行也能并行（最多 32 路并发）</text>
+  <text x="495" y="418" font-size="11" fill="#2e6e2e">• 平衡度好，warp 内 SIMT 同步零开销</text>
+  <text x="495" y="442" font-size="10" fill="#888">通用选择；超长行可升级为 block-per-row</text>
+</svg>

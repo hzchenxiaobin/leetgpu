@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 480" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="23" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+    <marker id="arR" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#b85450"/>
+    </marker>
+  </defs>
+  <rect width="900" height="480" fill="#fdfcf7"/>
+
+  <text x="450" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">两种实现：atomicAdd（写冲突） vs 两级归约（无冲突）</text>
+  <path d="M 250 42 Q 450 50 650 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- divider -->
+  <path d="M 450 64 L 450 460" stroke="#bbb" stroke-width="1.2" stroke-dasharray="4 4" fill="none" filter="url(#sk)"/>
+
+  <!-- ===== LEFT: atomic ===== -->
+  <text x="225" y="84" text-anchor="middle" font-size="14" font-weight="bold" fill="#b85450">朴素：每个线程 atomicAdd 到 output[0]</text>
+
+  <!-- threads -->
+  <g filter="url(#sk)">
+    <rect x="60" y="100" width="46" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="110" y="100" width="46" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="160" y="100" width="46" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="210" y="100" width="46" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="260" y="100" width="46" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="310" y="100" width="46" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+  </g>
+  <text x="83" y="119" text-anchor="middle" font-size="10" fill="#2b6e9e">t0</text>
+  <text x="133" y="119" text-anchor="middle" font-size="10" fill="#2b6e9e">t1</text>
+  <text x="183" y="119" text-anchor="middle" font-size="10" fill="#2b6e9e">t2</text>
+  <text x="233" y="119" text-anchor="middle" font-size="10" fill="#2b6e9e">...</text>
+  <text x="283" y="119" text-anchor="middle" font-size="10" fill="#2b6e9e">...</text>
+  <text x="333" y="119" text-anchor="middle" font-size="10" fill="#2b6e9e">tN</text>
+  <text x="83" y="96" font-size="9" fill="#888">每个线程判定后 +1</text>
+
+  <!-- contention arrows to single output -->
+  <path d="M 83 132 L 200 220" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#arR)" filter="url(#sk)"/>
+  <path d="M 133 132 L 205 220" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#arR)" filter="url(#sk)"/>
+  <path d="M 183 132 L 210 220" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#arR)" filter="url(#sk)"/>
+  <path d="M 283 132 L 215 220" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#arR)" filter="url(#sk)"/>
+  <path d="M 333 132 L 220 220" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#arR)" filter="url(#sk)"/>
+
+  <!-- collision burst -->
+  <text x="200" y="180" text-anchor="middle" font-size="13" font-weight="bold" fill="#b85450">⚡ 写冲突！</text>
+  <text x="200" y="196" text-anchor="middle" font-size="9" fill="#b85450">硬件串行化同一地址</text>
+
+  <!-- output single -->
+  <g filter="url(#sk)">
+    <rect x="170" y="226" width="80" height="44" rx="6" fill="#fce4ec" stroke="#b85450" stroke-width="1.6"/>
+  </g>
+  <text x="210" y="244" text-anchor="middle" font-size="10" fill="#b85450">output[0]</text>
+  <text x="210" y="262" text-anchor="middle" font-size="14" font-weight="bold" fill="#b85450">count</text>
+
+  <g filter="url(#sk)">
+    <rect x="55" y="300" width="340" height="142" rx="8" fill="#fff5f5" stroke="#b85450" stroke-width="1.2"/>
+  </g>
+  <text x="225" y="324" text-anchor="middle" font-size="12" font-weight="bold" fill="#b85450">问题：N 次 global atomic 抢 1 个地址</text>
+  <text x="70" y="346" font-size="11" fill="#444">• N=1 亿时，~1 亿次 atomic 撞同一个 output[0]</text>
+  <text x="70" y="366" font-size="11" fill="#444">• 硬件强制串行化，SM 大量空转</text>
+  <text x="70" y="386" font-size="11" fill="#444">• atomic 次数 = O(N)，延迟 = global（数百周期）</text>
+  <text x="70" y="410" font-size="11" fill="#b85450">• 常比 CPU 还慢，性能随命中数线性恶化</text>
+  <text x="70" y="432" font-size="10" fill="#888">仅当 K 命中极少时（稀疏）才勉强可用</text>
+
+  <!-- ===== RIGHT: reduction ===== -->
+  <text x="675" y="84" text-anchor="middle" font-size="14" font-weight="bold" fill="#2e6e2e">优化：两级归约（warp shuffle + block reduce）</text>
+
+  <!-- threads grouped into blocks -->
+  <g filter="url(#sk)">
+    <rect x="490" y="100" width="40" height="28" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="532" y="100" width="40" height="28" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="574" y="100" width="40" height="28" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="700" y="100" width="40" height="28" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="742" y="100" width="40" height="28" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="784" y="100" width="40" height="28" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+  </g>
+  <text x="540" y="92" text-anchor="middle" font-size="10" font-weight="bold" fill="#7a5415">block 0</text>
+  <text x="762" y="92" text-anchor="middle" font-size="10" font-weight="bold" fill="#7a5415">block M</text>
+
+  <!-- warp reduce boxes -->
+  <path d="M 552 130 L 552 150" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 774 130 L 774 150" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <g filter="url(#sk)">
+    <rect x="490" y="154" width="124" height="34" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+    <rect x="700" y="154" width="124" height="34" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+  </g>
+  <text x="552" y="176" text-anchor="middle" font-size="10" fill="#7a5415">warp shuffle 归约</text>
+  <text x="762" y="176" text-anchor="middle" font-size="10" fill="#7a5415">warp shuffle 归约</text>
+
+  <!-- block sum -->
+  <path d="M 552 190 L 552 210" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 774 190 L 774 210" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <g filter="url(#sk)">
+    <rect x="500" y="214" width="104" height="36" rx="5" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.4"/>
+    <rect x="710" y="214" width="104" height="36" rx="5" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.4"/>
+  </g>
+  <text x="552" y="237" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5415">block_sum₀</text>
+  <text x="762" y="237" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5415">block_sum_M</text>
+
+  <!-- merge to final -->
+  <path d="M 552 252 Q 620 274 660 286" stroke="#4a8e4a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 762 252 Q 700 274 660 286" stroke="#4a8e4a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <g filter="url(#sk)">
+    <rect x="610" y="292" width="100" height="44" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.6"/>
+  </g>
+  <text x="660" y="310" text-anchor="middle" font-size="10" fill="#2e6e2e">final_reduce</text>
+  <text x="660" y="328" text-anchor="middle" font-size="13" font-weight="bold" fill="#2e6e2e">count</text>
+
+  <g filter="url(#sk)">
+    <rect x="475" y="360" width="380" height="92" rx="8" fill="#f5fbf5" stroke="#4a8e4a" stroke-width="1.2"/>
+  </g>
+  <text x="665" y="384" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">优势：无写冲突，纯读带宽受限</text>
+  <text x="490" y="406" font-size="11" fill="#444">• 每 thread 算 predicate + 局部计数，无 global 写</text>
+  <text x="490" y="426" font-size="11" fill="#444">• warp 内 __shfl_down_sync 归约（寄存器内）</text>
+  <text x="490" y="446" font-size="11" fill="#2e6e2e">• 瓶颈 = 读 input 带宽，atomic 次数 = O(blocks)</text>
+</svg>

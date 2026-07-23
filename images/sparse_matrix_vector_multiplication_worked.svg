@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 540" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="53" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="920" height="540" fill="#fdfcf7"/>
+
+  <text x="460" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">Worked Example：warp-per-row SpMV 逐步演算</text>
+  <path d="M 250 42 Q 460 50 670 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- matrix -->
+  <text x="40" y="78" font-size="12" font-weight="bold" fill="#2b6e9e">A (3×4)，nnz=5</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="88" width="44" height="30" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="84" y="88" width="44" height="30" rx="3" fill="#f5f5f5" stroke="#ccc"/>
+    <rect x="128" y="88" width="44" height="30" rx="3" fill="#f5f5f5" stroke="#ccc"/>
+    <rect x="172" y="88" width="44" height="30" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+
+    <rect x="40" y="118" width="44" height="30" rx="3" fill="#f5f5f5" stroke="#ccc"/>
+    <rect x="84" y="118" width="44" height="30" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="128" y="118" width="44" height="30" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="172" y="118" width="44" height="30" rx="3" fill="#f5f5f5" stroke="#ccc"/>
+
+    <rect x="40" y="148" width="44" height="30" rx="3" fill="#f5f5f5" stroke="#ccc"/>
+    <rect x="84" y="148" width="44" height="30" rx="3" fill="#f5f5f5" stroke="#ccc"/>
+    <rect x="128" y="148" width="44" height="30" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="172" y="148" width="44" height="30" rx="3" fill="#f5f5f5" stroke="#ccc"/>
+  </g>
+  <text x="62" y="108" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">5</text>
+  <text x="194" y="108" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">1</text>
+  <text x="106" y="138" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">2</text>
+  <text x="150" y="138" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">3</text>
+  <text x="150" y="168" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">4</text>
+
+  <!-- x -->
+  <text x="240" y="78" font-size="12" font-weight="bold" fill="#2b6e9e">x</text>
+  <g filter="url(#sk)">
+    <rect x="240" y="118" width="36" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="240" y="142" width="36" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="240" y="166" width="36" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="240" y="190" width="36" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+  </g>
+  <text x="258" y="135" text-anchor="middle" font-size="11" fill="#2b6e9e">1</text>
+  <text x="258" y="159" text-anchor="middle" font-size="11" fill="#2b6e9e">2</text>
+  <text x="258" y="183" text-anchor="middle" font-size="11" fill="#2b6e9e">3</text>
+  <text x="258" y="207" text-anchor="middle" font-size="11" fill="#2b6e9e">4</text>
+
+  <!-- CSR triple -->
+  <text x="320" y="78" font-size="12" font-weight="bold" fill="#7a5415">CSR</text>
+
+  <text x="320" y="98" font-size="10" fill="#7a5415">row_ptr</text>
+  <g filter="url(#sk)">
+    <rect x="320" y="104" width="36" height="22" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1"/>
+    <rect x="356" y="104" width="36" height="22" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1"/>
+    <rect x="392" y="104" width="36" height="22" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1"/>
+    <rect x="428" y="104" width="36" height="22" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1"/>
+  </g>
+  <text x="338" y="119" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5415">0</text>
+  <text x="374" y="119" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5415">2</text>
+  <text x="410" y="119" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5415">4</text>
+  <text x="446" y="119" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5415">5</text>
+
+  <text x="320" y="142" font-size="10" fill="#2e6e2e">col_idx</text>
+  <g filter="url(#sk)">
+    <rect x="320" y="148" width="36" height="22" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="356" y="148" width="36" height="22" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="392" y="148" width="36" height="22" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="428" y="148" width="36" height="22" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="464" y="148" width="36" height="22" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+  </g>
+  <text x="338" y="163" text-anchor="middle" font-size="11" font-weight="bold" fill="#2e6e2e">0</text>
+  <text x="374" y="163" text-anchor="middle" font-size="11" font-weight="bold" fill="#2e6e2e">3</text>
+  <text x="410" y="163" text-anchor="middle" font-size="11" font-weight="bold" fill="#2e6e2e">1</text>
+  <text x="446" y="163" text-anchor="middle" font-size="11" font-weight="bold" fill="#2e6e2e">2</text>
+  <text x="482" y="163" text-anchor="middle" font-size="11" font-weight="bold" fill="#2e6e2e">2</text>
+
+  <text x="320" y="186" font-size="10" fill="#b85450">values</text>
+  <g filter="url(#sk)">
+    <rect x="320" y="192" width="36" height="22" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="356" y="192" width="36" height="22" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="392" y="192" width="36" height="22" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="428" y="192" width="36" height="22" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="464" y="192" width="36" height="22" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+  </g>
+  <text x="338" y="207" text-anchor="middle" font-size="11" font-weight="bold" fill="#b85450">5</text>
+  <text x="374" y="207" text-anchor="middle" font-size="11" font-weight="bold" fill="#b85450">1</text>
+  <text x="410" y="207" text-anchor="middle" font-size="11" font-weight="bold" fill="#b85450">2</text>
+  <text x="446" y="207" text-anchor="middle" font-size="11" font-weight="bold" fill="#b85450">3</text>
+  <text x="482" y="207" text-anchor="middle" font-size="11" font-weight="bold" fill="#b85450">4</text>
+
+  <!-- step computation -->
+  <text x="540" y="78" font-size="12" font-weight="bold" fill="#2b2b2b">逐行演算（每行一个 warp）</text>
+
+  <!-- row 0 -->
+  <g filter="url(#sk)">
+    <rect x="540" y="88" width="350" height="60" rx="6" fill="#fffdf3" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="552" y="108" font-size="11" font-weight="bold" fill="#7a5415">行0: row_ptr[0..1] = [0,2)</text>
+  <text x="552" y="126" font-size="10" fill="#444">lane0: v0·x[c0]=5×1=5  lane1: v1·x[c3]=1×4=4</text>
+  <text x="552" y="142" font-size="10" fill="#2e6e2e">shuffle 归约 → 5+4 = 9 → y[0]=9</text>
+
+  <!-- row 1 -->
+  <g filter="url(#sk)">
+    <rect x="540" y="156" width="350" height="60" rx="6" fill="#fffdf3" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="552" y="176" font-size="11" font-weight="bold" fill="#7a5415">行1: row_ptr[1..2] = [2,4)</text>
+  <text x="552" y="194" font-size="10" fill="#444">lane0: v2·x[c1]=2×2=4  lane1: v3·x[c2]=3×3=9</text>
+  <text x="552" y="210" font-size="10" fill="#2e6e2e">shuffle 归约 → 4+9 = 13 → y[1]=13</text>
+
+  <!-- row 2 -->
+  <g filter="url(#sk)">
+    <rect x="540" y="224" width="350" height="60" rx="6" fill="#fffdf3" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="552" y="244" font-size="11" font-weight="bold" fill="#7a5415">行2: row_ptr[2..3] = [4,5)</text>
+  <text x="552" y="262" font-size="10" fill="#444">lane0: v4·x[c2]=4×3=12  lane1-31: 空（补0）</text>
+  <text x="552" y="278" font-size="10" fill="#2e6e2e">shuffle 归约 → 12+0 = 12 → y[2]=12</text>
+
+  <!-- output -->
+  <path d="M 715 290 L 715 308" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="540" y="306" font-size="12" font-weight="bold" fill="#2b6e9e">输出 y</text>
+  <g filter="url(#sk)">
+    <rect x="640" y="312" width="50" height="30" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.4"/>
+    <rect x="690" y="312" width="50" height="30" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.4"/>
+    <rect x="740" y="312" width="50" height="30" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.4"/>
+  </g>
+  <text x="665" y="332" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">9</text>
+  <text x="715" y="332" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">13</text>
+  <text x="765" y="332" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">12</text>
+
+  <!-- verify -->
+  <g filter="url(#sk)">
+    <rect x="540" y="356" width="350" height="50" rx="8" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+  </g>
+  <text x="552" y="378" font-size="11" fill="#444">验证：行0 = 5·1+1·4 = 9 ✓</text>
+  <text x="552" y="394" font-size="11" fill="#444">行1 = 2·2+3·3 = 13 ✓   行2 = 4·3 = 12 ✓</text>
+
+  <!-- key insight -->
+  <g filter="url(#sk)">
+    <rect x="40" y="430" width="840" height="90" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/>
+  </g>
+  <text x="60" y="454" font-size="12" font-weight="bold" fill="#444">💡 关键洞察</text>
+  <text x="60" y="474" font-size="11" fill="#444">warp-per-row 把"行内串行累加"变成"lane 并行乘 + shuffle 归约"：</text>
+  <text x="60" y="492" font-size="11" fill="#444">每 lane 独立算 value×x[col]（间接 gather），再 __shfl_down_sync 归约到 lane 0。</text>
+  <text x="60" y="510" font-size="11" fill="#b85450">零额外同步、零 shared memory；行越短越浪费 lane（load imbalance 的代价）。</text>
+</svg>

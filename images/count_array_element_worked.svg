@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="37" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="900" height="520" fill="#fdfcf7"/>
+
+  <text x="450" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">Worked Example：两级归约逐步演算（K=1, N=8）</text>
+  <path d="M 250 42 Q 450 50 650 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- input -->
+  <text x="60" y="78" font-size="12" font-weight="bold" fill="#2b6e9e">输入 input[]（K=1，统计等于 1 的个数）</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="88" width="56" height="34" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="116" y="88" width="56" height="34" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="172" y="88" width="56" height="34" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="228" y="88" width="56" height="34" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="284" y="88" width="56" height="34" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="340" y="88" width="56" height="34" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="396" y="88" width="56" height="34" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="452" y="88" width="56" height="34" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+  </g>
+  <text x="88" y="110" text-anchor="middle" font-size="13" font-weight="bold" fill="#2b6e9e">1</text>
+  <text x="144" y="110" text-anchor="middle" font-size="13" fill="#2b6e9e">2</text>
+  <text x="200" y="110" text-anchor="middle" font-size="13" font-weight="bold" fill="#2b6e9e">1</text>
+  <text x="256" y="110" text-anchor="middle" font-size="13" fill="#2b6e9e">3</text>
+  <text x="288" y="78" font-size="9" fill="#888">block 0 (idx 0-3)</text>
+  <text x="312" y="110" text-anchor="middle" font-size="13" font-weight="bold" fill="#2b6e9e">1</text>
+  <text x="368" y="110" text-anchor="middle" font-size="13" fill="#2b6e9e">2</text>
+  <text x="424" y="110" text-anchor="middle" font-size="13" font-weight="bold" fill="#2b6e9e">1</text>
+  <text x="480" y="110" text-anchor="middle" font-size="13" fill="#2b6e9e">4</text>
+  <text x="460" y="78" font-size="9" fill="#888">block 1 (idx 4-7)</text>
+
+  <!-- predicate -->
+  <path d="M 284 126 L 284 144" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="296" y="140" font-size="10" fill="#7a5415">predicate: ==1 ? 1 : 0</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="150" width="56" height="34" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="116" y="150" width="56" height="34" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="172" y="150" width="56" height="34" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="228" y="150" width="56" height="34" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="284" y="150" width="56" height="34" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="340" y="150" width="56" height="34" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="396" y="150" width="56" height="34" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="452" y="150" width="56" height="34" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="88" y="172" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">1</text>
+  <text x="144" y="172" text-anchor="middle" font-size="13" fill="#aaa">0</text>
+  <text x="200" y="172" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">1</text>
+  <text x="256" y="172" text-anchor="middle" font-size="13" fill="#aaa">0</text>
+  <text x="312" y="172" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">1</text>
+  <text x="368" y="172" text-anchor="middle" font-size="13" fill="#aaa">0</text>
+  <text x="424" y="172" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">1</text>
+  <text x="480" y="172" text-anchor="middle" font-size="13" fill="#aaa">0</text>
+
+  <!-- block 0 warp reduce -->
+  <text x="60" y="210" font-size="12" font-weight="bold" fill="#7a5415">block 0：warp shuffle 归约（4 lane，offset: 2 → 1）</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="220" width="56" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1"/>
+    <rect x="116" y="220" width="56" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1"/>
+    <rect x="172" y="220" width="56" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1"/>
+    <rect x="228" y="220" width="56" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1"/>
+  </g>
+  <text x="88" y="240" text-anchor="middle" font-size="12" fill="#7a5415">1</text>
+  <text x="144" y="240" text-anchor="middle" font-size="12" fill="#7a5415">0</text>
+  <text x="200" y="240" text-anchor="middle" font-size="12" fill="#7a5415">1</text>
+  <text x="256" y="240" text-anchor="middle" font-size="12" fill="#7a5415">0</text>
+  <text x="320" y="240" font-size="11" fill="#888">lane: 0  1  2  3</text>
+
+  <text x="60" y="268" font-size="10" fill="#b85450">offset=2: lane0 += lane2, lane1 += lane3</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="276" width="56" height="30" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.2"/>
+    <rect x="116" y="276" width="56" height="30" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.2"/>
+    <rect x="172" y="276" width="56" height="30" rx="4" fill="#f5f5f5" stroke="#ccc" stroke-width="1.0"/>
+    <rect x="228" y="276" width="56" height="30" rx="4" fill="#f5f5f5" stroke="#ccc" stroke-width="1.0"/>
+  </g>
+  <text x="88" y="296" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">2</text>
+  <text x="144" y="296" text-anchor="middle" font-size="12" fill="#7a5415">0</text>
+  <text x="200" y="296" text-anchor="middle" font-size="10" fill="#bbb">×</text>
+  <text x="256" y="296" text-anchor="middle" font-size="10" fill="#bbb">×</text>
+  <text x="320" y="296" font-size="10" fill="#888">高 lane 不再用</text>
+
+  <text x="60" y="324" font-size="10" fill="#b85450">offset=1: lane0 += lane1</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="332" width="56" height="32" rx="5" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.5"/>
+  </g>
+  <text x="88" y="353" text-anchor="middle" font-size="14" font-weight="bold" fill="#7a5415">2</text>
+  <text x="140" y="353" font-size="12" fill="#2e6e2e">→ block_sum₀ = 2</text>
+
+  <!-- block 1 warp reduce (compact) -->
+  <text x="500" y="210" font-size="12" font-weight="bold" fill="#7a5415">block 1：warp shuffle 归约（同理）</text>
+  <g filter="url(#sk)">
+    <rect x="500" y="220" width="56" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1"/>
+    <rect x="556" y="220" width="56" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1"/>
+    <rect x="612" y="220" width="56" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1"/>
+    <rect x="668" y="220" width="56" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1"/>
+  </g>
+  <text x="528" y="240" text-anchor="middle" font-size="12" fill="#7a5415">1</text>
+  <text x="584" y="240" text-anchor="middle" font-size="12" fill="#7a5415">0</text>
+  <text x="640" y="240" text-anchor="middle" font-size="12" fill="#7a5415">1</text>
+  <text x="696" y="240" text-anchor="middle" font-size="12" fill="#7a5415">0</text>
+
+  <text x="500" y="278" font-size="10" fill="#888">offset 2→1 后 lane0 持和</text>
+  <g filter="url(#sk)">
+    <rect x="500" y="286" width="56" height="32" rx="5" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.5"/>
+  </g>
+  <text x="528" y="307" text-anchor="middle" font-size="14" font-weight="bold" fill="#7a5415">2</text>
+  <text x="580" y="307" font-size="12" fill="#2e6e2e">→ block_sum₁ = 2</text>
+
+  <!-- final reduce -->
+  <path d="M 88 368 Q 250 408 360 432" stroke="#4a8e4a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 528 322 Q 400 380 360 432" stroke="#4a8e4a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <text x="60" y="410" font-size="12" font-weight="bold" fill="#2e6e2e">final_reduce：聚合 block_sum</text>
+  <g filter="url(#sk)">
+    <rect x="300" y="436" width="120" height="46" rx="7" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.7"/>
+  </g>
+  <text x="360" y="456" text-anchor="middle" font-size="11" fill="#2e6e2e">block_sum₀ + block_sum₁</text>
+  <text x="360" y="474" text-anchor="middle" font-size="16" font-weight="bold" fill="#2e6e2e">2 + 2 = 4</text>
+
+  <g filter="url(#sk)">
+    <rect x="500" y="436" width="180" height="46" rx="7" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.7"/>
+  </g>
+  <text x="590" y="456" text-anchor="middle" font-size="11" fill="#2e6e2e">output[0]</text>
+  <text x="590" y="474" text-anchor="middle" font-size="16" font-weight="bold" fill="#2e6e2e">= 4 ✓</text>
+
+  <text x="450" y="505" text-anchor="middle" font-size="10" fill="#888">注：实际 BLOCK_SIZE=256（8 个 warp），此处用 4 lane 演示归约步骤</text>
+</svg>
