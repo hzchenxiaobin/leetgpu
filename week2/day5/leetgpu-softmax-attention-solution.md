@@ -149,7 +149,7 @@ void attention_cpu(const float* Q, const float* K, const float* V, float* O, int
 
 ## 4. Kernel 实现
 
-完整可编译代码：**naive 版（物化 S/P，用于对比）+ fused 版（online softmax，不物化）**，含 `main()`、`cudaMalloc/Memcpy`、CPU 验证、`cudaFree`：
+完整可编译代码：**naive 版（物化 S/P，用于对比）+ fused 版（online softmax，不物化）**，含 `main()`、`cudaMalloc/Memcpy`、`cudaFree`（CPU 参考实现见 §2.1）：
 
 ```cuda
 // attention.cu —— naive(物化 S/P) vs fused(online softmax) 对比
@@ -307,32 +307,7 @@ __global__ void attention_fused_kernel(const float* __restrict__ Q, const float*
         O[i * d + tid] = o_local;
 }
 
-// ---------- CPU 参考实现 ----------
-void attention_cpu(const float* Q, const float* K, const float* V, float* O, int N, int d) {
-    float scale = 1.0f / sqrtf((float)d), *S = (float*)malloc(N * sizeof(float));
-    for (int i = 0; i < N; ++i) {
-        float mx = -INFINITY;
-        for (int k = 0; k < N; ++k) {
-            float s = 0.f;
-            for (int t = 0; t < d; ++t)
-                s += Q[i * d + t] * K[k * d + t];
-            S[k] = s * scale;
-            mx = fmaxf(mx, s);
-        }
-        float sum = 0.f;
-        for (int k = 0; k < N; ++k) {
-            S[k] = expf(S[k] - mx);
-            sum += S[k];
-        }
-        for (int t = 0; t < d; ++t) {
-            float a = 0.f;
-            for (int k = 0; k < N; ++k)
-                a += S[k] * V[k * d + t];
-            O[i * d + t] = a / sum;
-        }
-    }
-    free(S);
-}
+// ---------- CPU 参考实现：见 §2.1 attention_cpu ----------
 
 int main(int argc, char** argv) {
     int N = (argc > 1) ? atoi(argv[1]) : 1024;
@@ -431,51 +406,7 @@ int main(int argc, char** argv) {
 #define NUM_WARPS (BLOCK_SIZE / WARP_SIZE)
 #define D_MAX 128 // 假设 head_dim <= 128
 
-__inline__ __device__ float warp_reduce_sum(float v) {
-    #pragma unroll
-    for (int o = WARP_SIZE / 2; o > 0; o >>= 1)
-        v += __shfl_down_sync(0xffffffff, v, o);
-    return v;
-}
-
-__inline__ __device__ float warp_reduce_max(float v) {
-    #pragma unroll
-    for (int o = WARP_SIZE / 2; o > 0; o >>= 1)
-        v = fmaxf(v, __shfl_down_sync(0xffffffff, v, o));
-    return v;
-}
-
-__inline__ __device__ float block_reduce_sum(float v, float* sh) {
-    int lane = threadIdx.x & 31, wid = threadIdx.x >> 5;
-    v = warp_reduce_sum(v);
-    if (lane == 0)
-        sh[wid] = v;
-    __syncthreads();
-    if (wid == 0) {
-        v = (lane < NUM_WARPS) ? sh[lane] : 0.f;
-        v = warp_reduce_sum(v);
-        if (lane == 0)
-            sh[0] = v;
-    }
-    __syncthreads();
-    return sh[0];
-}
-
-__inline__ __device__ float block_reduce_max(float v, float* sh) {
-    int lane = threadIdx.x & 31, wid = threadIdx.x >> 5;
-    v = warp_reduce_max(v);
-    if (lane == 0)
-        sh[wid] = v;
-    __syncthreads();
-    if (wid == 0) {
-        v = (lane < NUM_WARPS) ? sh[lane] : -INFINITY;
-        v = warp_reduce_max(v);
-        if (lane == 0)
-            sh[0] = v;
-    }
-    __syncthreads();
-    return sh[0];
-}
+// 块归约辅助函数（warp/block_reduce_sum/max）见 §4，此处省略以避免重复
 
 __global__ void attention_fused_kernel(const float* __restrict__ Q, const float* __restrict__ K,
                                        const float* __restrict__ V, float* __restrict__ O,
