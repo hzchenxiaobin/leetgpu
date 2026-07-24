@@ -406,7 +406,28 @@ int main(int argc, char** argv) {
 #define NUM_WARPS (BLOCK_SIZE / WARP_SIZE)
 #define D_MAX 128 // 假设 head_dim <= 128
 
-// 块归约辅助函数（warp/block_reduce_sum/max）见 §4，此处省略以避免重复
+__inline__ __device__ float warp_reduce_sum(float v) {
+    #pragma unroll
+    for (int o = WARP_SIZE / 2; o > 0; o >>= 1)
+        v += __shfl_down_sync(0xffffffff, v, o);
+    return v;
+}
+
+__inline__ __device__ float block_reduce_sum(float v, float* sh) {
+    int lane = threadIdx.x & 31, wid = threadIdx.x >> 5;
+    v = warp_reduce_sum(v);
+    if (lane == 0)
+        sh[wid] = v;
+    __syncthreads();
+    if (wid == 0) {
+        v = (lane < NUM_WARPS) ? sh[lane] : 0.f;
+        v = warp_reduce_sum(v);
+        if (lane == 0)
+            sh[0] = v;
+    }
+    __syncthreads();
+    return sh[0];
+}
 
 __global__ void attention_fused_kernel(const float* __restrict__ Q, const float* __restrict__ K,
                                        const float* __restrict__ V, float* __restrict__ O,
