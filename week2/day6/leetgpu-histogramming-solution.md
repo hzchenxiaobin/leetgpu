@@ -391,6 +391,27 @@ ncu --kernel-name regex:histogram \
 
 > 💡 优化 1+3 是直方图的进阶套路：`B` 小时 privatization 已经够快；`B` 大时上 2-pass；数据倾斜严重时上 warp-level 聚合。三者组合可应对绝大多数 histogram 变体（图像、radix sort 的计数阶段、词频统计等）。
 
+### 5.4 知识补充：cache line 与 sector
+
+看懂 `l1tex__t_sectors_...` 这类 ncu 指标、理解"合并访存为什么快"，都绕不开 GPU 内存子系统的两个粒度单位：
+
+| 概念 | 大小 | 说明 |
+|------|------|------|
+| **sector（扇区）** | 32B | GPU 内存的**最小传输单位**。L1↔L2、L2↔DRAM 之间的数据搬运都按 sector 进行——即使线程只读 4B，硬件也会拉回整个 32B sector |
+| **cache line（缓存行）** | 128B | L1 cache 按 128B 行组织，**1 行 = 4 个 sector**。L1 可以按 sector 粒度填充/失效，不必整行搬运 |
+
+> 💡 对比 CPU：CPU cache line 通常 64B，是传输和一致性的统一粒度；GPU 把两者拆开了——cache line（128B）管存储组织，sector（32B）管传输，粒度更细，对稀疏访问更友好。
+
+**用 sector 定量解释合并访存（coalescing）**：一个 warp 32 个 thread 连续读 4B，共 `32 × 4B = 128B`，恰好覆盖 1 条 cache line = 4 个 sector → **1 次内存事务**搞定。若 32 个 thread 的地址散开各落一个 sector，就要 32 个 sector、传输 1024B 只用到 128B，带宽浪费 8 倍。
+
+回到本题，这个粒度概念解释了三个现象：
+
+1. **ncu 指标数的是 sector 不是指令**：`l1tex__t_sectors_pipe_lsu_mem_global_op_atom.sum` 统计的是 global atomic 触发的 **sector 级事务数**。一次 atomic 无论改几个字节，都要对其所在 sector 做一次读-改-写。所以比较 naive 与 privatized 时，这个指标直接反映"打到全局内存子系统的写事务总量"。
+2. **global `hist[]` 小得可怜，这才是灾难根源**：`256 × 4B = 1KB`，只有 **8 条 cache line / 32 个 sector**。朴素版 1000 万次 atomic 全挤在这 1KB 上，同地址的 atomic 在 L2 中被硬件**逐个串行执行**——瓶颈不是带宽，而是这 32 个 sector 上的写锁排队。
+3. **shared atomic 不经过这套事务机制**：shared memory 是 SM 内的片上 SRAM，有自己的 atomic 单元，`atomicAdd(&shared_hist[bin], 1)` 不产生任何 L1/L2 sector 事务，也占不到 DRAM 总线。这就是它能比 global atomic 快一个数量级、且私有化后读 input 的带宽（grid-stride 下每 warp 恰好 4 个 sector、100% 合并）能成为新瓶颈的原因。
+
+> ⚠️ 注意区分两种"冲突"：**bank conflict** 是 shared memory 内部 32 个 bank 的访问冲突（本题 5.3 第 5 点），发生在 SM 内部；**同地址 atomic 串行化**是 L2 对同一 sector 的写竞争，发生在全局内存子系统。两者层次不同、解法也不同——前者加 padding，后者靠 privatization 减少写者数量。
+
 ## 6. 复杂度分析
 
 | 维度 | 分析 |
