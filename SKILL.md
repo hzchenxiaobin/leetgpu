@@ -461,7 +461,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 
 ## 2. 目录组织
 
-LeetGPU 题解按 `weekN/dayM/` 组织，与 `leetcode/daily/` 结构一致；`weekN/dayM/` 主要用于本地归类与侧边栏分组，**不强求与每日教程** `aiinfra/daily/weekN/dayM/` **严格一一对应**。题解系列可以独立扩展，例如继续新增 `week9/week10/` 等，只要题解文件名中的 slug 唯一即可：
+LeetGPU 题解按 `weekN/dayM/` 组织，与[独立 LeetCode 题解仓库](https://hzchenxiaobin.github.io/leetcode/)的 `daily/` 结构一致；`weekN/dayM/` 主要用于本地归类与侧边栏分组，**不强求与每日教程** `aiinfra/daily/weekN/dayM/` **严格一一对应**。题解系列可以独立扩展，例如继续新增 `week9/week10/` 等，只要题解文件名中的 slug 唯一即可：
 
 ```
 leetgpu/
