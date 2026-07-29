@@ -19,9 +19,9 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## 题解列表
 
-共 **68 道**（简单 18 / 中等 44 / 困难 6），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
+共 **69 道**（简单 19 / 中等 44 / 困难 6），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
 
-### Easy · 简单（18 道）
+### Easy · 简单（19 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
@@ -39,6 +39,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 52 | [SiLU](easy/52_silu/leetgpu-silu-solution.md) | elementwise、grid-stride、`__expf` 快速数学 |
 | 54 | [SwiGLU](easy/54_swiglu/leetgpu-swiglu-solution.md) | elementwise、kernel fusion、SiLU |
 | 63 | [Interleave Arrays](easy/63_interleave/leetgpu-interleave-solution.md) | grid-stride loop、索引映射 |
+| 66 | [RGB to Grayscale](easy/66_rgb_to_grayscale/leetgpu-rgb-to-grayscale-solution.md) | 多通道加权求和、交织存储、coalesced |
 | 68 | [Sigmoid](easy/68_sigmoid/leetgpu-sigmoid-solution.md) | elementwise、fast math `__expf`、activation |
 | 108 | [Vector Reversal](easy/108_vector_reversal/leetgpu-vector-reversal-solution.md) | 索引映射、coalesced access |
 | 110 | [Scalar Multiply](easy/110_scalar_multiply/leetgpu-scalar-multiply-solution.md) | element-wise、attention scaling |
@@ -111,7 +112,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 下表对照 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库 `challenges/<difficulty>/<编号>_<name>/` 的 **全部 91 道题**，标注本仓库题解完成情况：✅ 已完成 57 道 / ⬜ 未完成 34 道。已完成题目链接到本仓库题解，未完成题目链接到 LeetGPU 在线题目。
 
 
-### Easy · 简单（15/19）
+### Easy · 简单（16/19）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -132,7 +133,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 62 | Value Clipping | ⬜ | [题目](https://leetgpu.com/challenges/value-clipping) |
 | 63 | Interleave Arrays | ✅ | [题解](easy/63_interleave/leetgpu-interleave-solution.md) |
 | 65 | Gaussian Error Gated Linear Unit | ⬜ | [题目](https://leetgpu.com/challenges/geglu) |
-| 66 | RGB to Grayscale | ⬜ | [题目](https://leetgpu.com/challenges/rgb-to-grayscale) |
+| 66 | RGB to Grayscale | ✅ | [题解](easy/66_rgb_to_grayscale/leetgpu-rgb-to-grayscale-solution.md) |
 | 68 | Sigmoid Activation | ✅ | [题解](easy/68_sigmoid/leetgpu-sigmoid-solution.md) |
 
 ### Medium · 中等（49/59）

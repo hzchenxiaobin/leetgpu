@@ -365,6 +365,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | `leaky-relu` | #21 ReLU（最简激活函数对比，无负斜率）· #52 SiLU（融合激活函数，练习 __expf）· #68 Sigmoid（数学函数逐元素，练习 exp 实现）· #65 GeGLU（GELU 门控变体，更复杂激活） | 逐元素激活函数 family，练习分支/无分支 kernel 与合并访存 |
 | `sigmoid` | #21 ReLU（最简激活函数对比）· #52 SiLU（融合 sigmoid+mul，练习 fused kernel）· #23 Leaky ReLU（分支激活对比）· #54 SwiGLU（SwiGLU 使用 sigmoid 组件） | 逐元素数学函数，练习 __expf 快速数学与合并访存 |
 | `color-inversion` | #1 Vector Addition（grid-stride + coalesced 基础）· #21 ReLU（逐元素 kernel，分支开销）· #66 RGB to Grayscale（多通道加权求和，类似逐元素）· #8 Matrix Addition（2D grid 逐元素） | 逐元素图像变换，练习多通道 coalesced 访存与索引映射 |
+| `rgb-to-grayscale` | #7 Color Inversion（3→3 通道逐元素，对比本题的 3→1 通道融合）· #1 Vector Addition（grid-stride + coalesced 基础，本题的最简前驱）· #8 Matrix Addition（2D grid 逐元素，2D 索引映射练习）· #62 Value Clipping（逐元素 clamp，2D 索引 + 分支的进阶） | 多通道加权求和 + 逐元素 kernel，练习交织存储的索引映射与 coalesced 访存 |
 | `interleave` | #1 Vector Addition（grid-stride + coalesced 基础）· #31 Matrix Copy（纯拷贝带宽优化）· #19 Reverse Array（1D 并行 in-place swap）· #62 Value Clipping（逐元素 clamp） | 写索引映射练习，coalesced 写回与数据重排 |
 
 #### B. 卷积与池化（Convolution & Pooling）
