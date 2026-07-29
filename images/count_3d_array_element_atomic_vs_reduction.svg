@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 500" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="67" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#b85450"/>
+    </marker>
+    <marker id="arg" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#4a8e4a"/>
+    </marker>
+  </defs>
+  <rect width="920" height="500" fill="#fdfcf7"/>
+
+  <text x="460" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">3D 朴素 atomicAdd（写冲突）vs 两级归约（无冲突）</text>
+  <path d="M 260 42 Q 460 50 660 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- divider -->
+  <path d="M 460 64 L 460 480" stroke="#ccc" stroke-width="1.2" stroke-dasharray="6 4" fill="none" filter="url(#sk)"/>
+
+  <!-- ============ LEFT: atomic ============ -->
+  <text x="220" y="82" text-anchor="middle" font-size="13" font-weight="bold" fill="#b85450">朴素版：3D grid，命中线程 atomicAdd(&amp;output[0], 1)</text>
+
+  <text x="60" y="106" font-size="10" fill="#888">3D grid 线程（threadIdx.x → K，最内层连续）</text>
+  <!-- 3D-ish stack of cells -->
+  <g filter="url(#sk)">
+    <!-- back layer -->
+    <rect x="60" y="114" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.0" opacity="0.5"/>
+    <rect x="84" y="114" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.0" opacity="0.5"/>
+    <rect x="108" y="114" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.0" opacity="0.5"/>
+    <rect x="132" y="114" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.0" opacity="0.5"/>
+    <rect x="156" y="114" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.0" opacity="0.5"/>
+    <rect x="180" y="114" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.0" opacity="0.5"/>
+    <rect x="204" y="114" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.0" opacity="0.5"/>
+    <rect x="228" y="114" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.0" opacity="0.5"/>
+    <!-- front layer -->
+    <rect x="74" y="128" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="98" y="128" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="122" y="128" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="146" y="128" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="170" y="128" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="194" y="128" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="218" y="128" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="242" y="128" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <!-- second front row -->
+    <rect x="74" y="156" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="98" y="156" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="122" y="156" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="146" y="156" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="170" y="156" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="194" y="156" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="218" y="156" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <rect x="242" y="156" width="24" height="24" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+  </g>
+  <text x="170" y="198" text-anchor="middle" font-size="10" fill="#888">... 共 1.25 亿线程（N·M·K）</text>
+
+  <!-- converging arrows -->
+  <path d="M 110 188 Q 170 240 210 280" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#sk)"/>
+  <path d="M 180 188 Q 200 240 215 280" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#sk)"/>
+  <path d="M 240 188 Q 220 240 215 280" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#sk)"/>
+  <path d="M 300 188 Q 250 240 220 280" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#sk)"/>
+
+  <!-- single output[0] (red, bottleneck) -->
+  <g filter="url(#sk)">
+    <rect x="150" y="286" width="130" height="50" rx="8" fill="#fce4ec" stroke="#b85450" stroke-width="2.2"/>
+  </g>
+  <text x="215" y="308" text-anchor="middle" font-size="12" font-weight="bold" fill="#b85450">output[0]</text>
+  <text x="215" y="326" text-anchor="middle" font-size="11" fill="#b85450">单地址 · 硬件串行化</text>
+
+  <!-- problem callout -->
+  <g filter="url(#sk)">
+    <rect x="50" y="356" width="340" height="118" rx="8" fill="#fff5f5" stroke="#b85450" stroke-dasharray="5 3"/>
+  </g>
+  <text x="68" y="380" font-size="12" font-weight="bold" fill="#b85450">⚠ 性能测试 N=M=K=500, P=2</text>
+  <text x="68" y="400" font-size="11" fill="#b85450">total = 1.25 亿，值域 {1,2}</text>
+  <text x="68" y="418" font-size="11" fill="#b85450">50% 命中 ≈ 6250 万次 atomicAdd</text>
+  <text x="68" y="436" font-size="11" fill="#b85450">全部撞 output[0] 同一地址 → 排队</text>
+  <text x="68" y="458" font-size="11" font-weight="bold" fill="#b85450">→ ~59 ms，比归约慢 23x</text>
+
+  <!-- ============ RIGHT: reduction ============ -->
+  <text x="690" y="82" text-anchor="middle" font-size="13" font-weight="bold" fill="#2e6e2e">归约版：block 部分和 → final 聚合（零 global atomic）</text>
+
+  <text x="500" y="106" font-size="10" fill="#888">展平 1D → block 内归约</text>
+  <g filter="url(#sk)">
+    <rect x="500" y="114" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="524" y="114" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="548" y="114" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="572" y="114" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="596" y="114" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="620" y="114" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="644" y="114" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="668" y="114" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="692" y="114" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="716" y="114" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="740" y="114" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="764" y="114" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+
+    <rect x="500" y="142" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="524" y="142" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="548" y="142" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="572" y="142" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="596" y="142" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="620" y="142" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="644" y="142" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="668" y="142" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="692" y="142" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="716" y="142" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="740" y="142" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+    <rect x="764" y="142" width="24" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.0"/>
+  </g>
+
+  <!-- block grouping -->
+  <text x="540" y="186" text-anchor="middle" font-size="10" fill="#2e6e2e">block 0</text>
+  <text x="640" y="186" text-anchor="middle" font-size="10" fill="#2e6e2e">block 1</text>
+  <text x="752" y="186" text-anchor="middle" font-size="10" fill="#2e6e2e">block 2</text>
+
+  <!-- arrows to block sums -->
+  <path d="M 540 174 Q 540 210 540 248" stroke="#4a8e4a" stroke-width="1.2" fill="none" marker-end="url(#arg)" filter="url(#sk)"/>
+  <path d="M 640 174 Q 640 210 640 248" stroke="#4a8e4a" stroke-width="1.2" fill="none" marker-end="url(#arg)" filter="url(#sk)"/>
+  <path d="M 752 174 Q 752 210 752 248" stroke="#4a8e4a" stroke-width="1.2" fill="none" marker-end="url(#arg)" filter="url(#sk)"/>
+  <text x="556" y="220" font-size="9" fill="#2e6e2e">warp shuffle</text>
+
+  <!-- block partial sums -->
+  <g filter="url(#sk)">
+    <rect x="500" y="252" width="80" height="38" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+    <rect x="600" y="252" width="80" height="38" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+    <rect x="712" y="252" width="80" height="38" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+  </g>
+  <text x="540" y="278" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">sum₀</text>
+  <text x="640" y="278" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">sum₁</text>
+  <text x="752" y="278" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">sum₂</text>
+  <text x="810" y="278" font-size="10" fill="#888">每块 1 次写</text>
+
+  <!-- final reduce arrow -->
+  <path d="M 540 294 Q 600 322 640 344" stroke="#4a8e4a" stroke-width="1.2" fill="none" marker-end="url(#arg)" filter="url(#sk)"/>
+  <path d="M 640 294 Q 640 318 645 344" stroke="#4a8e4a" stroke-width="1.2" fill="none" marker-end="url(#arg)" filter="url(#sk)"/>
+  <path d="M 752 294 Q 690 322 650 344" stroke="#4a8e4a" stroke-width="1.2" fill="none" marker-end="url(#arg)" filter="url(#sk)"/>
+  <text x="690" y="324" font-size="10" fill="#2e6e2e">final_reduce</text>
+
+  <!-- output[0] (green) -->
+  <g filter="url(#sk)">
+    <rect x="580" y="350" width="130" height="50" rx="8" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2.2"/>
+  </g>
+  <text x="645" y="372" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">output[0]</text>
+  <text x="645" y="390" text-anchor="middle" font-size="11" fill="#2e6e2e">仅 1 次写 · 零冲突</text>
+
+  <!-- advantage callout -->
+  <g filter="url(#sk)">
+    <rect x="490" y="416" width="340" height="74" rx="8" fill="#f5fbf5" stroke="#4a8e4a" stroke-dasharray="5 3"/>
+  </g>
+  <text x="508" y="438" font-size="11" font-weight="bold" fill="#2e6e2e">✓ 全程零 global atomic</text>
+  <text x="508" y="456" font-size="11" fill="#2e6e2e">瓶颈干净落在读带宽（187 GB/s）</text>
+  <text x="508" y="474" font-size="11" fill="#2e6e2e">~2.5 ms，耗时与命中密度无关</text>
+</svg>

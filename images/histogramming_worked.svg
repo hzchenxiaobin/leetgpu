@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 560" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="19" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+    <marker id="arg" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#4a7a3a"/>
+    </marker>
+  </defs>
+  <rect width="720" height="560" fill="#fdfcf7"/>
+
+  <text x="360" y="32" text-anchor="middle" font-size="18" font-weight="bold" fill="#2b2b2b">Worked Example：privatization 逐步演算</text>
+  <path d="M 200 40 Q 360 48 520 40" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+  <text x="360" y="58" text-anchor="middle" font-size="11" fill="#888">N=8, num_bins=3, BLOCK_SIZE=4, 2 个 block（每线程 1 元素，演示用）</text>
+
+  <!-- input -->
+  <text x="40" y="88" font-size="12" font-weight="bold" fill="#2b6e9e">input[8]</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="96" width="50" height="34" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="94" y="96" width="50" height="34" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="148" y="96" width="50" height="34" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="202" y="96" width="50" height="34" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="256" y="96" width="50" height="34" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="310" y="96" width="50" height="34" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="364" y="96" width="50" height="34" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="418" y="96" width="50" height="34" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+  </g>
+  <text x="65" y="118" text-anchor="middle" font-size="13" font-weight="bold" fill="#2b6e9e">1</text>
+  <text x="119" y="118" text-anchor="middle" font-size="13" fill="#2b6e9e">0</text>
+  <text x="173" y="118" text-anchor="middle" font-size="13" fill="#2b6e9e">2</text>
+  <text x="227" y="118" text-anchor="middle" font-size="13" font-weight="bold" fill="#2b6e9e">1</text>
+  <text x="281" y="118" text-anchor="middle" font-size="13" fill="#2b6e9e">2</text>
+  <text x="335" y="118" text-anchor="middle" font-size="13" font-weight="bold" fill="#2b6e9e">1</text>
+  <text x="389" y="118" text-anchor="middle" font-size="13" fill="#2b6e9e">0</text>
+  <text x="443" y="118" text-anchor="middle" font-size="13" fill="#2b6e9e">2</text>
+  <text x="146" y="146" text-anchor="middle" font-size="10" fill="#4a8edb">block 0 处理 idx 0-3</text>
+  <text x="354" y="146" text-anchor="middle" font-size="10" fill="#4a8e4a">block 1 处理 idx 4-7</text>
+
+  <!-- block 0 -->
+  <g filter="url(#sk)">
+    <rect x="40" y="160" width="290" height="180" rx="8" fill="none" stroke="#4a8edb" stroke-width="1.5"/>
+  </g>
+  <text x="185" y="180" text-anchor="middle" font-size="12" font-weight="bold" fill="#4a8edb">block 0：4 threads 各 atomicAdd 到 s_hist</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="192" width="50" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="120" y="192" width="50" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="180" y="192" width="50" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="240" y="192" width="50" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+  </g>
+  <text x="85" y="212" text-anchor="middle" font-size="12" fill="#2b6e9e">1</text>
+  <text x="145" y="212" text-anchor="middle" font-size="12" fill="#2b6e9e">0</text>
+  <text x="205" y="212" text-anchor="middle" font-size="12" fill="#2b6e9e">2</text>
+  <text x="265" y="212" text-anchor="middle" font-size="12" fill="#2b6e9e">1</text>
+  <text x="185" y="234" text-anchor="middle" font-size="9" fill="#888">thread 0  1  2  3 （各自读到的 bin）</text>
+  <path d="M 85 240 L 85 258" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 145 240 L 110 258" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 205 240 L 230 258" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 265 240 L 230 258" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <g filter="url(#sk)">
+    <rect x="70" y="262" width="70" height="40" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+    <rect x="150" y="262" width="70" height="40" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+    <rect x="230" y="262" width="70" height="40" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+  </g>
+  <text x="105" y="278" text-anchor="middle" font-size="9" fill="#7a5415">bin0</text>
+  <text x="105" y="295" text-anchor="middle" font-size="14" font-weight="bold" fill="#7a5415">1</text>
+  <text x="185" y="278" text-anchor="middle" font-size="9" fill="#7a5415">bin1</text>
+  <text x="185" y="295" text-anchor="middle" font-size="14" font-weight="bold" fill="#7a5415">2</text>
+  <text x="265" y="278" text-anchor="middle" font-size="9" fill="#7a5415">bin2</text>
+  <text x="265" y="295" text-anchor="middle" font-size="14" font-weight="bold" fill="#7a5415">1</text>
+  <text x="185" y="322" text-anchor="middle" font-size="10" fill="#7a5415">s_hist₀ = [1, 2, 1]（block 私有）</text>
+
+  <!-- block 1 -->
+  <g filter="url(#sk)">
+    <rect x="390" y="160" width="290" height="180" rx="8" fill="none" stroke="#4a8e4a" stroke-width="1.5"/>
+  </g>
+  <text x="535" y="180" text-anchor="middle" font-size="12" font-weight="bold" fill="#4a8e4a">block 1：4 threads 各 atomicAdd 到 s_hist</text>
+  <g filter="url(#sk)">
+    <rect x="410" y="192" width="50" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="470" y="192" width="50" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="530" y="192" width="50" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="590" y="192" width="50" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+  </g>
+  <text x="435" y="212" text-anchor="middle" font-size="12" fill="#2e6e2e">2</text>
+  <text x="495" y="212" text-anchor="middle" font-size="12" fill="#2e6e2e">1</text>
+  <text x="535" y="212" text-anchor="middle" font-size="12" fill="#2e6e2e">0</text>
+  <text x="595" y="212" text-anchor="middle" font-size="12" fill="#2e6e2e">2</text>
+  <text x="535" y="234" text-anchor="middle" font-size="9" fill="#888">thread 0  1  2  3</text>
+  <path d="M 435 240 L 460 258" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 495 240 L 460 258" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 535 240 L 540 258" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 595 240 L 620 258" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <g filter="url(#sk)">
+    <rect x="420" y="262" width="70" height="40" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+    <rect x="500" y="262" width="70" height="40" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+    <rect x="580" y="262" width="70" height="40" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+  </g>
+  <text x="455" y="278" text-anchor="middle" font-size="9" fill="#7a5415">bin0</text>
+  <text x="455" y="295" text-anchor="middle" font-size="14" font-weight="bold" fill="#7a5415">1</text>
+  <text x="535" y="278" text-anchor="middle" font-size="9" fill="#7a5415">bin1</text>
+  <text x="535" y="295" text-anchor="middle" font-size="14" font-weight="bold" fill="#7a5415">1</text>
+  <text x="615" y="278" text-anchor="middle" font-size="9" fill="#7a5415">bin2</text>
+  <text x="615" y="295" text-anchor="middle" font-size="14" font-weight="bold" fill="#7a5415">2</text>
+  <text x="535" y="322" text-anchor="middle" font-size="10" fill="#7a5415">s_hist₁ = [1, 1, 2]（block 私有）</text>
+
+  <!-- merge -->
+  <text x="40" y="362" font-size="12" font-weight="bold" fill="#b85450">③ 合并阶段：每 block 把 s_hist 加到 global hist（每桶 1 次 atomicAdd，冲突极低）</text>
+  <path d="M 185 328 Q 280 372 300 408" stroke="#4a7a3a" stroke-width="1.4" fill="none" marker-end="url(#arg)" filter="url(#sk)"/>
+  <path d="M 535 328 Q 440 372 420 408" stroke="#4a7a3a" stroke-width="1.4" fill="none" marker-end="url(#arg)" filter="url(#sk)"/>
+
+  <g filter="url(#sk)">
+    <rect x="200" y="412" width="100" height="52" rx="7" fill="#fce4ec" stroke="#b85450" stroke-width="1.6"/>
+    <rect x="310" y="412" width="100" height="52" rx="7" fill="#fce4ec" stroke="#b85450" stroke-width="1.6"/>
+    <rect x="420" y="412" width="100" height="52" rx="7" fill="#fce4ec" stroke="#b85450" stroke-width="1.6"/>
+  </g>
+  <text x="250" y="432" text-anchor="middle" font-size="10" fill="#b85450">hist[0]</text>
+  <text x="250" y="454" text-anchor="middle" font-size="18" font-weight="bold" fill="#b85450">2</text>
+  <text x="360" y="432" text-anchor="middle" font-size="10" fill="#b85450">hist[1]</text>
+  <text x="360" y="454" text-anchor="middle" font-size="18" font-weight="bold" fill="#b85450">3</text>
+  <text x="470" y="432" text-anchor="middle" font-size="10" fill="#b85450">hist[2]</text>
+  <text x="470" y="454" text-anchor="middle" font-size="18" font-weight="bold" fill="#b85450">3</text>
+  <text x="360" y="486" text-anchor="middle" font-size="11" fill="#555">global hist = [1+1, 2+1, 1+2] = [2, 3, 3]</text>
+
+  <!-- verify -->
+  <g filter="url(#sk)">
+    <rect x="40" y="506" width="640" height="40" rx="7" fill="#f6f6f6" stroke="#ccc" stroke-width="1"/>
+  </g>
+  <text x="360" y="524" text-anchor="middle" font-size="11" fill="#2e6e2e">验证：0 → 2 次（idx 1, 6） · 1 → 3 次（idx 0, 3, 5） · 2 → 3 次（idx 2, 4, 7）  ✓</text>
+  <text x="360" y="540" text-anchor="middle" font-size="9" fill="#888">注：实际 BLOCK_SIZE=256 且用 grid-stride 跨步读，此处用 4 线程演示 block 内聚合 + 末尾合并流程</text>
+</svg>

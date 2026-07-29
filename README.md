@@ -1,6 +1,6 @@
 # LeetGPU 题解
 
-> 62 道 [LeetGPU](https://leetgpu.com/) CUDA 挑战题解 —— 每道含完整可编译 kernel + ncu profiling + 手绘 sketch 风 SVG 图解，按 CUDA 概念覆盖选题、按难度归档。
+> 73 道 [LeetGPU](https://leetgpu.com/) CUDA 挑战题解 —— 每道含完整可编译 kernel + ncu profiling + 手绘 sketch 风 SVG 图解，按 CUDA 概念覆盖选题、按难度归档。
 
 📚 **在线网站**：https://hzchenxiaobin.github.io/leetgpu/
 
@@ -19,7 +19,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## 题解列表
 
-共 **71 道**（简单 21 / 中等 44 / 困难 6），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
+共 **73 道**（简单 21 / 中等 46 / 困难 6），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
 
 ### Easy · 简单（21 道）
 
@@ -47,7 +47,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 110 | [Scalar Multiply](easy/110_scalar_multiply/leetgpu-scalar-multiply-solution.md) | element-wise、attention scaling |
 | 111 | [Element Reversal](easy/111_element_reversal/leetgpu-element-reversal-solution.md) | element-wise、结果验证 |
 
-### Medium · 中等（44 道）
+### Medium · 中等（46 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
@@ -71,6 +71,8 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 40 | [Batch Normalization](medium/40_batch_normalization/leetgpu-batch-normalization-solution.md) | normalization、reduction、数值稳定性 |
 | 42 | [2D Max Pooling](medium/42_2d_max_pooling/leetgpu-2d-max-pooling-solution.md) | pooling、滑窗 reduction、padding 边界 |
 | 43 | [Count Array Element](medium/43_count_array_element/leetgpu-count-array-element-solution.md) | reduction、`atomicAdd`、predicate、warp shuffle |
+| 44 | [Count 2D Array Element](medium/44_count_2d_array_element/leetgpu-count-2d-array-element-solution.md) | 2D 展平、predicate 归约、`atomicAdd`、warp shuffle |
+| 45 | [Count 3D Array Element](medium/45_count_3d_array_element/leetgpu-count-3d-array-element-solution.md) | 3D 展平、predicate 归约、`size_t` 防溢出、warp shuffle |
 | 47 | [Subarray Sum](medium/47_subarray_sum/leetgpu-subarray-sum-solution.md) | reduction、warp shuffle、block 归约 |
 | 50 | [RMS Normalization](medium/50_rms_normalization/leetgpu-rms-normalization-solution.md) | RMSNorm、warp shuffle、Llama |
 | 51 | [Max Subarray Sum](medium/51_max_subarray_sum/leetgpu-max-subarray-sum-solution.md) | 滑动窗口、prefix sum、reduction |
@@ -111,7 +113,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## leetgpu-challenges 题目完成情况
 
-下表对照 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库 `challenges/<difficulty>/<编号>_<name>/` 的 **全部 91 道题**，标注本仓库题解完成情况：✅ 已完成 57 道 / ⬜ 未完成 34 道。已完成题目链接到本仓库题解，未完成题目链接到 LeetGPU 在线题目。
+下表对照 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库 `challenges/<difficulty>/<编号>_<name>/` 的 **全部 91 道题**，标注本仓库题解完成情况：✅ 已完成 74 道 / ⬜ 未完成 17 道。已完成题目链接到本仓库题解，未完成题目链接到 LeetGPU 在线题目。
 
 
 ### Easy · 简单（18/19）
@@ -138,7 +140,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 66 | RGB to Grayscale | ✅ | [题解](easy/66_rgb_to_grayscale/leetgpu-rgb-to-grayscale-solution.md) |
 | 68 | Sigmoid Activation | ✅ | [题解](easy/68_sigmoid/leetgpu-sigmoid-solution.md) |
 
-### Medium · 中等（49/59）
+### Medium · 中等（51/59）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -166,8 +168,8 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 40 | Batch Normalization | ✅ | [题解](medium/40_batch_normalization/leetgpu-batch-normalization-solution.md) |
 | 42 | 2D Max Pooling | ✅ | [题解](medium/42_2d_max_pooling/leetgpu-2d-max-pooling-solution.md) |
 | 43 | Count Array Element | ✅ | [题解](medium/43_count_array_element/leetgpu-count-array-element-solution.md) |
-| 44 | Count 2D Array Element | ⬜ | [题目](https://leetgpu.com/challenges/count-2d-array-element) |
-| 45 | Count 3D Array Element | ⬜ | [题目](https://leetgpu.com/challenges/count-3d-array-element) |
+| 44 | Count 2D Array Element | ✅ | [题解](medium/44_count_2d_array_element/leetgpu-count-2d-array-element-solution.md) |
+| 45 | Count 3D Array Element | ✅ | [题解](medium/45_count_3d_array_element/leetgpu-count-3d-array-element-solution.md) |
 | 47 | Subarray Sum | ✅ | [题解](medium/47_subarray_sum/leetgpu-subarray-sum-solution.md) |
 | 48 | 2D Subarray Sum | ⬜ | [题目](https://leetgpu.com/challenges/2d-subarray-sum) |
 | 49 | 3D Subarray Sum | ⬜ | [题目](https://leetgpu.com/challenges/3d-subarray-sum) |
@@ -261,7 +263,7 @@ leetgpu/
 ├── hard/                # 困难题解
 │   └── 74_gpt2_block/
 │       └── leetgpu-gpt-2-transformer-block-solution.md
-├── images/             # 手绘 sketch 风 SVG 插图（118 张）
+├── images/             # 手绘 sketch 风 SVG 插图（156 张）
 ├── SKILL.md            # 写 LeetGPU 题解的 Skill 规范
 ├── build.py            # 网站构建入口
 ├── build/              # 构建系统（common.py + leetgpu.py）

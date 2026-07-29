@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 480" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="41" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+    <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#b85450"/>
+    </marker>
+    <marker id="arg" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#4a8e4a"/>
+    </marker>
+  </defs>
+  <rect width="920" height="480" fill="#fdfcf7"/>
+
+  <text x="460" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">朴素 atomicAdd（写冲突）vs 两级归约（无冲突）</text>
+  <path d="M 250 42 Q 460 50 670 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- divider -->
+  <path d="M 460 64 L 460 460" stroke="#ccc" stroke-width="1.2" stroke-dasharray="6 4" fill="none" filter="url(#sk)"/>
+
+  <!-- ============ LEFT: atomic ============ -->
+  <text x="220" y="80" text-anchor="middle" font-size="13" font-weight="bold" fill="#b85450">朴素版：每个命中线程 atomicAdd(&amp;output[0], 1)</text>
+
+  <!-- 2D grid of threads (left) -->
+  <text x="60" y="104" font-size="10" fill="#888">2D grid 线程（每个读一个元素）</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="112" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="86" y="112" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="112" y="112" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="138" y="112" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="164" y="112" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="190" y="112" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="216" y="112" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="242" y="112" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="268" y="112" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="294" y="112" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="320" y="112" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="346" y="112" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+
+    <rect x="60" y="138" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="86" y="138" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="112" y="138" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="138" y="138" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="164" y="138" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="190" y="138" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="216" y="138" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="242" y="138" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="268" y="138" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="294" y="138" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="320" y="138" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="346" y="138" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+
+    <rect x="60" y="164" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="86" y="164" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="112" y="164" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="138" y="164" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="164" y="164" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="190" y="164" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="216" y="164" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="242" y="164" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="268" y="164" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="294" y="164" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="320" y="164" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+    <rect x="346" y="164" width="26" height="26" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/>
+  </g>
+  <text x="216" y="208" text-anchor="middle" font-size="10" fill="#888">... 共 1 亿线程（N×M）</text>
+
+  <!-- converging arrows -->
+  <path d="M 100 200 Q 160 250 200 285" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#sk)"/>
+  <path d="M 180 200 Q 200 250 210 285" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#sk)"/>
+  <path d="M 260 200 Q 230 250 215 285" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#sk)"/>
+  <path d="M 330 200 Q 260 250 220 285" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#sk)"/>
+
+  <!-- single output[0] (red, bottleneck) -->
+  <g filter="url(#sk)">
+    <rect x="150" y="290" width="120" height="50" rx="8" fill="#fce4ec" stroke="#b85450" stroke-width="2.2"/>
+  </g>
+  <text x="210" y="312" text-anchor="middle" font-size="12" font-weight="bold" fill="#b85450">output[0]</text>
+  <text x="210" y="330" text-anchor="middle" font-size="11" fill="#b85450">单地址 · 硬件串行化</text>
+
+  <!-- problem callout -->
+  <g filter="url(#sk)">
+    <rect x="50" y="360" width="340" height="96" rx="8" fill="#fff5f5" stroke="#b85450" stroke-dasharray="5 3"/>
+  </g>
+  <text x="68" y="384" font-size="12" font-weight="bold" fill="#b85450">⚠ 性能测试 K=1, 值域{1,2}</text>
+  <text x="68" y="404" font-size="11" fill="#b85450">50% 命中 ≈ 5000 万次 atomicAdd</text>
+  <text x="68" y="422" font-size="11" fill="#b85450">全部撞在 output[0] 同一地址</text>
+  <text x="68" y="442" font-size="11" font-weight="bold" fill="#b85450">→ SM 大量空转，比归约慢 10x+</text>
+
+  <!-- ============ RIGHT: reduction ============ -->
+  <text x="690" y="80" text-anchor="middle" font-size="13" font-weight="bold" fill="#2e6e2e">归约版：block 部分和 → final 聚合（零 global atomic）</text>
+
+  <!-- 2D grid of threads (right) -->
+  <text x="500" y="104" font-size="10" fill="#888">2D grid 线程 → block 内归约</text>
+  <g filter="url(#sk)">
+    <rect x="500" y="112" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="526" y="112" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="552" y="112" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="578" y="112" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="604" y="112" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="630" y="112" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="656" y="112" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="682" y="112" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="708" y="112" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="734" y="112" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="760" y="112" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="786" y="112" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+
+    <rect x="500" y="138" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="526" y="138" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="552" y="138" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="578" y="138" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="604" y="138" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="630" y="138" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="656" y="138" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="682" y="138" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="708" y="138" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="734" y="138" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="760" y="138" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="786" y="138" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+
+    <rect x="500" y="164" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="526" y="164" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="552" y="164" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="578" y="164" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="604" y="164" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="630" y="164" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="656" y="164" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="682" y="164" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="708" y="164" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="734" y="164" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="760" y="164" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+    <rect x="786" y="164" width="26" height="26" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.1"/>
+  </g>
+
+  <!-- block grouping brackets -->
+  <text x="538" y="208" text-anchor="middle" font-size="10" fill="#2e6e2e">block 0</text>
+  <text x="634" y="208" text-anchor="middle" font-size="10" fill="#2e6e2e">block 1</text>
+  <text x="752" y="208" text-anchor="middle" font-size="10" fill="#2e6e2e">block 2</text>
+
+  <!-- arrows to block sums -->
+  <path d="M 538 196 Q 538 230 538 258" stroke="#4a8e4a" stroke-width="1.2" fill="none" marker-end="url(#arg)" filter="url(#sk)"/>
+  <path d="M 634 196 Q 634 230 634 258" stroke="#4a8e4a" stroke-width="1.2" fill="none" marker-end="url(#arg)" filter="url(#sk)"/>
+  <path d="M 752 196 Q 752 230 752 258" stroke="#4a8e4a" stroke-width="1.2" fill="none" marker-end="url(#arg)" filter="url(#sk)"/>
+
+  <!-- block partial sums -->
+  <g filter="url(#sk)">
+    <rect x="500" y="262" width="76" height="38" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+    <rect x="596" y="262" width="76" height="38" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+    <rect x="714" y="262" width="76" height="38" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+  </g>
+  <text x="538" y="288" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">sum₀</text>
+  <text x="634" y="288" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">sum₁</text>
+  <text x="752" y="288" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">sum₂</text>
+  <text x="810" y="288" font-size="10" fill="#888">... 每块一次写</text>
+
+  <!-- final reduce arrow -->
+  <path d="M 538 304 Q 600 330 640 348" stroke="#4a8e4a" stroke-width="1.2" fill="none" marker-end="url(#arg)" filter="url(#sk)"/>
+  <path d="M 634 304 Q 640 326 645 348" stroke="#4a8e4a" stroke-width="1.2" fill="none" marker-end="url(#arg)" filter="url(#sk)"/>
+  <path d="M 752 304 Q 690 330 650 348" stroke="#4a8e4a" stroke-width="1.2" fill="none" marker-end="url(#arg)" filter="url(#sk)"/>
+  <text x="690" y="332" font-size="10" fill="#2e6e2e">final_reduce</text>
+
+  <!-- output[0] (green) -->
+  <g filter="url(#sk)">
+    <rect x="580" y="354" width="120" height="50" rx="8" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2.2"/>
+  </g>
+  <text x="640" y="376" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">output[0]</text>
+  <text x="640" y="394" text-anchor="middle" font-size="11" fill="#2e6e2e">仅 1 次写 · 零冲突</text>
+
+  <!-- advantage callout -->
+  <g filter="url(#sk)">
+    <rect x="490" y="420" width="340" height="46" rx="8" fill="#f5fbf5" stroke="#4a8e4a" stroke-dasharray="5 3"/>
+  </g>
+  <text x="508" y="442" font-size="11" font-weight="bold" fill="#2e6e2e">✓ 全程零 global atomic</text>
+  <text x="508" y="458" font-size="11" fill="#2e6e2e">瓶颈干净落在读带宽，命中密度无关耗时</text>
+</svg>
