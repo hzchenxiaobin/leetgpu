@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="480" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Halo Tiling + 零填充：same 卷积的 tile 加载</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">输出 tile OT×OT 的输入区域向四周扩 R 圈 halo，越界 halo 填 0</text>
+
+  <!-- ===== Left: input image with tile + halo crossing boundary ===== -->
+  <text x="150" y="76" font-size="12" fill="#446688" font-weight="bold">input[H][W]</text>
+  <g font-size="9" fill="#333">
+    <!-- input image border -->
+    <rect x="60" y="84" width="220" height="220" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+    <!-- grid -->
+    <g stroke="#bcd" stroke-width="0.3" filter="url(#rough2)">
+      <line x1="115" y1="84" x2="115" y2="304"/>
+      <line x1="170" y1="84" x2="170" y2="304"/>
+      <line x1="225" y1="84" x2="225" y2="304"/>
+      <line x1="60" y1="139" x2="280" y2="139"/>
+      <line x1="60" y1="194" x2="280" y2="194"/>
+      <line x1="60" y1="249" x2="280" y2="249"/>
+    </g>
+
+    <!-- output tile (green, inside input) -->
+    <rect x="115" y="139" width="110" height="110" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="170" y="190" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">输出 tile</text>
+    <text x="170" y="206" text-anchor="middle" font-size="8" fill="#4a7a3a">OT×OT</text>
+
+    <!-- halo region (orange, extends beyond input boundary on left/top) -->
+    <rect x="87" y="111" width="166" height="166" fill="none" stroke="#d6a040" stroke-width="1.5" stroke-dasharray="4 3" rx="2" filter="url(#rough2)"/>
+
+    <!-- zero-padding zone (red, outside input boundary) -->
+    <!-- left halo outside input -->
+    <rect x="87" y="111" width="28" height="166" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" stroke-dasharray="3 2" rx="1" filter="url(#rough2)"/>
+    <!-- top halo outside input -->
+    <rect x="87" y="111" width="166" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" stroke-dasharray="3 2" rx="1" filter="url(#rough2)"/>
+
+    <text x="101" y="200" text-anchor="middle" font-size="7" fill="#b85450" transform="rotate(-90 101 200)">填 0</text>
+    <text x="170" y="128" text-anchor="middle" font-size="7" fill="#b85450">填 0</text>
+
+    <!-- labels -->
+    <text x="170" y="106" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold">halo (R 圈)</text>
+    <text x="50" y="200" text-anchor="middle" font-size="7" fill="#b85450" transform="rotate(-90 50 200)">越界=0</text>
+  </g>
+  <text x="150" y="324" text-anchor="middle" font-size="9" fill="#888">tile 位于边界时，halo 越界部分填 0</text>
+  <text x="150" y="338" text-anchor="middle" font-size="8" fill="#888">输入 tile 大小 (OT+2R)×(OT+2R)</text>
+
+  <!-- arrow -->
+  <path d="M 300 194 L 340 194" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="320" y="184" text-anchor="middle" font-size="9" fill="#666">load</text>
+
+  <!-- ===== Right: shared memory tile ===== -->
+  <text x="470" y="76" font-size="12" fill="#d6a040" font-weight="bold">shared memory sTile</text>
+  <g font-size="9" fill="#333">
+    <!-- shared memory tile (full, orange border) -->
+    <rect x="360" y="84" width="220" height="220" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3" filter="url(#rough2)"/>
+
+    <!-- zero-padded halo cells (red) -->
+    <rect x="360" y="84" width="220" height="33" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" stroke-dasharray="3 2" rx="1" filter="url(#rough2)"/>
+    <rect x="360" y="117" width="33" height="167" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" stroke-dasharray="3 2" rx="1" filter="url(#rough2)"/>
+
+    <!-- core input cells (blue) -->
+    <rect x="393" y="117" width="154" height="154" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="1" filter="url(#rough2)"/>
+
+    <!-- output tile position (green) -->
+    <rect x="426" y="150" width="88" height="88" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="1" filter="url(#rough2)"/>
+    <text x="470" y="190" text-anchor="middle" font-size="9" fill="#4a7a3a" font-weight="bold">输出</text>
+    <text x="470" y="204" text-anchor="middle" font-size="8" fill="#4a7a3a">OT×OT</text>
+
+    <!-- grid -->
+    <g stroke="#e8d090" stroke-width="0.3" filter="url(#rough2)">
+      <line x1="426" y1="117" x2="426" y2="271"/>
+      <line x1="459" y1="117" x2="459" y2="271"/>
+      <line x1="492" y1="117" x2="492" y2="271"/>
+      <line x1="525" y1="117" x2="525" y2="271"/>
+      <line x1="393" y1="150" x2="547" y2="150"/>
+      <line x1="393" y1="183" x2="547" y2="183"/>
+      <line x1="393" y1="216" x2="547" y2="216"/>
+      <line x1="393" y1="249" x2="547" y2="249"/>
+    </g>
+
+    <!-- labels -->
+    <text x="470" y="100" text-anchor="middle" font-size="8" fill="#b85450" font-weight="bold">越界 halo = 0</text>
+    <text x="377" y="200" text-anchor="middle" font-size="7" fill="#b85450" transform="rotate(-90 377 200)">0</text>
+    <text x="470" y="134" text-anchor="middle" font-size="7" fill="#446688">有效 halo</text>
+  </g>
+  <text x="470" y="324" text-anchor="middle" font-size="9" fill="#888">sTile[R..R+OT][R..R+OT] = 输出</text>
+  <text x="470" y="338" text-anchor="middle" font-size="8" fill="#888">越界 cell 直接写 0，卷积时 0×weight=0</text>
+
+  <!-- ===== Bottom: loading flow ===== -->
+  <line x1="20" y1="360" x2="620" y2="360" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <rect x="30" y="376" width="580" height="88" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="396" font-size="11" fill="#444" font-weight="bold">加载流程（strided loop，每线程可能载多个 cell）：</text>
+  <text x="60" y="416" font-family="monospace" font-size="10" fill="#b85450">① gx = ox0 - R + sx,  gy = oy0 - R + sy   // tile 起点偏移 -R</text>
+  <text x="60" y="432" font-family="monospace" font-size="10" fill="#446688">② if (gx<0 || gx>=W || gy<0 || gy>=H) smem = 0;  // 越界填 0</text>
+  <text x="60" y="448" font-family="monospace" font-size="10" fill="#4a7a3a">③ else smem[sy*tileW+sx] = input[gy*W+gx];      // 合法则从 global 读</text>
+  <text x="60" y="462" font-family="monospace" font-size="10" fill="#d6a040">④ __syncthreads() → 卷积：acc = Σ smem[ty+ky][tx+kx] * c_kernel[ky][kx]</text>
+</svg>

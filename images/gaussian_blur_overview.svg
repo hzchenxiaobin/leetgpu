@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 460" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="460" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Same-Padding 卷积：零填充边界 + 输出等大</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">output[i,j] = Σ input[i+m, j+n] · kernel[m+R, n+R]，越界 input 视为 0</text>
+
+  <!-- ===== Left: input with zero-padding border ===== -->
+  <text x="120" y="76" font-size="12" fill="#446688" font-weight="bold">input[H][W]</text>
+  <g font-size="9" fill="#333">
+    <!-- zero-padding border (red dashed) -->
+    <rect x="60" y="84" width="180" height="180" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" stroke-dasharray="4 3" rx="3" filter="url(#rough2)"/>
+    <text x="150" y="100" text-anchor="middle" font-size="8" fill="#b85450">零填充圈 (pad=R)</text>
+
+    <!-- actual input (blue) -->
+    <rect x="84" y="108" width="132" height="132" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <!-- grid lines -->
+    <g stroke="#bcd" stroke-width="0.4" filter="url(#rough2)">
+      <line x1="117" y1="108" x2="117" y2="240"/>
+      <line x1="150" y1="108" x2="150" y2="240"/>
+      <line x1="183" y1="108" x2="183" y2="240"/>
+      <line x1="84" y1="141" x2="216" y2="141"/>
+      <line x1="84" y1="174" x2="216" y2="174"/>
+      <line x1="84" y1="207" x2="216" y2="207"/>
+    </g>
+    <text x="150" y="178" text-anchor="middle" font-size="10" fill="#446688" font-weight="bold">有效像素</text>
+
+    <!-- kernel window overlay (orange) on a corner pixel -->
+    <rect x="72" y="96" width="66" height="66" fill="none" stroke="#d6a040" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="105" y="92" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold">K×K 窗口</text>
+    <text x="105" y="135" text-anchor="middle" font-size="7" fill="#d6a040">含 0</text>
+  </g>
+  <text x="120" y="282" font-size="9" fill="#888">角像素窗口越界 → 补 0</text>
+
+  <!-- arrow -->
+  <path d="M 250 170 L 290 170" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="270" y="160" text-anchor="middle" font-size="9" fill="#666">conv</text>
+
+  <!-- ===== Middle: kernel ===== -->
+  <text x="360" y="76" font-size="12" fill="#d6a040" font-weight="bold">kernel[K][K]</text>
+  <g font-size="9" fill="#333">
+    <rect x="320" y="84" width="80" height="80" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <g stroke="#e8d090" stroke-width="0.4" filter="url(#rough2)">
+      <line x1="346" y1="84" x2="346" y2="164"/>
+      <line x1="373" y1="84" x2="373" y2="164"/>
+      <line x1="320" y1="110" x2="400" y2="110"/>
+      <line x1="320" y1="137" x2="400" y2="137"/>
+    </g>
+    <text x="333" y="100" font-size="7" fill="#d6a040">.06</text>
+    <text x="360" y="100" text-anchor="middle" font-size="7" fill="#d6a040">.12</text>
+    <text x="386" y="100" font-size="7" fill="#d6a040">.06</text>
+    <text x="333" y="127" font-size="7" fill="#d6a040">.12</text>
+    <text x="360" y="127" text-anchor="middle" font-size="7" fill="#d6a040" font-weight="bold">.25</text>
+    <text x="386" y="127" font-size="7" fill="#d6a040">.12</text>
+    <text x="333" y="154" font-size="7" fill="#d6a040">.06</text>
+    <text x="360" y="154" text-anchor="middle" font-size="7" fill="#d6a040">.12</text>
+    <text x="386" y="154" font-size="7" fill="#d6a040">.06</text>
+  </g>
+  <text x="360" y="182" text-anchor="middle" font-size="8" fill="#888">3×3 Gaussian</text>
+  <text x="360" y="196" text-anchor="middle" font-size="8" fill="#888">R = K/2 = 1</text>
+
+  <!-- arrow -->
+  <path d="M 410 170 L 450 170" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="430" y="160" text-anchor="middle" font-size="9" fill="#666">=</text>
+
+  <!-- ===== Right: output (same size as input) ===== -->
+  <text x="560" y="76" font-size="12" fill="#4a7a3a" font-weight="bold">output[H][W]</text>
+  <g font-size="9" fill="#333">
+    <rect x="460" y="84" width="132" height="132" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <g stroke="#9c9" stroke-width="0.4" filter="url(#rough2)">
+      <line x1="493" y1="84" x2="493" y2="216"/>
+      <line x1="526" y1="84" x2="526" y2="216"/>
+      <line x1="559" y1="84" x2="559" y2="216"/>
+      <line x1="460" y1="117" x2="592" y2="117"/>
+      <line x1="460" y1="150" x2="592" y2="150"/>
+      <line x1="460" y1="183" x2="592" y2="183"/>
+    </g>
+    <text x="526" y="154" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">等大输出</text>
+    <text x="526" y="170" text-anchor="middle" font-size="8" fill="#4a7a3a">H×W（不变）</text>
+  </g>
+  <text x="526" y="234" text-anchor="middle" font-size="8" fill="#888">与 2D Conv (#10) 的</text>
+  <text x="526" y="246" text-anchor="middle" font-size="8" fill="#888">valid 卷积不同</text>
+
+  <!-- ===== Bottom: formula ===== -->
+  <line x1="20" y1="270" x2="620" y2="270" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <rect x="30" y="286" width="580" height="58" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="306" font-size="11" fill="#444" font-weight="bold">卷积公式（same padding）：</text>
+  <text x="60" y="326" font-family="monospace" font-size="10" fill="#446688">output[i,j] = Σ_{m=-R}^{R} Σ_{n=-R}^{R} input[i+m, j+n] · kernel[m+R, n+R]</text>
+
+  <!-- ===== Bottom: comparison with valid conv ===== -->
+  <rect x="30" y="360" width="580" height="86" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="380" font-size="11" fill="#444" font-weight="bold">与 #10 2D Convolution（valid）的对比：</text>
+  <g font-size="9" fill="#555">
+    <circle cx="54" cy="398" r="3" fill="#b85450" filter="url(#rough2)"/>
+    <text x="64" y="401" fill="#b85450">本题（same）</text>
+    <text x="150" y="401">零填充越界 · 输出 H×W · 边界像素窗口含 0</text>
+    <circle cx="54" cy="416" r="3" fill="#446688" filter="url(#rough2)"/>
+    <text x="64" y="419" fill="#446688">#10 valid</text>
+    <text x="150" y="419">不填充 · 输出 (H-2R)×(W-2R) · 仅内部像素</text>
+    <circle cx="54" cy="434" r="3" fill="#4a7a3a" filter="url(#rough2)"/>
+    <text x="64" y="437" fill="#4a7a3a">共同点</text>
+    <text x="150" y="437">shared memory halo tiling + __constant__ 权重广播</text>
+  </g>
+</svg>

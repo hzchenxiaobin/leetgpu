@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 460" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="460" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">两遍扫描 + warp shuffle 归约：单行计算流程</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">一个 block 内 256 threads 协作处理 C 个元素：先求 max，再求 Σexp</text>
+
+  <!-- ===== Pass 1: Find max ===== -->
+  <rect x="30" y="60" width="580" height="160" fill="#e8f0fe" fill-opacity="0.3" stroke="#446688" stroke-width="1" stroke-dasharray="5,3" rx="6" filter="url(#rough2)"/>
+  <text x="60" y="80" font-size="13" fill="#446688" font-weight="bold">Pass 1: 求行最大值 m = max_k(z_jk)</text>
+
+  <!-- threads row -->
+  <rect x="50" y="95" width="40" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="70" y="112" text-anchor="middle" font-size="9" fill="#446688">t0</text>
+  <rect x="95" y="95" width="40" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="115" y="112" text-anchor="middle" font-size="9" fill="#446688">t1</text>
+  <text x="160" y="112" text-anchor="middle" font-size="12" fill="#888">...</text>
+  <rect x="175" y="95" width="40" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="195" y="112" text-anchor="middle" font-size="9" fill="#446688">t255</text>
+
+  <text x="250" y="112" font-size="10" fill="#888">各 thread 用 grid-stride 遍历行内元素，维护局部 max</text>
+
+  <!-- warp reduce -->
+  <line x1="70" y1="125" x2="70" y2="145" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="115" y1="125" x2="115" y2="145" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="195" y1="125" x2="195" y2="145" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="50" y="148" width="165" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="132" y="164" text-anchor="middle" font-size="10" fill="#d6a040">__shfl_down_sync → warp max</text>
+
+  <line x1="132" y1="175" x2="132" y2="190" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="50" y="192" width="165" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="132" y="208" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">block max → shared → m</text>
+
+  <!-- ===== Pass 2: Sum of exp ===== -->
+  <rect x="30" y="240" width="580" height="160" fill="#e6f4ea" fill-opacity="0.3" stroke="#4a7a3a" stroke-width="1" stroke-dasharray="5,3" rx="6" filter="url(#rough2)"/>
+  <text x="60" y="260" font-size="13" fill="#4a7a3a" font-weight="bold">Pass 2: 求指数和 s = Σ_k exp(z_jk − m)</text>
+
+  <!-- threads row -->
+  <rect x="50" y="275" width="40" height="26" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="70" y="292" text-anchor="middle" font-size="9" fill="#4a7a3a">t0</text>
+  <rect x="95" y="275" width="40" height="26" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="115" y="292" text-anchor="middle" font-size="9" fill="#4a7a3a">t1</text>
+  <text x="160" y="292" text-anchor="middle" font-size="12" fill="#888">...</text>
+  <rect x="175" y="275" width="40" height="26" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="195" y="292" text-anchor="middle" font-size="9" fill="#4a7a3a">t255</text>
+
+  <text x="250" y="292" font-size="10" fill="#888">各 thread 再遍历行，累加 exp(z − m)，用 __shfl_down 归约</text>
+
+  <!-- warp reduce -->
+  <line x1="70" y1="305" x2="70" y2="325" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="115" y1="305" x2="115" y2="325" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="195" y1="305" x2="195" y2="325" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="50" y="328" width="165" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="132" y="344" text-anchor="middle" font-size="10" fill="#d6a040">__shfl_down_sync → warp sum</text>
+
+  <line x1="132" y1="355" x2="132" y2="370" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="50" y="372" width="165" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="132" y="388" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">block sum → shared → s</text>
+
+  <!-- ===== Final computation ===== -->
+  <rect x="280" y="260" width="310" height="120" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="435" y="285" text-anchor="middle" font-size="12" fill="#333" font-weight="bold">最终计算（thread 0 执行）</text>
+  <text x="435" y="310" text-anchor="middle" font-size="11" fill="#333">lse = m + logf(s)</text>
+  <text x="435" y="330" text-anchor="middle" font-size="11" fill="#333">true_logit = logits[j·C + y_j]</text>
+  <text x="435" y="355" text-anchor="middle" font-size="12" fill="#b85450" font-weight="bold">Loss_j = lse − true_logit</text>
+  <text x="435" y="372" text-anchor="middle" font-size="10" fill="#4a7a3a">atomicAdd(loss, Loss_j / N)</text>
+
+  <!-- arrow from pass2 to final -->
+  <line x1="215" y1="384" x2="275" y2="340" stroke="#666" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- ===== Sync notes ===== -->
+  <rect x="30" y="420" width="580" height="30" fill="#fce4ec" fill-opacity="0.3" stroke="#b85450" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="320" y="440" text-anchor="middle" font-size="10" fill="#b85450">⚠ 两遍之间必须 __syncthreads()：Pass 2 依赖 Pass 1 写入 shared 的 m，否则读到未初始化值</text>
+</svg>

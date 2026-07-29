@@ -373,6 +373,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 |-------------|------------------------|----------|
 | `1d-convolution` | #10 2D Convolution（halo 扩展到二维）· #11 3D Convolution（体数据 halo）· #90 Causal Depthwise Conv1d（因果卷积变体）· #28 Gaussian Blur（可分离卷积） | 1D shared memory halo，练习卷积边界填充与 tile 加载 |
 | `2d-convolution` | #9 1D Convolution（halo 基础入门）· #11 3D Convolution（体数据 halo 扩展）· #28 Gaussian Blur（可分离卷积，行列分离优化）· #42 2D Max Pooling（滑窗 reduction，类似 tiling 模式） | shared memory halo + 常数内存，练习卷积类 kernel 的边界处理与 tiling |
+| `gaussian-blur` | #10 2D Convolution（2D shared memory halo + 常数内存，valid 卷积基础对比）· #9 1D Convolution（1D shared memory halo，可分离卷积的 1D 组件）· #11 3D Convolution（3D 体数据 halo 扩展进阶）· #42 2D Max Pooling（滑窗 reduction，类似 tiling + 边界处理模式） | 可分离卷积 + shared memory halo + 零填充边界，练习 same-padding 卷积与行列分离优化 |
 | `causal-depthwise-conv1d` | #9 1D Convolution（1D 卷积基础，halo 填充入门）· #10 2D Convolution（2D shared memory halo + 常数内存）· #11 3D Convolution（3D 体数据 halo 扩展）· #28 Gaussian Blur（可分离卷积，行列分离优化） | 因果卷积 + depthwise 分组，练习卷积边界处理与通道独立并行 |
 | `2d-max-pooling` | #10 2D Convolution（2D shared memory halo + tiling）· #9 1D Convolution（1D 卷积，halo 基础）· #28 Gaussian Blur（可分离卷积，滑窗模式）· #90 Causal Depthwise Conv1d（因果卷积变体） | 滑窗 reduction，练习 2D 索引映射与 padding 边界处理 |
 

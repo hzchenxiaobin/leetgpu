@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="420" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Cross Entropy Loss 概览：logits → 逐行 LSE → 减真值 → 均值</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">每行独立算 logΣexp，减去 true_label 对应 logit，再对 N 行求平均</text>
+
+  <!-- ===== Formula box ===== -->
+  <rect x="30" y="58" width="580" height="52" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="320" y="80" text-anchor="middle" font-size="13" fill="#333" font-weight="bold">Loss_j = max(z_j) + log(Σ_k exp(z_jk − max(z_j))) − z_{j, y_j}</text>
+  <text x="320" y="100" text-anchor="middle" font-size="11" fill="#888">L = (1/N) · Σ_j Loss_j</text>
+
+  <!-- ===== Logits matrix ===== -->
+  <text x="90" y="140" text-anchor="middle" font-size="12" fill="#446688" font-weight="bold">logits (N×C)</text>
+  <rect x="40" y="148" width="100" height="100" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="4" filter="url(#rough2)"/>
+  <text x="90" y="170" text-anchor="middle" font-size="10" fill="#446688">z_0 = [1.0, 2.0, 0.5]</text>
+  <text x="90" y="190" text-anchor="middle" font-size="10" fill="#446688">z_1 = [0.1, 3.0, 1.5]</text>
+  <text x="90" y="210" text-anchor="middle" font-size="10" fill="#888">  ...  </text>
+  <text x="90" y="230" text-anchor="middle" font-size="10" fill="#446688">z_{N-1} = [...]</text>
+  <text x="90" y="265" text-anchor="middle" font-size="9" fill="#888">true_labels = [1, 1, ...]</text>
+
+  <!-- Arrow 1 -->
+  <line x1="150" y1="198" x2="210" y2="198" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="180" y="190" text-anchor="middle" font-size="9" fill="#888">逐行</text>
+
+  <!-- ===== Per-row LSE + subtract ===== -->
+  <text x="320" y="140" text-anchor="middle" font-size="12" fill="#d6a040" font-weight="bold">逐行计算</text>
+  <rect x="220" y="148" width="200" height="100" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="4" filter="url(#rough2)"/>
+  <text x="320" y="172" text-anchor="middle" font-size="10" fill="#333">① m = max(z_j)</text>
+  <text x="320" y="190" text-anchor="middle" font-size="10" fill="#333">② s = Σ exp(z_jk − m)</text>
+  <text x="320" y="208" text-anchor="middle" font-size="10" fill="#333">③ lse = m + log(s)</text>
+  <text x="320" y="228" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">④ Loss_j = lse − z_{j,y_j}</text>
+
+  <!-- Arrow 2 -->
+  <line x1="430" y1="198" x2="490" y2="198" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="460" y="190" text-anchor="middle" font-size="9" fill="#888">atomicAdd</text>
+
+  <!-- ===== Output ===== -->
+  <text x="560" y="140" text-anchor="middle" font-size="12" fill="#4a7a3a" font-weight="bold">loss (1)</text>
+  <rect x="510" y="148" width="100" height="60" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4" filter="url(#rough2)"/>
+  <text x="560" y="175" text-anchor="middle" font-size="12" fill="#4a7a3a" font-weight="bold">L</text>
+  <text x="560" y="195" text-anchor="middle" font-size="9" fill="#888">= Σ Loss_j / N</text>
+
+  <!-- ===== Bottom: one-block-per-row mapping ===== -->
+  <text x="320" y="290" text-anchor="middle" font-size="13" fill="#444" font-weight="bold">并行映射：一个 block 处理一行</text>
+
+  <rect x="60" y="305" width="80" height="36" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="100" y="328" text-anchor="middle" font-size="10" fill="#446688">Block 0</text>
+
+  <rect x="160" y="305" width="80" height="36" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="200" y="328" text-anchor="middle" font-size="10" fill="#446688">Block 1</text>
+
+  <text x="270" y="328" text-anchor="middle" font-size="14" fill="#888">...</text>
+
+  <rect x="300" y="305" width="80" height="36" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="340" y="328" text-anchor="middle" font-size="10" fill="#446688">Block j</text>
+
+  <text x="410" y="328" text-anchor="middle" font-size="14" fill="#888">...</text>
+
+  <rect x="440" y="305" width="100" height="36" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="490" y="328" text-anchor="middle" font-size="10" fill="#446688">Block N−1</text>
+
+  <!-- arrows down -->
+  <line x1="100" y1="345" x2="100" y2="370" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="200" y1="345" x2="200" y2="370" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="340" y1="345" x2="340" y2="370" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="490" y1="345" x2="490" y2="370" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="60" y="370" width="80" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="100" y="386" text-anchor="middle" font-size="9" fill="#d6a040">Loss_0</text>
+
+  <rect x="160" y="370" width="80" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="200" y="386" text-anchor="middle" font-size="9" fill="#d6a040">Loss_1</text>
+
+  <text x="270" y="386" text-anchor="middle" font-size="12" fill="#888">...</text>
+
+  <rect x="300" y="370" width="80" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="340" y="386" text-anchor="middle" font-size="9" fill="#d6a040">Loss_j</text>
+
+  <text x="410" y="386" text-anchor="middle" font-size="12" fill="#888">...</text>
+
+  <rect x="440" y="370" width="100" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="490" y="386" text-anchor="middle" font-size="9" fill="#4a7a3a">→ atomicAdd(L)</text>
+</svg>

@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="480" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Tiled Kernel 即时反量化：w_q tile → shared → dequant → matmul</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">每 block 计算 C 的 BM×BN tile，K 维分步迭代，每步加载 BK 列 w_q 并在 shared 内反量化</text>
+
+  <!-- ===== Grid layout ===== -->
+  <!-- x tile -->
+  <text x="80" y="78" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">x tile (FP16)</text>
+  <rect x="30" y="85" width="100" height="70" fill="#e8f0fe" stroke="#446688" stroke-width="1.3" rx="4" filter="url(#rough2)"/>
+  <text x="80" y="115" text-anchor="middle" font-size="10" fill="#446688">BM × BK</text>
+  <text x="80" y="135" text-anchor="middle" font-size="9" fill="#888">从 HBM 加载</text>
+  <text x="80" y="148" text-anchor="middle" font-size="9" fill="#888">coalesced</text>
+
+  <!-- w_q tile -->
+  <text x="240" y="78" text-anchor="middle" font-size="11" fill="#d6a040" font-weight="bold">w_q tile (UINT8)</text>
+  <rect x="190" y="85" width="100" height="70" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="4" filter="url(#rough2)"/>
+  <text x="240" y="115" text-anchor="middle" font-size="10" fill="#d6a040">BN × BK/2</text>
+  <text x="240" y="135" text-anchor="middle" font-size="9" fill="#888">压缩格式加载</text>
+  <text x="240" y="148" text-anchor="middle" font-size="9" fill="#888">省 2× 带宽</text>
+
+  <!-- scales -->
+  <text x="400" y="78" text-anchor="middle" font-size="11" fill="#b85450" font-weight="bold">scales (FP16)</text>
+  <rect x="350" y="85" width="100" height="70" fill="#fce4ec" stroke="#b85450" stroke-width="1.3" rx="4" filter="url(#rough2)"/>
+  <text x="400" y="115" text-anchor="middle" font-size="10" fill="#b85450">BN × BK/gs</text>
+  <text x="400" y="135" text-anchor="middle" font-size="9" fill="#888">分组缩放</text>
+  <text x="400" y="148" text-anchor="middle" font-size="9" fill="#888">很小</text>
+
+  <!-- ===== Shared memory dequant ===== -->
+  <rect x="30" y="175" width="580" height="100" fill="#e6f4ea" fill-opacity="0.2" stroke="#4a7a3a" stroke-width="1.3" stroke-dasharray="4,2" rx="6" filter="url(#rough2)"/>
+  <text x="320" y="196" text-anchor="middle" font-size="12" fill="#4a7a3a" font-weight="bold">Shared Memory（block 内共享）</text>
+
+  <rect x="50" y="205" width="120" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="110" y="223" text-anchor="middle" font-size="9" fill="#446688">s_x[BM][BK] (FP16)</text>
+
+  <rect x="190" y="205" width="140" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="260" y="223" text-anchor="middle" font-size="9" fill="#d6a040">s_wq[BN][BK/2] (UINT8)</text>
+
+  <rect x="350" y="205" width="120" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="410" y="223" text-anchor="middle" font-size="9" fill="#4a7a3a">s_w[BN][BK] (FP16) ← dequant</text>
+
+  <text x="50" y="250" font-size="9" fill="#888">反量化: 每 thread 负责几个 nibble，解包 + 乘 scale → 写入 s_w</text>
+  <text x="50" y="265" font-size="9" fill="#888">__syncthreads() 确保反量化完成后才进入 matmul</text>
+
+  <!-- Arrow down -->
+  <line x1="320" y1="278" x2="320" y2="290" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- ===== Register tiling + matmul ===== -->
+  <rect x="30" y="292" width="580" height="100" fill="#e8f0fe" fill-opacity="0.2" stroke="#446688" stroke-width="1.3" stroke-dasharray="4,2" rx="6" filter="url(#rough2)"/>
+  <text x="320" y="313" text-anchor="middle" font-size="12" fill="#446688" font-weight="bold">Register Tiling + FP32 累加</text>
+
+  <rect x="50" y="322" width="150" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="125" y="340" text-anchor="middle" font-size="9" fill="#446688">reg_x[RM][BK] ← s_x tile</text>
+
+  <rect x="220" y="322" width="150" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="295" y="340" text-anchor="middle" font-size="9" fill="#4a7a3a">reg_w[RN][BK] ← s_w tile</text>
+
+  <rect x="390" y="322" width="160" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="470" y="340" text-anchor="middle" font-size="9" fill="#d6a040">acc[RM][RN] += reg_x × reg_w^T</text>
+
+  <text x="50" y="366" font-size="9" fill="#888">每 thread 持有 acc[RM][RN]（如 4×4 = 16 个 FP32 累加器），K 维迭代累加</text>
+  <text x="50" y="382" font-size="9" fill="#888">FP32 累加保证精度 → 最终 __float2half 转回 FP16 写 y</text>
+
+  <!-- Arrow down -->
+  <line x1="320" y1="395" x2="320" y2="407" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- ===== Output ===== -->
+  <rect x="180" y="410" width="280" height="34" fill="#e8f0fe" stroke="#446688" stroke-width="1.3" rx="4" filter="url(#rough2)"/>
+  <text x="320" y="432" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">y[BM×BN tile] ← __float2half(acc)  → 写回 HBM</text>
+
+  <!-- ===== K loop ===== -->
+  <rect x="30" y="452" width="580" height="22" fill="#fce4ec" fill-opacity="0.3" stroke="#b85450" stroke-width="0.8" rx="3" filter="url(#rough2)"/>
+  <text x="320" y="467" text-anchor="middle" font-size="9" fill="#b85450">⚠ K 维循环：每步加载 BK 列，反量化，累加。共 K/BK 步。w_q 从不落 HBM 为 FP16</text>
+</svg>

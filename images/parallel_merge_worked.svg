@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 520" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="520" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Worked Example: A=[1,3,5,7], B=[2,4,6,8], k=4</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">逐步推演 co_rank(4) 的二分搜索过程，找到 C[4] 的来源</text>
+
+  <!-- ===== Input arrays ===== -->
+  <text x="30" y="72" font-size="12" fill="#446688" font-weight="bold">输入：A = [1, 3, 5, 7] (M=4), B = [2, 4, 6, 8] (N=4)</text>
+  <text x="30" y="90" font-size="11" fill="#333">求 co_rank(k=4)：找到 i 使 A[0..i-1] ⊕ B[0..3-i] = C[0..3]（前 4 个元素）</text>
+
+  <!-- ===== Binary search steps ===== -->
+  <rect x="20" y="100" width="600" height="300" fill="#e8f0fe" fill-opacity="0.15" stroke="#446688" stroke-width="1" stroke-dasharray="4,2" rx="6" filter="url(#rough2)"/>
+
+  <!-- Step 1 -->
+  <text x="35" y="124" font-size="12" fill="#d6a040" font-weight="bold">① 初始化搜索范围</text>
+  <text x="50" y="144" font-size="10" fill="#333">i_low = max(0, k−N) = max(0, 4−4) = 0</text>
+  <text x="50" y="160" font-size="10" fill="#333">i_high = min(k, M) = min(4, 4) = 4</text>
+  <text x="50" y="176" font-size="10" fill="#888">i ∈ [0, 4]，即 A 可贡献 0~4 个元素</text>
+
+  <!-- Step 2 -->
+  <text x="35" y="202" font-size="12" fill="#d6a040" font-weight="bold">② 第一次二分：i = (0+4)/2 = 2, j = 4−2 = 2</text>
+  <text x="50" y="222" font-size="10" fill="#333">检查：A[i-1] = A[1] = 3, B[j] = B[2] = 6</text>
+  <text x="50" y="238" font-size="10" fill="#4a7a3a">A[1]=3 ≤ B[2]=6 ✓（A 没贡献太多）</text>
+  <text x="50" y="254" font-size="10" fill="#333">检查：B[j-1] = B[1] = 4, A[i] = A[2] = 5</text>
+  <text x="50" y="270" font-size="10" fill="#b85450">B[1]=4 ≤ A[2]=5 ✓（A 没贡献太少）</text>
+  <text x="50" y="286" font-size="10" fill="#d6a040" font-weight="bold">→ 两个条件都满足，找到 i=2, j=2</text>
+
+  <!-- Step 3: Verify -->
+  <text x="35" y="312" font-size="12" fill="#4a7a3a" font-weight="bold">③ 验证：C[0..3] = A[0..1] ⊕ B[0..1] = {1, 3} ⊕ {2, 4}</text>
+  <text x="50" y="332" font-size="10" fill="#333">排序后 = [1, 2, 3, 4] ✓ 这正是 C 的前 4 个元素</text>
+  <text x="50" y="348" font-size="10" fill="#333">C[4] = min(A[2], B[2]) = min(5, 6) = 5 → 取自 A</text>
+  <text x="50" y="368" font-size="10" fill="#888">（若 A[i] ≤ B[j] 取 A[i]，否则取 B[j]）</text>
+
+  <!-- ===== Full output ===== -->
+  <text x="30" y="420" font-size="12" fill="#444" font-weight="bold">完整输出 C（8 个元素，每 thread 独立计算）</text>
+
+  <rect x="30" y="432" width="580" height="36" fill="#e6f4ea" fill-opacity="0.3" stroke="#4a7a3a" stroke-width="1" rx="4" filter="url(#rough2)"/>
+
+  <text x="45" y="455" font-size="10" fill="#333">k:</text>
+  <text x="75" y="455" font-size="9" fill="#888">0</text>
+  <text x="115" y="455" font-size="9" fill="#888">1</text>
+  <text x="155" y="455" font-size="9" fill="#888">2</text>
+  <text x="195" y="455" font-size="9" fill="#888">3</text>
+  <text x="235" y="455" font-size="9" fill="#888">4</text>
+  <text x="275" y="455" font-size="9" fill="#888">5</text>
+  <text x="315" y="455" font-size="9" fill="#888">6</text>
+  <text x="355" y="455" font-size="9" fill="#888">7</text>
+
+  <text x="75" y="468" font-size="10" fill="#446688">A₁</text>
+  <text x="115" y="468" font-size="10" fill="#4a7a3a">B₂</text>
+  <text x="155" y="468" font-size="10" fill="#446688">A₃</text>
+  <text x="195" y="468" font-size="10" fill="#4a7a3a">B₄</text>
+  <text x="235" y="468" font-size="10" fill="#446688" font-weight="bold">A₅</text>
+  <text x="275" y="468" font-size="10" fill="#4a7a3a">B₆</text>
+  <text x="315" y="468" font-size="10" fill="#446688">A₇</text>
+  <text x="355" y="468" font-size="10" fill="#4a7a3a">B₈</text>
+
+  <text x="420" y="462" font-size="9" fill="#446688">← 取自 A</text>
+  <text x="420" y="475" font-size="9" fill="#4a7a3a">← 取自 B</text>
+
+  <!-- ===== Key insight ===== -->
+  <rect x="20" y="490" width="600" height="24" fill="#fce4ec" fill-opacity="0.3" stroke="#b85450" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="320" y="507" text-anchor="middle" font-size="10" fill="#b85450">💡 每个 k 独立二分搜索 O(log min(M,N))，无数据依赖 → M+N 个 thread 完全并行</text>
+</svg>

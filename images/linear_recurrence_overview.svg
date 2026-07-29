@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="420" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Linear Recurrence 概览：串行依赖 → 关联扫描并行化</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">h[t] = a[t]·h[t−1] + x[t] 看似串行，用关联算子 ⊙ 可 O(log L) 并行</text>
+
+  <!-- ===== Formula box ===== -->
+  <rect x="30" y="58" width="580" height="56" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="8" filter="url(#rough2)"/>
+  <text x="320" y="82" text-anchor="middle" font-size="13" fill="#333" font-weight="bold">h[0] = x[0],  h[t] = a[t] · h[t−1] + x[t]</text>
+  <text x="320" y="102" text-anchor="middle" font-size="11" fill="#888">每步是一次仿射变换 h → a·h + x，连续步骤可「组合」成一次大变换</text>
+
+  <!-- ===== Top: serial chain ===== -->
+  <text x="320" y="138" text-anchor="middle" font-size="12" fill="#b85450" font-weight="bold">串行视角：步骤间有依赖，h[t] 必须等 h[t−1] 算完</text>
+
+  <rect x="40" y="148" width="70" height="40" fill="#fce4ec" stroke="#b85450" stroke-width="1.3" rx="4" filter="url(#rough2)"/>
+  <text x="75" y="172" text-anchor="middle" font-size="10" fill="#b85450">h[0]=x[0]</text>
+
+  <line x1="110" y1="168" x2="145" y2="168" stroke="#b85450" stroke-width="1.2" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="127" y="162" text-anchor="middle" font-size="8" fill="#b85450">×a[1]+x[1]</text>
+
+  <rect x="145" y="148" width="70" height="40" fill="#fce4ec" stroke="#b85450" stroke-width="1.3" rx="4" filter="url(#rough2)"/>
+  <text x="180" y="172" text-anchor="middle" font-size="10" fill="#b85450">h[1]</text>
+
+  <line x1="215" y1="168" x2="250" y2="168" stroke="#b85450" stroke-width="1.2" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="232" y="162" text-anchor="middle" font-size="8" fill="#b85450">×a[2]+x[2]</text>
+
+  <rect x="250" y="148" width="70" height="40" fill="#fce4ec" stroke="#b85450" stroke-width="1.3" rx="4" filter="url(#rough2)"/>
+  <text x="285" y="172" text-anchor="middle" font-size="10" fill="#b85450">h[2]</text>
+
+  <text x="340" y="172" text-anchor="middle" font-size="14" fill="#888">...</text>
+
+  <rect x="365" y="148" width="70" height="40" fill="#fce4ec" stroke="#b85450" stroke-width="1.3" rx="4" filter="url(#rough2)"/>
+  <text x="400" y="172" text-anchor="middle" font-size="10" fill="#b85450">h[L−1]</text>
+
+  <!-- ===== Middle: associative operator ===== -->
+  <text x="320" y="222" text-anchor="middle" font-size="12" fill="#446688" font-weight="bold">关联算子：将两步仿射变换「组合」为一步</text>
+
+  <rect x="60" y="232" width="520" height="70" fill="#e8f0fe" stroke="#446688" stroke-width="1.3" rx="6" filter="url(#rough2)"/>
+  <text x="320" y="254" text-anchor="middle" font-size="11" fill="#333">每步表示为 pair (a, b)，代表变换 h → a·h + b</text>
+  <text x="320" y="274" text-anchor="middle" font-size="13" fill="#446688" font-weight="bold">(a₁, b₁) ⊙ (a₂, b₂) = (a₁·a₂,  a₁·b₂ + b₁)</text>
+  <text x="320" y="292" text-anchor="middle" font-size="10" fill="#888">⊙ 满足结合律 → 可用并行前缀扫描（同 Prefix Sum 模板）</text>
+
+  <!-- ===== Bottom: parallel scan tree ===== -->
+  <text x="320" y="328" text-anchor="middle" font-size="12" fill="#4a7a3a" font-weight="bold">并行视角：三阶段扫描（同 Prefix Sum 的 warp scan + block scan）</text>
+
+  <rect x="40" y="340" width="80" height="34" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="80" y="362" text-anchor="middle" font-size="9" fill="#4a7a3a">Phase 1</text>
+  <text x="80" y="384" text-anchor="middle" font-size="8" fill="#888">线程内串行</text>
+
+  <line x1="125" y1="357" x2="160" y2="357" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="165" y="340" width="80" height="34" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="205" y="362" text-anchor="middle" font-size="9" fill="#4a7a3a">Phase 2</text>
+  <text x="205" y="384" text-anchor="middle" font-size="8" fill="#888">block scan</text>
+
+  <line x1="250" y1="357" x2="285" y2="357" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="290" y="340" width="80" height="34" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="330" y="362" text-anchor="middle" font-size="9" fill="#4a7a3a">Phase 3</text>
+  <text x="330" y="384" text-anchor="middle" font-size="8" fill="#888">应用 prefix</text>
+
+  <line x1="375" y1="357" x2="410" y2="357" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="415" y="340" width="80" height="34" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="455" y="362" text-anchor="middle" font-size="9" fill="#d6a040">h[0..L−1]</text>
+  <text x="455" y="384" text-anchor="middle" font-size="8" fill="#888">最终输出</text>
+
+  <text x="560" y="362" text-anchor="middle" font-size="10" fill="#888">O(L/P + log P)</text>
+  <text x="560" y="378" text-anchor="middle" font-size="8" fill="#888">P = threads</text>
+</svg>

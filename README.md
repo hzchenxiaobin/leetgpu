@@ -19,7 +19,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## 题解列表
 
-共 **62 道**（简单 18 / 中等 39 / 困难 5），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
+共 **63 道**（简单 18 / 中等 40 / 困难 5），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
 
 ### Easy · 简单（18 道）
 
@@ -44,7 +44,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 110 | [Scalar Multiply](easy/110_scalar_multiply/leetgpu-scalar-multiply-solution.md) | element-wise、attention scaling |
 | 111 | [Element Reversal](easy/111_element_reversal/leetgpu-element-reversal-solution.md) | element-wise、结果验证 |
 
-### Medium · 中等（39 道）
+### Medium · 中等（40 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
@@ -58,6 +58,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 18 | [Sparse Matrix-Vector Multiplication](medium/18_sparse_matrix_vector_multiplication/leetgpu-sparse-matrix-vector-multiplication-solution.md) | CSR、SpMV、warp shuffle、间接访存（gather） |
 | 22 | [GEMM](medium/22_gemm/leetgpu-gemm-solution.md) | FP16、WMMA、Tensor Core、shared memory tiling |
 | 27 | [Mean Squared Error](medium/27_mean_squared_error/leetgpu-mean-squared-error-solution.md) | reduction、kernel 融合、损失函数 |
+| 28 | [Gaussian Blur](medium/28_gaussian_blur/leetgpu-gaussian-blur-solution.md) | same-padding 卷积、shared memory halo、可分离卷积、零填充 |
 | 29 | [Top K Selection](medium/29_top_k_selection/leetgpu-top-k-selection-solution.md) | bitonic sort、堆归约、selection |
 | 30 | [Batched Matrix Multiplication](medium/30_batched_matrix_multiplication/leetgpu-batched-matrix-multiplication-solution.md) | batched GEMM、tiled matmul、register blocking |
 | 32 | [INT8 Quantized MatMul](medium/32_int8_quantized_matmul/leetgpu-int8-quantized-matmul-solution.md) | INT8 量化、tiled GEMM、INT32 累加、requantize |
@@ -129,7 +130,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 66 | RGB to Grayscale | ⬜ | [题目](https://leetgpu.com/challenges/rgb-to-grayscale) |
 | 68 | Sigmoid Activation | ✅ | [题解](easy/68_sigmoid/leetgpu-sigmoid-solution.md) |
 
-### Medium · 中等（38/59）
+### Medium · 中等（45/59）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -143,9 +144,9 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 17 | Dot Product | ✅ | [题解](medium/17_dot_product/leetgpu-dot-product-solution.md) |
 | 18 | Sparse Matrix-Vector Multiplication | ✅ | [题解](medium/18_sparse_matrix_vector_multiplication/leetgpu-sparse-matrix-vector-multiplication-solution.md) |
 | 22 | General Matrix Multiplication (GEMM) | ✅ | [题解](medium/22_gemm/leetgpu-gemm-solution.md) |
-| 25 | Categorical Cross Entropy Loss | ⬜ | [题目](https://leetgpu.com/challenges/categorical-cross-entropy-loss) |
+| 25 | Categorical Cross Entropy Loss | ✅ | [题解](medium/25_categorical_cross_entropy_loss/leetgpu-categorical-cross-entropy-loss-solution.md) |
 | 27 | Mean Squared Error | ✅ | [题解](medium/27_mean_squared_error/leetgpu-mean-squared-error-solution.md) |
-| 28 | Gaussian Blur | ⬜ | [题目](https://leetgpu.com/challenges/gaussian-blur) |
+| 28 | Gaussian Blur | ✅ | [题解](medium/28_gaussian_blur/leetgpu-gaussian-blur-solution.md) |
 | 29 | Top K Selection | ✅ | [题解](medium/29_top_k_selection/leetgpu-top-k-selection-solution.md) |
 | 30 | Batched Matrix Multiplication | ✅ | [题解](medium/30_batched_matrix_multiplication/leetgpu-batched-matrix-multiplication-solution.md) |
 | 32 | INT8 Quantized MatMul | ✅ | [题解](medium/32_int8_quantized_matmul/leetgpu-int8-quantized-matmul-solution.md) |
@@ -167,20 +168,20 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 55 | Attention with Linear Biases | ✅ | [题解](medium/55_attn_w_linear_bias/leetgpu-attn-w-linear-bias-solution.md) |
 | 57 | FP16 Batched Matrix Multiplication | ⬜ | [题目](https://leetgpu.com/challenges/fp16-batched-matmul) |
 | 58 | FP16 Dot Product | ✅ | [题解](medium/58_fp16_dot_product/leetgpu-fp16-dot-product-solution.md) |
-| 60 | Top-p Sampling | ⬜ | [题目](https://leetgpu.com/challenges/top-p-sampling) |
+| 60 | Top-p Sampling | ✅ | [题解](medium/60_top_p_sampling/leetgpu-top-p-sampling-solution.md) |
 | 61 | Rotary Positional Embedding | ✅ | [题解](medium/61_rope_embedding/leetgpu-rope-embedding-solution.md) |
 | 64 | Weight Dequantization | ✅ | [题解](medium/64_weight_dequantization/leetgpu-weight-dequantization-solution.md) |
 | 67 | MoE Top-K Gating | ✅ | [题解](medium/67_moe_topk_gating/leetgpu-moe-topk-gating-solution.md) |
 | 69 | 2D Jacobi Stencil | ✅ | [题解](medium/69_jacobi_stencil_2d/leetgpu-2d-jacobi-stencil-solution.md) |
 | 70 | Segmented Exclusive Prefix Sum | ✅ | [题解](medium/70_segmented_prefix_sum/leetgpu-segmented-prefix-sum-solution.md) |
-| 71 | Parallel Merge | ⬜ | [题目](https://leetgpu.com/challenges/parallel-merge) |
+| 71 | Parallel Merge | ✅ | [题解](medium/71_parallel_merge/leetgpu-parallel-merge-solution.md) |
 | 72 | Stream Compaction | ✅ | [题解](medium/72_stream_compaction/leetgpu-stream-compaction-solution.md) |
-| 75 | Sparse Matrix-Dense Matrix Multiplication | ⬜ | [题目](https://leetgpu.com/challenges/sparse-matrix-dense-matrix-multiplication) |
+| 75 | Sparse Matrix-Dense Matrix Multiplication | ✅ | [题解](medium/75_sparse_matrix_dense_matrix_multiplication/leetgpu-sparse-matrix-dense-matrix-multiplication-solution.md) |
 | 76 | Adder Transformer Inference | ✅ | [题解](medium/76_adder_transformer/leetgpu-adder-transformer-solution.md) |
 | 78 | 2D FFT | ⬜ | [题目](https://leetgpu.com/challenges/2d-fft) |
 | 80 | Grouped Query Attention | ✅ | [题解](medium/80_grouped_query_attention/leetgpu-grouped-query-attention-solution.md) |
-| 81 | INT4 Weight-Only Quantized MatMul | ⬜ | [题目](https://leetgpu.com/challenges/int4-matmul) |
-| 82 | Linear Recurrence | ⬜ | [题目](https://leetgpu.com/challenges/linear-recurrence) |
+| 81 | INT4 Weight-Only Quantized MatMul | ✅ | [题解](medium/81_int4_matmul/leetgpu-int4-matmul-solution.md) |
+| 82 | Linear Recurrence | ✅ | [题解](medium/82_linear_recurrence/leetgpu-linear-recurrence-solution.md) |
 | 84 | SwiGLU MLP Block | ✅ | [题解](medium/84_swiglu_mlp_block/leetgpu-swiglu-mlp-block-solution.md) |
 | 85 | LoRA Linear | ✅ | [题解](medium/85_lora_linear/leetgpu-lora-linear-solution.md) |
 | 87 | Speculative Decoding Verification | ✅ | [题解](medium/87_speculative_decoding_verification/leetgpu-speculative-decoding-verification-solution.md) |

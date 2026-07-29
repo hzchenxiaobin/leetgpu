@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="480" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">三阶段关联扫描：线程内串行 → block scan → 应用 prefix</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">一个 block 处理一个 batch（L 个元素），256 threads 分摊，每 thread 处理 E=L/256 个</text>
+
+  <!-- ===== Phase 1 ===== -->
+  <rect x="20" y="58" width="600" height="120" fill="#e8f0fe" fill-opacity="0.25" stroke="#446688" stroke-width="1" stroke-dasharray="4,2" rx="6" filter="url(#rough2)"/>
+  <text x="35" y="78" font-size="13" fill="#446688" font-weight="bold">Phase 1: 线程内串行扫描</text>
+  <text x="35" y="94" font-size="10" fill="#888">每 thread 顺序处理 E 个元素，得到 chunk carry (a_chunk, b_chunk)</text>
+
+  <rect x="35" y="105" width="55" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="62" y="123" text-anchor="middle" font-size="9" fill="#446688">t0: e₀⊙e₁⊙...⊙e_{E-1}</text>
+
+  <rect x="100" y="105" width="55" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="127" y="123" text-anchor="middle" font-size="9" fill="#446688">t1: e_E⊙...</text>
+
+  <text x="175" y="123" text-anchor="middle" font-size="12" fill="#888">...</text>
+
+  <rect x="195" y="105" width="60" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="225" y="123" text-anchor="middle" font-size="9" fill="#446688">t255: ...⊙e_{L-1}</text>
+
+  <text x="290" y="123" font-size="10" fill="#888">→ 每 thread 输出一个 carry pair</text>
+
+  <rect x="35" y="142" width="55" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="62" y="158" text-anchor="middle" font-size="9" fill="#d6a040">carry₀</text>
+
+  <rect x="100" y="142" width="55" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="127" y="158" text-anchor="middle" font-size="9" fill="#d6a040">carry₁</text>
+
+  <text x="175" y="158" text-anchor="middle" font-size="12" fill="#888">...</text>
+
+  <rect x="195" y="142" width="60" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="225" y="158" text-anchor="middle" font-size="9" fill="#d6a040">carry₂₅₅</text>
+
+  <!-- Arrow down -->
+  <line x1="320" y1="180" x2="320" y2="192" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- ===== Phase 2 ===== -->
+  <rect x="20" y="194" width="600" height="110" fill="#e6f4ea" fill-opacity="0.25" stroke="#4a7a3a" stroke-width="1" stroke-dasharray="4,2" rx="6" filter="url(#rough2)"/>
+  <text x="35" y="214" font-size="13" fill="#4a7a3a" font-weight="bold">Phase 2: block 级 exclusive scan（warp shuffle + shared memory）</text>
+  <text x="35" y="230" font-size="10" fill="#888">对 256 个 carry 做 exclusive prefix scan，每 thread 得到 prefix_k = carry₀⊙carry₁⊙...⊙carry_{k-1}</text>
+
+  <!-- warp scan boxes -->
+  <rect x="35" y="240" width="120" height="26" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="95" y="257" text-anchor="middle" font-size="9" fill="#4a7a3a">warp 0: __shfl_up ⊙-scan</text>
+
+  <rect x="165" y="240" width="120" height="26" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="225" y="257" text-anchor="middle" font-size="9" fill="#4a7a3a">warp 1: __shfl_up ⊙-scan</text>
+
+  <text x="300" y="257" text-anchor="middle" font-size="12" fill="#888">...</text>
+
+  <rect x="320" y="240" width="120" height="26" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="380" y="257" text-anchor="middle" font-size="9" fill="#4a7a3a">warp 7: __shfl_up ⊙-scan</text>
+
+  <text x="35" y="284" font-size="9" fill="#888">warp 总和存 shared[0..7] → warp 0 再做一次 ⊙-scan → 广播回各 warp</text>
+
+  <!-- Arrow down -->
+  <line x1="320" y1="306" x2="320" y2="318" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- ===== Phase 3 ===== -->
+  <rect x="20" y="320" width="600" height="110" fill="#fff8e1" fill-opacity="0.25" stroke="#d6a040" stroke-width="1" stroke-dasharray="4,2" rx="6" filter="url(#rough2)"/>
+  <text x="35" y="340" font-size="13" fill="#d6a040" font-weight="bold">Phase 3: 应用 prefix，重扫 chunk 写最终 h[t]</text>
+  <text x="35" y="356" font-size="10" fill="#888">每 thread 用 prefix_k 作为初始 carry，重新遍历 E 个元素，写 h[t] = carry.b</text>
+
+  <rect x="35" y="368" width="140" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="105" y="386" text-anchor="middle" font-size="9" fill="#d6a040">t0: prefix₀⊙e₀⊙e₁⊙...</text>
+
+  <rect x="185" y="368" width="140" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="255" y="386" text-anchor="middle" font-size="9" fill="#d6a040">t1: prefix₁⊙e_E⊙...</text>
+
+  <text x="340" y="386" text-anchor="middle" font-size="12" fill="#888">...</text>
+
+  <rect x="360" y="368" width="150" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="435" y="386" text-anchor="middle" font-size="9" fill="#d6a040">t255: prefix₂₅₅⊙...</text>
+
+  <text x="35" y="416" font-size="9" fill="#888">→ h[t] = carry.b  （carry 的 b 分量即递推结果）</text>
+
+  <!-- ===== Bottom note ===== -->
+  <rect x="20" y="440" width="600" height="30" fill="#fce4ec" fill-opacity="0.3" stroke="#b85450" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="320" y="460" text-anchor="middle" font-size="10" fill="#b85450">⚠ Phase 1 和 Phase 3 各读一遍 a[], x[]（共 2 遍 HBM 读），中间用 shared memory 传递 prefix</text>
+</svg>

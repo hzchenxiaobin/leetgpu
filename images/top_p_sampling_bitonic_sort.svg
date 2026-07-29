@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 460" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="460" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Bitonic Sort：并行排序网络</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">将无序序列变为双调序列，再交替升降比较合并，O(log²N) 步，每步完全并行</text>
+
+  <!-- ===== Stage 0: input ===== -->
+  <text x="30" y="72" font-size="11" fill="#888" font-weight="bold">输入: [3.1, 1.4, 4.2, 0.5, 2.8, 1.9, 0.7, 3.6]  (8 elements, 降序排序)</text>
+
+  <!-- Element positions -->
+  <text x="20" y="100" font-size="9" fill="#888">pos:</text>
+  <text x="70" y="100" text-anchor="middle" font-size="9" fill="#888">0</text>
+  <text x="130" y="100" text-anchor="middle" font-size="9" fill="#888">1</text>
+  <text x="190" y="100" text-anchor="middle" font-size="9" fill="#888">2</text>
+  <text x="250" y="100" text-anchor="middle" font-size="9" fill="#888">3</text>
+  <text x="310" y="100" text-anchor="middle" font-size="9" fill="#888">4</text>
+  <text x="370" y="100" text-anchor="middle" font-size="9" fill="#888">5</text>
+  <text x="430" y="100" text-anchor="middle" font-size="9" fill="#888">6</text>
+  <text x="490" y="100" text-anchor="middle" font-size="9" fill="#888">7</text>
+
+  <!-- Values -->
+  <rect x="50" y="108" width="40" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="70" y="126" text-anchor="middle" font-size="9" fill="#446688">3.1</text>
+  <rect x="110" y="108" width="40" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="130" y="126" text-anchor="middle" font-size="9" fill="#446688">1.4</text>
+  <rect x="170" y="108" width="40" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="190" y="126" text-anchor="middle" font-size="9" fill="#446688">4.2</text>
+  <rect x="230" y="108" width="40" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="250" y="126" text-anchor="middle" font-size="9" fill="#446688">0.5</text>
+  <rect x="290" y="108" width="40" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="310" y="126" text-anchor="middle" font-size="9" fill="#446688">2.8</text>
+  <rect x="350" y="108" width="40" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="370" y="126" text-anchor="middle" font-size="9" fill="#446688">1.9</text>
+  <rect x="410" y="108" width="40" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="430" y="126" text-anchor="middle" font-size="9" fill="#446688">0.7</text>
+  <rect x="470" y="108" width="40" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="490" y="126" text-anchor="middle" font-size="9" fill="#446688">3.6</text>
+
+  <!-- Stage 1: build bitonic (size=2) -->
+  <text x="30" y="160" font-size="10" fill="#d6a040" font-weight="bold">Step 1: 相邻配对，交替升降</text>
+  <line x1="70" y1="140" x2="70" y2="165" stroke="#d6a040" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="130" y1="140" x2="130" y2="165" stroke="#d6a040" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="190" y1="140" x2="190" y2="165" stroke="#d6a040" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="250" y1="140" x2="250" y2="165" stroke="#d6a040" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="50" y="168" width="100" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="100" y="186" text-anchor="middle" font-size="9" fill="#d6a040">[3.1, 1.4] ↓</text>
+  <rect x="170" y="168" width="100" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="220" y="186" text-anchor="middle" font-size="9" fill="#d6a040">[0.5, 4.2] ↑</text>
+  <rect x="290" y="168" width="100" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="340" y="186" text-anchor="middle" font-size="9" fill="#d6a040">[2.8, 1.9] ↓</text>
+  <rect x="410" y="168" width="100" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="460" y="186" text-anchor="middle" font-size="9" fill="#d6a040">[0.7, 3.6] ↑</text>
+
+  <!-- Stage 2: merge size=4 -->
+  <text x="30" y="216" font-size="10" fill="#4a7a3a" font-weight="bold">Step 2: 合并双调子序列 (size=4)，交叉比较</text>
+  <line x1="220" y1="198" x2="220" y2="218" stroke="#4a7a3a" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="460" y1="198" x2="460" y2="218" stroke="#4a7a3a" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="50" y="220" width="240" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="170" y="238" text-anchor="middle" font-size="9" fill="#4a7a3a">[3.1, 1.4, 0.5, 4.2] → merge → [3.1, 4.2, 1.4, 0.5]</text>
+
+  <rect x="290" y="220" width="240" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="410" y="238" text-anchor="middle" font-size="9" fill="#4a7a3a">[2.8, 1.9, 0.7, 3.6] → merge → [2.8, 3.6, 1.9, 0.7]</text>
+
+  <!-- Stage 3: final merge -->
+  <text x="30" y="268" font-size="10" fill="#b85450" font-weight="bold">Step 3: 最终合并 (size=8)，全降序</text>
+  <line x1="290" y1="250" x2="290" y2="270" stroke="#b85450" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="50" y="272" width="480" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="290" y="290" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">[4.2, 3.6, 3.1, 2.8, 1.9, 1.4, 0.7, 0.5]</text>
+
+  <!-- ===== Key properties ===== -->
+  <text x="30" y="324" font-size="12" fill="#444" font-weight="bold">Bitonic Sort 关键性质</text>
+
+  <rect x="30" y="332" width="280" height="56" fill="#e8f0fe" fill-opacity="0.2" stroke="#446688" stroke-width="0.8" rx="4" filter="url(#rough2)"/>
+  <text x="40" y="350" font-size="10" fill="#446688">步数: O(log²N) = 6 步 (N=8)</text>
+  <text x="40" y="366" font-size="10" fill="#446688">每步比较: N/2 = 4 次，完全并行</text>
+  <text x="40" y="382" font-size="10" fill="#446688">比较模式固定 → 适合 GPU/SIMD</text>
+
+  <rect x="330" y="332" width="280" height="56" fill="#fff8e1" fill-opacity="0.2" stroke="#d6a040" stroke-width="0.8" rx="4" filter="url(#rough2)"/>
+  <text x="340" y="350" font-size="10" fill="#d6a040">cmp(i, j, dir): i,j 比较+交换</text>
+  <text x="340" y="366" font-size="10" fill="#d6a040">dir 由阶段决定升降方向</text>
+  <text x="340" y="382" font-size="10" fill="#d6a040">N 须为 2 的幂（不足补 -∞）</text>
+
+  <!-- ===== Bottom ===== -->
+  <rect x="30" y="400" width="580" height="44" fill="#fce4ec" fill-opacity="0.2" stroke="#b85450" stroke-width="0.8" rx="4" filter="url(#rough2)"/>
+  <text x="320" y="420" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">在 Top-p Sampling 中用 bitonic sort 替代 CPU 的快速排序</text>
+  <text x="320" y="436" text-anchor="middle" font-size="9" fill="#b85450">一个 block 内 256 threads 对 vocab_size 个 (prob, idx) 并行排序，全程 shared memory</text>
+</svg>

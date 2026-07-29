@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 520" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="520" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Worked Example: a=[0.5,0.5,0.5,0.5], x=[1,0,0,0]</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">逐步推演关联扫描：每步 (a,b) 表示变换 h→a·h+b，⊙ 组合相邻步骤</text>
+
+  <!-- ===== Step 1: Convert to pairs ===== -->
+  <text x="30" y="72" font-size="12" fill="#446688" font-weight="bold">① 转为 pair 序列（t=0 用 a=0 确保 h[0]=x[0]）</text>
+
+  <rect x="30" y="80" width="580" height="36" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="320" y="103" text-anchor="middle" font-size="12" fill="#333" font-family="monospace">
+    e₀ = (0, 1.0)  e₁ = (0.5, 0.0)  e₂ = (0.5, 0.0)  e₃ = (0.5, 0.0)
+  </text>
+
+  <!-- ===== Step 2: Compose e0 and e1 ===== -->
+  <text x="30" y="138" font-size="12" fill="#d6a040" font-weight="bold">② 组合 e₀ ⊙ e₁ = (0×0.5, 0×0 + 1.0) = (0, 1.0)</text>
+  <text x="30" y="156" font-size="10" fill="#888">公式: (a₁,b₁)⊙(a₂,b₂) = (a₁·a₂, a₁·b₂+b₁)。先算 e₀ 的 a₁=0，乘任何 a₂ 都得 0</text>
+
+  <rect x="30" y="165" width="270" height="30" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="165" y="185" text-anchor="middle" font-size="11" fill="#d6a040" font-family="monospace">h[1] = b = 0.5×1.0 + 0.0 = 0.5 ✓</text>
+
+  <!-- ===== Step 3: Compose result with e2 ===== -->
+  <text x="30" y="218" font-size="12" fill="#d6a040" font-weight="bold">③ 组合 (e₀⊙e₁) ⊙ e₂ = (0, 1.0) ⊙ (0.5, 0.0) = (0×0.5, 0×0+1.0) = (0, 1.0)</text>
+  <text x="30" y="236" font-size="10" fill="#888">a=0 意味着之前的 h 被丢弃，只保留 b=1.0（即 h[0]=x[0]=1.0 的贡献）</text>
+
+  <rect x="30" y="245" width="270" height="30" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="165" y="265" text-anchor="middle" font-size="11" fill="#d6a040" font-family="monospace">h[2] = 0.5×0.5 + 0.0 = 0.25 ✓</text>
+
+  <!-- ===== Step 4: Compose with e3 ===== -->
+  <text x="30" y="298" font-size="12" fill="#d6a040" font-weight="bold">④ 组合 (e₀⊙e₁⊙e₂) ⊙ e₃ = (0, 1.0) ⊙ (0.5, 0.0) = (0, 1.0)</text>
+
+  <rect x="30" y="307" width="270" height="30" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="165" y="327" text-anchor="middle" font-size="11" fill="#d6a040" font-family="monospace">h[3] = 0.5×0.25 + 0.0 = 0.125 ✓</text>
+
+  <!-- ===== Verification table ===== -->
+  <text x="30" y="362" font-size="12" fill="#4a7a3a" font-weight="bold">⑤ 验证：串行计算 vs 扫描结果</text>
+
+  <rect x="30" y="370" width="580" height="100" fill="#e6f4ea" fill-opacity="0.3" stroke="#4a7a3a" stroke-width="1" rx="4" filter="url(#rough2)"/>
+
+  <text x="50" y="392" font-size="10" fill="#333" font-weight="bold">t</text>
+  <text x="120" y="392" font-size="10" fill="#333" font-weight="bold">串行 h[t] = a[t]·h[t-1] + x[t]</text>
+  <text x="350" y="392" font-size="10" fill="#333" font-weight="bold">扫描 carry.b</text>
+  <text x="500" y="392" font-size="10" fill="#333" font-weight="bold">匹配?</text>
+
+  <line x1="40" y1="398" x2="600" y2="398" stroke="#888" stroke-width="0.5"/>
+
+  <text x="50" y="414" font-size="10" fill="#333">0</text>
+  <text x="120" y="414" font-size="10" fill="#333">h[0] = x[0] = 1.0</text>
+  <text x="350" y="414" font-size="10" fill="#333">e₀.b = 1.0</text>
+  <text x="500" y="414" font-size="10" fill="#4a7a3a">✅</text>
+
+  <text x="50" y="430" font-size="10" fill="#333">1</text>
+  <text x="120" y="430" font-size="10" fill="#333">h[1] = 0.5×1.0 + 0 = 0.5</text>
+  <text x="350" y="430" font-size="10" fill="#333">(e₀⊙e₁).b = 0.5</text>
+  <text x="500" y="430" font-size="10" fill="#4a7a3a">✅</text>
+
+  <text x="50" y="446" font-size="10" fill="#333">2</text>
+  <text x="120" y="446" font-size="10" fill="#333">h[2] = 0.5×0.5 + 0 = 0.25</text>
+  <text x="350" y="446" font-size="10" fill="#333">(e₀⊙e₁⊙e₂).b = 0.25</text>
+  <text x="500" y="446" font-size="10" fill="#4a7a3a">✅</text>
+
+  <text x="50" y="462" font-size="10" fill="#333">3</text>
+  <text x="120" y="462" font-size="10" fill="#333">h[3] = 0.5×0.25 + 0 = 0.125</text>
+  <text x="350" y="462" font-size="10" fill="#333">(e₀⊙e₁⊙e₂⊙e₃).b = 0.125</text>
+  <text x="500" y="462" font-size="10" fill="#4a7a3a">✅</text>
+
+  <!-- ===== Key insight ===== -->
+  <rect x="30" y="485" width="580" height="28" fill="#fce4ec" fill-opacity="0.3" stroke="#b85450" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="320" y="504" text-anchor="middle" font-size="10" fill="#b85450">💡 关键：a=0.5 时 h 指数衰减（0.5^t），扫描结果与串行完全一致——关联性保证正确性</text>
+</svg>
