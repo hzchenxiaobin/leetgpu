@@ -19,7 +19,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## 题解列表
 
-共 **67 道**（简单 18 / 中等 43 / 困难 6），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
+共 **68 道**（简单 18 / 中等 44 / 困难 6），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
 
 ### Easy · 简单（18 道）
 
@@ -44,7 +44,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 110 | [Scalar Multiply](easy/110_scalar_multiply/leetgpu-scalar-multiply-solution.md) | element-wise、attention scaling |
 | 111 | [Element Reversal](easy/111_element_reversal/leetgpu-element-reversal-solution.md) | element-wise、结果验证 |
 
-### Medium · 中等（43 道）
+### Medium · 中等（44 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
@@ -63,6 +63,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 29 | [Top K Selection](medium/29_top_k_selection/leetgpu-top-k-selection-solution.md) | bitonic sort、堆归约、selection |
 | 30 | [Batched Matrix Multiplication](medium/30_batched_matrix_multiplication/leetgpu-batched-matrix-multiplication-solution.md) | batched GEMM、tiled matmul、register blocking |
 | 32 | [INT8 Quantized MatMul](medium/32_int8_quantized_matmul/leetgpu-int8-quantized-matmul-solution.md) | INT8 量化、tiled GEMM、INT32 累加、requantize |
+| 35 | [Monte Carlo Integration](medium/35_monte_carlo_integration/leetgpu-monte-carlo-integration-solution.md) | sum reduction、warp shuffle、atomicAdd、memory-bound |
 | 38 | [Nearest Neighbor](medium/38_nearest_neighbor/leetgpu-nearest-neighbor-solution.md) | pairwise distance、shared memory tiling、argmin 归约 |
 | 40 | [Batch Normalization](medium/40_batch_normalization/leetgpu-batch-normalization-solution.md) | normalization、reduction、数值稳定性 |
 | 42 | [2D Max Pooling](medium/42_2d_max_pooling/leetgpu-2d-max-pooling-solution.md) | pooling、滑窗 reduction、padding 边界 |
@@ -134,7 +135,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 66 | RGB to Grayscale | ⬜ | [题目](https://leetgpu.com/challenges/rgb-to-grayscale) |
 | 68 | Sigmoid Activation | ✅ | [题解](easy/68_sigmoid/leetgpu-sigmoid-solution.md) |
 
-### Medium · 中等（48/59）
+### Medium · 中等（49/59）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -156,7 +157,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 32 | INT8 Quantized MatMul | ✅ | [题解](medium/32_int8_quantized_matmul/leetgpu-int8-quantized-matmul-solution.md) |
 | 33 | Ordinary Least Squares | ⬜ | [题目](https://leetgpu.com/challenges/ordinary-least-squares) |
 | 34 | Logistic Regression | ⬜ | [题目](https://leetgpu.com/challenges/logistic-regression) |
-| 35 | Monte Carlo Integration | ⬜ | [题目](https://leetgpu.com/challenges/monte-carlo-integration) |
+| 35 | Monte Carlo Integration | ✅ | [题解](medium/35_monte_carlo_integration/leetgpu-monte-carlo-integration-solution.md) |
 | 37 | Matrix Power | ⬜ | [题目](https://leetgpu.com/challenges/matrix-power) |
 | 38 | Nearest Neighbor | ✅ | [题解](medium/38_nearest_neighbor/leetgpu-nearest-neighbor-solution.md) |
 | 40 | Batch Normalization | ✅ | [题解](medium/40_batch_normalization/leetgpu-batch-normalization-solution.md) |

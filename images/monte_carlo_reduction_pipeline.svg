@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="480" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">两阶段归约：Block Reduce + atomicAdd</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">每 block 用 warp shuffle 求部分和，再用 atomicAdd 聚合所有 block 的结果</text>
+
+  <!-- ===== Top: data flow ===== -->
+  <text x="60" y="76" font-size="11" fill="#446688" font-weight="bold">y_samples[0 .. n-1]</text>
+  <rect x="30" y="84" width="580" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+  <g font-size="7" fill="#446688">
+    <text x="50" y="97">y₀</text>
+    <text x="80" y="97">y₁</text>
+    <text x="110" y="97">y₂</text>
+    <text x="140" y="97">...</text>
+    <text x="180" y="97">yₖ</text>
+    <text x="220" y="97">yₖ₊₁</text>
+    <text x="260" y="97">...</text>
+    <text x="310" y="97">y₂ₖ</text>
+    <text x="350" y="97">...</text>
+    <text x="400" y="97">y₃ₖ</text>
+    <text x="450" y="97">...</text>
+    <text x="560" y="97">yₙ₋₁</text>
+  </g>
+
+  <!-- dividers showing block boundaries -->
+  <g stroke="#d6a040" stroke-width="1" stroke-dasharray="3 2" filter="url(#rough2)">
+    <line x1="190" y1="84" x2="190" y2="104"/>
+    <line x1="330" y1="84" x2="330" y2="104"/>
+    <line x1="470" y1="84" x2="470" y2="104"/>
+  </g>
+  <text x="110" y="116" text-anchor="middle" font-size="8" fill="#d6a040">block 0</text>
+  <text x="260" y="116" text-anchor="middle" font-size="8" fill="#d6a040">block 1</text>
+  <text x="400" y="116" text-anchor="middle" font-size="8" fill="#d6a040">block 2</text>
+  <text x="525" y="116" text-anchor="middle" font-size="8" fill="#d6a040">block N-1</text>
+
+  <!-- arrows down -->
+  <g stroke="#666" stroke-width="1" fill="none" marker-end="url(#arr)" filter="url(#rough2)">
+    <path d="M 110 120 L 110 140"/>
+    <path d="M 260 120 L 260 140"/>
+    <path d="M 400 120 L 400 140"/>
+    <path d="M 525 120 L 525 140"/>
+  </g>
+
+  <!-- ===== Middle: warp shuffle reduction per block ===== -->
+  <g font-size="8" fill="#333">
+    <!-- Block 0 -->
+    <rect x="50" y="142" width="120" height="80" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+    <text x="110" y="158" text-anchor="middle" font-size="8" fill="#4a7a3a" font-weight="bold">Block 0</text>
+    <text x="58" y="174" font-size="7" fill="#555">① grid-stride 读</text>
+    <text x="58" y="186" font-size="7" fill="#555">② warp shuffle</text>
+    <text x="58" y="198" font-size="7" fill="#555">   __shfl_down_sync</text>
+    <text x="58" y="210" font-size="7" fill="#4a7a3a" font-weight="bold">③ partial_sum₀</text>
+    <text x="58" y="220" font-size="7" fill="#888">→ shared mem</text>
+
+    <!-- Block 1 -->
+    <rect x="200" y="142" width="120" height="80" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+    <text x="260" y="158" text-anchor="middle" font-size="8" fill="#4a7a3a" font-weight="bold">Block 1</text>
+    <text x="208" y="174" font-size="7" fill="#555">① grid-stride 读</text>
+    <text x="208" y="186" font-size="7" fill="#555">② warp shuffle</text>
+    <text x="208" y="198" font-size="7" fill="#555">   __shfl_down_sync</text>
+    <text x="208" y="210" font-size="7" fill="#4a7a3a" font-weight="bold">③ partial_sum₁</text>
+
+    <!-- Block 2 -->
+    <rect x="340" y="142" width="120" height="80" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+    <text x="400" y="158" text-anchor="middle" font-size="8" fill="#4a7a3a" font-weight="bold">Block 2</text>
+    <text x="348" y="174" font-size="7" fill="#555">① grid-stride 读</text>
+    <text x="348" y="186" font-size="7" fill="#555">② warp shuffle</text>
+    <text x="348" y="198" font-size="7" fill="#555">   __shfl_down_sync</text>
+    <text x="348" y="210" font-size="7" fill="#4a7a3a" font-weight="bold">③ partial_sum₂</text>
+
+    <!-- Block N-1 -->
+    <rect x="470" y="142" width="120" height="80" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+    <text x="530" y="158" text-anchor="middle" font-size="8" fill="#4a7a3a" font-weight="bold">Block N-1</text>
+    <text x="478" y="174" font-size="7" fill="#555">① grid-stride 读</text>
+    <text x="478" y="186" font-size="7" fill="#555">② warp shuffle</text>
+    <text x="478" y="198" font-size="7" fill="#555">   __shfl_down_sync</text>
+    <text x="478" y="210" font-size="7" fill="#4a7a3a" font-weight="bold">③ partial_sumₙ₋₁</text>
+  </g>
+
+  <!-- arrows to atomicAdd -->
+  <g stroke="#b85450" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)">
+    <path d="M 110 224 L 110 250"/>
+    <path d="M 260 224 L 260 250"/>
+    <path d="M 400 224 L 400 250"/>
+    <path d="M 530 224 L 530 250"/>
+  </g>
+
+  <!-- ===== atomicAdd phase ===== -->
+  <rect x="30" y="252" width="580" height="50" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="320" y="272" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">atomicAdd: result[0] += partial_sumᵢ</text>
+  <text x="320" y="288" text-anchor="middle" font-size="8" fill="#888">所有 block 的 lane 0 原子地累加到全局 result，无需第二个 kernel</text>
+  <text x="320" y="298" text-anchor="middle" font-size="7" fill="#888">（block 数 ~40K，atomic 冲突可接受）</text>
+
+  <!-- arrow to final -->
+  <path d="M 320 304 L 320 322" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- ===== Final scaling ===== -->
+  <rect x="180" y="326" width="280" height="44" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="320" y="346" text-anchor="middle" font-family="monospace" font-size="10" fill="#d6a040" font-weight="bold">result[0] = result[0] / n × (b - a)</text>
+  <text x="320" y="360" text-anchor="middle" font-size="8" fill="#888">单线程做最后的除法 + 乘法</text>
+
+  <!-- ===== Bottom: warp shuffle detail ===== -->
+  <line x1="20" y1="386" x2="620" y2="386" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <rect x="30" y="396" width="580" height="68" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="416" font-size="11" fill="#444" font-weight="bold">warp shuffle 归约细节（每 warp 32 lane → lane 0）：</text>
+  <g font-family="monospace" font-size="8" fill="#555">
+    <text x="60" y="432">step 1: val += __shfl_down_sync(0xFFFFFFFF, val, 16)   // 32→16</text>
+    <text x="60" y="444">step 2: val += __shfl_down_sync(0xFFFFFFFF, val, 8)    // 16→8</text>
+    <text x="60" y="456">step 3-5: offset 4→2→1，最终 lane 0 持有 warp 部分和</text>
+  </g>
+</svg>

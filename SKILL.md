@@ -460,6 +460,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 |-------------|------------------------|----------|
 | `nearest-neighbor` | #22 General Matrix Multiplication (GEMM)（GEMM tiling，nearest neighbor 的分块复用同构）· #20 K-Means Clustering（K-Means 距离矩阵，pairwise distance 的迭代应用）· #4 Reduction（树形归约，argmin 更新的归约基础组件）· #33 Ordinary Least Squares（线性代数 + 归约，距离/矩阵计算的另一变体） | pairwise distance + shared memory tiling 数据复用，练习 compute-bound kernel 的算术强度提升 |
 | `2d-jacobi-stencil` | #10 2D Convolution（2D shared memory halo + tiling，stencil 的加权变体）· #9 1D Convolution（1D shared memory halo，stencil 的一维基础）· #42 2D Max Pooling（滑窗 reduction，类似的 tiling + 边界处理模式）· #11 3D Convolution（3D shared memory halo，stencil 扩展到体数据） | stencil 计算 + shared memory halo 边界复用，练习网格类 kernel 的邻居冗余读消除 |
+| `monte-carlo-integration` | #4 Reduction（树形归约 + warp shuffle，本题的核心底层模板）· #17 Dot Product（元素乘 + 全局归约，reduction 的变体应用）· #27 Mean Squared Error（平方差归约，reduction 在损失函数中的应用）· #43 Count Array Element（predicate 计数归约，reduction + atomic 的对比） | 大规模 sum reduction + atomicAdd 标量聚合，练习 memory-bound 归约 kernel 的两阶段模板 |
 | `ssm-selective-scan` | #82 Linear Recurrence（标量线性递推 + 关联扫描，SSM 的最简形态，对比 selective vs 固定系数）· #16 Prefix Sum（并行前缀扫描基础，SSM 状态递推的底层模板）· #70 Segmented Prefix Sum（分段 scan，多序列并行的进阶，类比 batch 维多通道并行）· #72 Stream Compaction（scan + predicate 的筛选应用，scan 的另一场景） | 顺序递推 + register 状态 + 跨 channel 并行，练习不可并行化的序列依赖如何通过独立维度并行加速 |
 
 > 💡 **选材原则**：每道题的 4 条推荐遵循「**1 道同类型基础题 + 1 道进阶变体 + 1 道综合应用 + 1 道跨领域延伸**」的结构，确保从基础到进阶的渐进练习路径。推荐题优先选 §1.2 推荐路径中已完成的题（可回看自己题解），其次选 §1.4 清单中相关概念题。
