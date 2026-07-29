@@ -19,9 +19,9 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## 题解列表
 
-共 **70 道**（简单 20 / 中等 44 / 困难 6），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
+共 **71 道**（简单 21 / 中等 44 / 困难 6），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
 
-### Easy · 简单（20 道）
+### Easy · 简单（21 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
@@ -40,6 +40,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 54 | [SwiGLU](easy/54_swiglu/leetgpu-swiglu-solution.md) | elementwise、kernel fusion、SiLU |
 | 62 | [Value Clipping](easy/62_value_clipping/leetgpu-value-clipping-solution.md) | clamp、fminf/fmaxf 无分支、warp divergence |
 | 63 | [Interleave Arrays](easy/63_interleave/leetgpu-interleave-solution.md) | grid-stride loop、索引映射 |
+| 65 | [Gaussian Error Gated Linear Unit](easy/65_geglu/leetgpu-geglu-solution.md) | GELU、kernel fusion、erf、门控激活 |
 | 66 | [RGB to Grayscale](easy/66_rgb_to_grayscale/leetgpu-rgb-to-grayscale-solution.md) | 多通道加权求和、交织存储、coalesced |
 | 68 | [Sigmoid](easy/68_sigmoid/leetgpu-sigmoid-solution.md) | elementwise、fast math `__expf`、activation |
 | 108 | [Vector Reversal](easy/108_vector_reversal/leetgpu-vector-reversal-solution.md) | 索引映射、coalesced access |
@@ -113,7 +114,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 下表对照 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库 `challenges/<difficulty>/<编号>_<name>/` 的 **全部 91 道题**，标注本仓库题解完成情况：✅ 已完成 57 道 / ⬜ 未完成 34 道。已完成题目链接到本仓库题解，未完成题目链接到 LeetGPU 在线题目。
 
 
-### Easy · 简单（17/19）
+### Easy · 简单（18/19）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -133,7 +134,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 54 | Swish-Gated Linear Unit | ✅ | [题解](easy/54_swiglu/leetgpu-swiglu-solution.md) |
 | 62 | Value Clipping | ✅ | [题解](easy/62_value_clipping/leetgpu-value-clipping-solution.md) |
 | 63 | Interleave Arrays | ✅ | [题解](easy/63_interleave/leetgpu-interleave-solution.md) |
-| 65 | Gaussian Error Gated Linear Unit | ⬜ | [题目](https://leetgpu.com/challenges/geglu) |
+| 65 | Gaussian Error Gated Linear Unit | ✅ | [题解](easy/65_geglu/leetgpu-geglu-solution.md) |
 | 66 | RGB to Grayscale | ✅ | [题解](easy/66_rgb_to_grayscale/leetgpu-rgb-to-grayscale-solution.md) |
 | 68 | Sigmoid Activation | ✅ | [题解](easy/68_sigmoid/leetgpu-sigmoid-solution.md) |
 
