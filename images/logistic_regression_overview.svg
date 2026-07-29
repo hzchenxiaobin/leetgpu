@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="9"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.6"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+    <marker id="arrL" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#b85450"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="480" fill="#fdfcf7"/>
+
+  <text x="380" y="28" text-anchor="middle" font-size="16" fill="#2b2b2b" font-weight="bold">Logistic Regression：IRLS 迭代流水线（Newton-Raphson）</text>
+  <text x="380" y="48" text-anchor="middle" font-size="11" fill="#888">每轮: forward(σ) → gradient → hessian(GEMM) → Cholesky → update，轮间 host 同步判收敛</text>
+
+  <!-- 迭代循环框 -->
+  <rect x="30" y="66" width="700" height="300" fill="none" stroke="#b85450" stroke-width="1.4" stroke-dasharray="6 4" rx="8" filter="url(#rough2)"/>
+  <text x="48" y="86" font-size="11" fill="#b85450" font-weight="bold">host 侧迭代循环 (max_iter=1000, tol=1e-8)</text>
+
+  <!-- 输入 -->
+  <text x="44" y="112" font-size="12" fill="#446688" font-weight="bold">输入</text>
+  <rect x="44" y="118" width="78" height="48" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="5" filter="url(#rough2)"/>
+  <text x="83" y="138" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">X, y</text>
+  <text x="83" y="154" text-anchor="middle" font-size="9" fill="#666">只读</text>
+  <rect x="44" y="176" width="78" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="5" filter="url(#rough2)"/>
+  <text x="83" y="194" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">β</text>
+  <text x="83" y="208" text-anchor="middle" font-size="9" fill="#666">init=0</text>
+
+  <!-- ① forward -->
+  <path d="M 126 142 L 168 142" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <rect x="172" y="110" width="120" height="66" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="232" y="130" text-anchor="middle" font-size="11" fill="#7a5415" font-weight="bold">① forward</text>
+  <text x="232" y="146" text-anchor="middle" font-size="9" fill="#555">fused sigmoid</text>
+  <text x="232" y="160" text-anchor="middle" font-size="9" fill="#555">z=Xβ, p=σ(z)</text>
+  <text x="232" y="172" text-anchor="middle" font-size="9" fill="#555">W=p(1-p)</text>
+
+  <!-- p, W 中间量 -->
+  <path d="M 294 142 L 330 142" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <rect x="334" y="118" width="52" height="50" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3" rx="5" filter="url(#rough2)"/>
+  <text x="360" y="138" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">p, W</text>
+  <text x="360" y="154" text-anchor="middle" font-size="8" fill="#666">n_samples</text>
+
+  <!-- ② gradient -->
+  <path d="M 388 130 L 420 120" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <rect x="424" y="92" width="120" height="54" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="484" y="110" text-anchor="middle" font-size="11" fill="#7a5415" font-weight="bold">② gradient</text>
+  <text x="484" y="126" text-anchor="middle" font-size="9" fill="#555">coalesced matvec</text>
+  <text x="484" y="138" text-anchor="middle" font-size="9" fill="#555">g=Xᵀ(p-y)+l2β</text>
+
+  <!-- ③ hessian -->
+  <path d="M 388 156 L 420 172" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <rect x="424" y="156" width="120" height="60" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="484" y="174" text-anchor="middle" font-size="11" fill="#7a5415" font-weight="bold">③ hessian</text>
+  <text x="484" y="190" text-anchor="middle" font-size="9" fill="#555">tiled GEMM</text>
+  <text x="484" y="202" text-anchor="middle" font-size="9" fill="#555">H=Xᵀdiag(W)X+l2I</text>
+
+  <!-- g, H 中间量 -->
+  <path d="M 546 118 L 568 110" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <rect x="572" y="90" width="46" height="40" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3" rx="5" filter="url(#rough2)"/>
+  <text x="595" y="108" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">g</text>
+  <text x="595" y="122" text-anchor="middle" font-size="8" fill="#666">n</text>
+  <path d="M 546 186 L 568 150" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <rect x="572" y="140" width="46" height="46" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3" rx="5" filter="url(#rough2)"/>
+  <text x="595" y="160" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">H</text>
+  <text x="595" y="176" text-anchor="middle" font-size="8" fill="#666">n×n</text>
+
+  <!-- ④ Cholesky -->
+  <path d="M 596 132 L 624 145" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <rect x="628" y="120" width="86" height="58" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="671" y="138" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">④ Cholesky</text>
+  <text x="671" y="152" text-anchor="middle" font-size="9" fill="#555">单block</text>
+  <text x="671" y="166" text-anchor="middle" font-size="8" fill="#555">HΔ=g</text>
+
+  <!-- ⑤ update -->
+  <path d="M 671 180 L 671 210" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <rect x="628" y="214" width="86" height="52" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="671" y="232" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">⑤ update</text>
+  <text x="671" y="246" text-anchor="middle" font-size="9" fill="#555">β-=Δ</text>
+  <text x="671" y="258" text-anchor="middle" font-size="8" fill="#555">‖Δ‖ 归约</text>
+
+  <!-- 收敛判据 -->
+  <path d="M 628 240 L 580 240 L 580 280" stroke="#b85450" stroke-width="1.4" fill="none" marker-end="url(#arrL)" filter="url(#rough2)"/>
+  <rect x="520" y="284" width="146" height="48" fill="#fce4ec" stroke="#b85450" stroke-width="1.4" rx="6" filter="url(#rough2)"/>
+  <text x="593" y="302" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">host: cudaMemcpy</text>
+  <text x="593" y="316" text-anchor="middle" font-size="10" fill="#555">‖Δ‖ &lt; tol ?</text>
+  <text x="593" y="328" text-anchor="middle" font-size="9" fill="#888">是→break  否→下一轮</text>
+
+  <!-- 回环箭头: 从收敛判据回到 forward -->
+  <path d="M 520 308 L 200 308 L 200 178" stroke="#b85450" stroke-width="1.3" fill="none" stroke-dasharray="5 3" marker-end="url(#arrL)" filter="url(#rough2)"/>
+  <text x="330" y="300" font-size="9" fill="#b85450">下一轮 (β 更新后)</text>
+
+  <!-- 输出 -->
+  <path d="M 83 218 L 83 380" stroke="#4a7a3a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="98" y="300" font-size="9" fill="#4a7a3a">收敛后</text>
+  <rect x="36" y="386" width="96" height="44" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.6" rx="6" filter="url(#rough2)"/>
+  <text x="84" y="406" text-anchor="middle" font-size="12" fill="#4a7a3a" font-weight="bold">β（输出）</text>
+  <text x="84" y="422" text-anchor="middle" font-size="9" fill="#666">MLE 系数</text>
+
+  <!-- 下方说明 -->
+  <rect x="160" y="386" width="572" height="80" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="176" y="406" font-size="11" fill="#2e6e2e" font-weight="bold">IRLS = 迭代加权最小二乘 —— 每轮复用 OLS 三段模板</text>
+  <text x="176" y="424" font-size="10" fill="#444">① fused sigmoid: z=Xβ→p=σ(z)→W=p(1-p)，一个 thread 一个 sample，z 留 register</text>
+  <text x="176" y="438" font-size="10" fill="#444">③ tiled GEMM: H=Xᵀdiag(W)X+l2I，Bsub 加载时乘 W（行缩放），无需额外存 XW</text>
+  <text x="176" y="452" font-size="10" fill="#444">④ Cholesky: H 驻 shared，列间串行+列内并行（同 OLS）  ⑤ β-=Δ + ‖Δ‖ 归约→host 判收敛</text>
+</svg>

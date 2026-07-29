@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="31"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.6"/>
+    </filter>
+    <marker id="arr3" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="740" height="480" fill="#fdfcf7"/>
+
+  <text x="370" y="30" text-anchor="middle" font-size="16" fill="#2b2b2b" font-weight="bold">cholesky_solve_kernel：列间串行 + 列内并行</text>
+  <text x="370" y="50" text-anchor="middle" font-size="11" fill="#888">A = L Lᵀ（in-place 覆盖下三角）→ 前代 L z = b → 回代 Lᵀ β = z；每列一次 block_reduce + barrier</text>
+
+  <!-- A/L 下三角矩阵 -->
+  <text x="40" y="86" font-size="12" fill="#b85450" font-weight="bold">L（下三角，单 block 驻 shared）</text>
+  <g font-size="9" fill="#333">
+    <!-- 列 j 高亮 -->
+    <rect x="70" y="98" width="34" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.6" rx="3" filter="url(#rough2)"/>
+    <text x="87" y="116" text-anchor="middle" font-size="8" fill="#b85450">L00</text>
+    <rect x="104" y="98" width="34" height="28" fill="#eee" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <rect x="138" y="98" width="34" height="28" fill="#eee" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="184" y="116" font-size="8" fill="#bbb">0</text>
+
+    <rect x="70" y="126" width="34" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4" rx="3" filter="url(#rough2)"/>
+    <text x="87" y="144" text-anchor="middle" font-size="8" fill="#7a5415">L10</text>
+    <rect x="104" y="126" width="34" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1.6" rx="3" filter="url(#rough2)"/>
+    <text x="121" y="144" text-anchor="middle" font-size="8" fill="#b85450">L11</text>
+    <rect x="138" y="126" width="34" height="28" fill="#eee" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+
+    <rect x="70" y="154" width="34" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4" rx="3" filter="url(#rough2)"/>
+    <text x="87" y="172" text-anchor="middle" font-size="8" fill="#7a5415">L20</text>
+    <rect x="104" y="154" width="34" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4" rx="3" filter="url(#rough2)"/>
+    <text x="121" y="172" text-anchor="middle" font-size="8" fill="#7a5415">L21</text>
+    <rect x="138" y="154" width="34" height="28" fill="#eee" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="190" y="172" font-size="9" fill="#aaa">⋮</text>
+  </g>
+  <path d="M 121 188 L 121 208" stroke="#b85450" stroke-width="1.4" fill="none" marker-end="url(#arr3)" filter="url(#rough2)"/>
+  <text x="128" y="202" font-size="9" fill="#888">列 j 依赖列 0..j-1</text>
+
+  <!-- 三步循环 -->
+  <rect x="40" y="214" width="400" height="150" fill="#fce4ec" stroke="#b85450" stroke-width="1.4" rx="6" filter="url(#rough2)"/>
+  <text x="60" y="234" font-size="12" fill="#b85450" font-weight="bold">for j = 0 .. n-1 （列间串行）</text>
+  <text x="60" y="254" font-size="10" fill="#444">① 对角元：ds = Σ_{k&lt;j} L[j][k]²</text>
+  <text x="76" y="270" font-size="9" fill="#666">→ block_reduce_sum(ds)（warp shuffle + shared）</text>
+  <text x="76" y="284" font-size="9" fill="#666">→ tid 0：L[j][j] = √(A[j][j] − ds)，__syncthreads</text>
+  <text x="60" y="304" font-size="10" fill="#444">② 列内并行：i = j+1+tid .. n（每 thread 一行）</text>
+  <text x="76" y="320" font-size="9" fill="#666">L[i][j] = ( A[i][j] − Σ_{k&lt;j} L[i][k]·L[j][k] ) / L[j][j]</text>
+  <text x="76" y="334" font-size="9" fill="#666">→ __syncthreads（写完本列才能进下一列）</text>
+  <text x="60" y="352" font-size="9" fill="#888">n 个 barrier 步；列 j 并行度 = n−j（递减）</text>
+
+  <!-- 前代/回代 -->
+  <rect x="460" y="214" width="240" height="150" fill="#e8f0fe" stroke="#446688" stroke-width="1.4" rx="6" filter="url(#rough2)"/>
+  <text x="580" y="234" text-anchor="middle" font-size="12" fill="#446688" font-weight="bold">三角求解（同一 block）</text>
+  <text x="476" y="256" font-size="10" fill="#444">前代 L z = b（i = 0..n-1）</text>
+  <text x="476" y="272" font-size="9" fill="#666">z[i] = (b[i] − Σ_{k&lt;i} L[i][k]·z[k]) / L[i][i]</text>
+  <text x="476" y="296" font-size="10" fill="#444">回代 Lᵀ β = z（i = n-1..0）</text>
+  <text x="476" y="312" font-size="9" fill="#666">β[i] = (z[i] − Σ_{k&gt;i} L[k][i]·β[k]) / L[i][i]</text>
+  <text x="476" y="338" font-size="9" fill="#888">每行一次 block_reduce + barrier</text>
+  <text x="476" y="354" font-size="9" fill="#888">Lᵀ[i][k] = L[k][i]（转置只读下三角）</text>
+
+  <!-- 数据流 -->
+  <path d="M 440 289 L 460 289" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr3)" filter="url(#rough2)"/>
+  <text x="442" y="282" font-size="8" fill="#888">L, b</text>
+
+  <!-- insight -->
+  <rect x="40" y="380" width="660" height="86" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="370" y="400" text-anchor="middle" font-size="11" fill="#2e6e2e" font-weight="bold">关键洞察：Cholesky 是「写后读」依赖链 —— 第 j 列用到第 0..j-1 列，无法跨列并行</text>
+  <text x="370" y="418" text-anchor="middle" font-size="10" fill="#555">GPU 只能在「列内」并行（多 thread 算多行），列间靠 __syncthreads 推进；n 小时整块驻 shared，barrier 开销主导</text>
+  <text x="370" y="436" text-anchor="middle" font-size="10" fill="#555">n 大时改 blocked Cholesky（panel 分解 + trailing update 的 GEMM）才能恢复 GEMM 级并行度（见 §5 优化方向）</text>
+  <text x="370" y="456" text-anchor="middle" font-size="9" fill="#888">graded 测点 n=32：A=4KB 驻 shared，32 个 barrier 步，瞬时完成</text>
+</svg>

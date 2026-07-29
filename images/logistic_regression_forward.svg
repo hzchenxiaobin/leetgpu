@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 420" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="5"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="700" height="420" fill="#fdfcf7"/>
+
+  <text x="350" y="28" text-anchor="middle" font-size="15" fill="#2b2b2b" font-weight="bold">forward_kernel：fused sigmoid + 权重计算</text>
+  <text x="350" y="46" text-anchor="middle" font-size="11" fill="#888">一个 thread 一个 sample：z=X[i]·β → p=σ(z) → W=p(1-p)，z 留 register 不落 HBM</text>
+
+  <!-- X 矩阵 -->
+  <text x="60" y="78" font-size="11" fill="#446688" font-weight="bold">X (n_samples × n_feat)</text>
+  <rect x="60" y="84" width="120" height="140" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="4" filter="url(#rough2)"/>
+  <line x1="60" y1="110" x2="180" y2="110" stroke="#446688" stroke-width="0.8"/>
+  <line x1="60" y1="136" x2="180" y2="136" stroke="#446688" stroke-width="0.8"/>
+  <line x1="60" y1="162" x2="180" y2="162" stroke="#446688" stroke-width="0.8"/>
+  <line x1="60" y1="188" x2="180" y2="188" stroke="#446688" stroke-width="0.8"/>
+  <line x1="120" y1="84" x2="120" y2="224" stroke="#446688" stroke-width="0.8"/>
+  <text x="90" y="100" text-anchor="middle" font-size="9" fill="#446688">2.0</text>
+  <text x="150" y="100" text-anchor="middle" font-size="9" fill="#446688">1.0</text>
+  <text x="90" y="126" text-anchor="middle" font-size="9" fill="#446688">1.0</text>
+  <text x="150" y="126" text-anchor="middle" font-size="9" fill="#446688">2.0</text>
+  <text x="90" y="152" text-anchor="middle" font-size="9" fill="#446688">3.0</text>
+  <text x="150" y="152" text-anchor="middle" font-size="9" fill="#446688">3.0</text>
+  <text x="90" y="178" text-anchor="middle" font-size="9" fill="#888">...</text>
+  <text x="150" y="178" text-anchor="middle" font-size="9" fill="#888">...</text>
+  <text x="90" y="212" text-anchor="middle" font-size="9" fill="#446688">-3.0</text>
+  <text x="150" y="212" text-anchor="middle" font-size="9" fill="#446688">-3.0</text>
+
+  <!-- β 向量 -->
+  <text x="210" y="78" font-size="11" fill="#446688" font-weight="bold">β</text>
+  <rect x="206" y="84" width="40" height="60" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="4" filter="url(#rough2)"/>
+  <text x="226" y="104" text-anchor="middle" font-size="9" fill="#446688">b₀</text>
+  <text x="226" y="128" text-anchor="middle" font-size="9" fill="#446688">b₁</text>
+  <path d="M 184 140 L 204 120" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="178" y="68" font-size="9" fill="#888">行点积</text>
+
+  <!-- thread 映射 -->
+  <rect x="280" y="84" width="140" height="140" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="350" y="104" text-anchor="middle" font-size="11" fill="#7a5415" font-weight="bold">thread i</text>
+  <text x="350" y="124" text-anchor="middle" font-size="10" fill="#555">z = Σⱼ X[i][j]·β[j]</text>
+  <line x1="294" y1="134" x2="406" y2="134" stroke="#d6a040" stroke-width="0.8" stroke-dasharray="3 2"/>
+  <text x="350" y="150" text-anchor="middle" font-size="10" fill="#555">p = σ(z)  (数值稳定)</text>
+  <text x="350" y="168" text-anchor="middle" font-size="9" fill="#888">z≥0: 1/(1+e⁻ᶻ)</text>
+  <text x="350" y="182" text-anchor="middle" font-size="9" fill="#888">z&lt;0: eᶻ/(1+eᶻ)</text>
+  <line x1="294" y1="190" x2="406" y2="190" stroke="#d6a040" stroke-width="0.8" stroke-dasharray="3 2"/>
+  <text x="350" y="206" text-anchor="middle" font-size="10" fill="#555">W = max(p(1-p), 1e-8)</text>
+  <text x="350" y="220" text-anchor="middle" font-size="8" fill="#888">z 留 register</text>
+
+  <path d="M 182 154 L 278 154" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- 输出 p, W -->
+  <path d="M 422 130 L 458 120" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="470" y="78" font-size="11" fill="#4a7a3a" font-weight="bold">p (n_samples)</text>
+  <rect x="466" y="84" width="50" height="140" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4" filter="url(#rough2)"/>
+  <text x="491" y="100" text-anchor="middle" font-size="9" fill="#4a7a3a">0.96</text>
+  <text x="491" y="124" text-anchor="middle" font-size="9" fill="#4a7a3a">0.92</text>
+  <text x="491" y="148" text-anchor="middle" font-size="9" fill="#4a7a3a">0.98</text>
+  <text x="491" y="172" text-anchor="middle" font-size="9" fill="#888">...</text>
+  <text x="491" y="212" text-anchor="middle" font-size="9" fill="#4a7a3a">0.04</text>
+
+  <path d="M 422 180 L 556 180" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="558" y="78" font-size="11" fill="#4a7a3a" font-weight="bold">W (n_samples)</text>
+  <rect x="554" y="84" width="50" height="140" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4" filter="url(#rough2)"/>
+  <text x="579" y="100" text-anchor="middle" font-size="9" fill="#4a7a3a">0.04</text>
+  <text x="579" y="124" text-anchor="middle" font-size="9" fill="#4a7a3a">0.07</text>
+  <text x="579" y="148" text-anchor="middle" font-size="9" fill="#4a7a3a">0.02</text>
+  <text x="579" y="172" text-anchor="middle" font-size="9" fill="#888">...</text>
+  <text x="579" y="212" text-anchor="middle" font-size="9" fill="#4a7a3a">0.04</text>
+
+  <!-- 下方说明 -->
+  <rect x="40" y="250" width="620" height="150" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="56" y="272" font-size="12" fill="#2e6e2e" font-weight="bold">融合策略与数值稳定性</text>
+  <text x="56" y="292" font-size="10" fill="#444">• 融合动机：z 仅用于算 p，p 仅用于算 W。三者融合进一个 kernel，z 留 register 不落 HBM</text>
+  <text x="56" y="308" font-size="10" fill="#444">• 一个 thread 一个 sample：thread 间完全独立，无需 __syncthreads，无需归约</text>
+  <text x="56" y="324" font-size="10" fill="#444">• 数值稳定 sigmoid：z≥0 时 1/(1+e⁻ᶻ) 不会溢出；z&lt;0 时 eᶻ/(1+eᶻ) 不会溢出（避免 expf(大正数)）</text>
+  <text x="56" y="340" font-size="10" fill="#444">• W = p(1-p) ∈ (0, 0.25]，clamp 到 1e-8 防止 Hessian 退化（W→0 时 H 奇异）</text>
+  <text x="56" y="360" font-size="10" fill="#444">• β=0 时 z=0, p=0.5, W=0.25 —— 第一轮所有样本等权，类似普通 OLS</text>
+  <text x="56" y="380" font-size="10" fill="#888">瓶颈：memory-bound（读 X 一遍），n_feat 小时每个 thread 仅几次乘加</text>
+</svg>

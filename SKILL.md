@@ -102,7 +102,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | 19 | reverse-array | Reverse Array | 1D 并行、in-place swap、coalesced（✅ 已完成） |
 | 21 | relu | ReLU | 逐元素、分支 |
 | 23 | leaky-relu | Leaky ReLU | 逐元素、分支 |
-| 24 | rainbow-table | Rainbow Table | 迭代哈希、串行循环 |
+| 24 | rainbow-table | Rainbow Table | 迭代哈希、串行循环（✅ 已完成） |
 | 31 | matrix-copy | Matrix Copy | 带宽、coalesced |
 | 41 | simple-inference | Simple Inference | PyTorch Linear 前向 |
 | 52 | silu | Sigmoid Linear Unit (SiLU) | 逐元素、融合 |
@@ -180,7 +180,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | 编号 | slug | 题目 | 核心概念 |
 |------|------|------|----------|
 | 12 | multi-head-attention | Multi-Head Attention | FlashAttention、融合 |
-| 14 | multi-agent-simulation | Multi-Agent Simulation | agent 并行、交互 |
+| 14 | multi-agent-simulation | Multi-Agent Simulation | agent 并行、交互（✅ 已完成） |
 | 15 | sorting | Sorting | 并行排序 |
 | 20 | kmeans-clustering | K-Means Clustering | 迭代、归约 |
 | 36 | radix-sort | Radix Sort | 基数排序、histogram |
@@ -398,6 +398,8 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | `argmax` | #4 Reduction（树形归约，argmax 的基础组件）· #29 Top K Selection（排序归约进阶）· #5 Softmax（先求 max 再归一化）· #17 Dot Product（block 归约练习） | 归约变体（求最大值索引），练习比较归约与 warp shuffle |
 | `top-k-selection` | #60 Top-p Sampling（排序 + 累积概率 + 采样）· #15 Sorting（通用并行排序）· #36 Radix Sort（按位 histogram + scan 排序）· #71 Parallel Merge（归并排序网络） | bitonic 排序 + 堆归约，练习并行排序与选择 |
 | `subarray-sum` | #16 Prefix Sum（prefix sum 直接应用求子和）· #4 Reduction（树形归约基础组件）· #48 2D Subarray Sum（扩展到二维前缀和）· #51 Max Subarray Sum（scan + 归约综合练习） | prefix sum 直接应用，练习范围归约与 block reduce |
+| `2d-subarray-sum` | #47 Subarray Sum（1D 区间求和，本题的一维前驱，grid-stride 归约模板的源头）· #49 3D Subarray Sum（3D 子立方体求和，验证任意维度展平后归约策略不变）· #16 Prefix Sum（多查询场景下 2D prefix sum 的基础，O(1) 区间查询对比单查询直接归约）· #4 Reduction（树形归约，2D 范围求和的核心归约组件，warp shuffle 两阶段骨架） | 2D 矩阵子矩形求和，练习 2D 范围归约与行列索引映射 |
+| `3d-subarray-sum` | #48 2D Subarray Sum（2D 子矩形求和，本题的直接降维基础，验证展平归约模板在二维已成立）· #47 Subarray Sum（1D 区间求和，本题的一维前驱，grid-stride 归约模板的最简形态）· #16 Prefix Sum（多查询场景下 3D prefix sum 的基础，O(1) 区间查询对比单查询直接归约）· #4 Reduction（树形归约，3D 展平后两级归约的基础组件，warp shuffle 两阶段骨架） | 3D 子立方体求和展平 + 范围归约，验证任意维度展平后归约策略不变 |
 | `mean-squared-error` | #4 Reduction（树形归约，MSE 的基础组件）· #17 Dot Product（block 归约，类似模式）· #25 Categorical Cross Entropy Loss（归约 + log，损失函数变体）· #58 FP16 Dot Product（半精度归约，低精度变体） | 归约在损失函数中的应用，练习 fused kernel + block reduce |
 | `fp16-dot-product` | #4 Reduction（树形归约基础组件）· #17 Dot Product（FP32 版 dot product 对比）· #57 FP16 Batched Matrix Multiplication（FP16 + Tensor Core，半精度 GEMM）· #27 Mean Squared Error（归约在损失函数中的应用） | 半精度归约，练习 __half 类型转换与 FP32 累加精度保证 |
 
@@ -408,6 +410,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | `matrix-multiplication` | #22 GEMM（完整 GEMM，register blocking + 双缓冲进阶）· #30 Batched Matrix Multiplication（batched GEMM，多组矩阵并行）· #37 Matrix Power（重复 matmul，练习 tiling 复用）· #32 INT8 Quantized MatMul（INT8 量化 GEMM，低精度计算） | tiled matmul + register tiling，练习 GEMM 这一 compute-bound 核心模板 |
 | `gemm` | #2 Matrix Multiplication（naive tiled matmul，对比基础写法）· #30 Batched Matrix Multiplication（batched GEMM，多矩阵并行调度）· #32 INT8 Quantized MatMul（INT8 量化 GEMM，低精度 + scale）· #57 FP16 Batched MatMul（FP16 + Tensor Core，半精度 GEMM） | GEMM tiling / register blocking / 双缓冲，练习 compute-bound kernel 优化全链路 |
 | `batched-matrix-multiplication` | #22 GEMM（完整 GEMM，register blocking 基础）· #57 FP16 Batched MatMul（半精度 + Tensor Core）· #32 INT8 Quantized MatMul（低精度 batch）· #37 Matrix Power（重复 matmul 调度） | batched GEMM + 多组矩阵并行调度，练习 batch 维度的 kernel 设计 |
+| `matrix-power` | #2 Matrix Multiplication（naive tiled matmul，单次乘法的基础组件）· #22 GEMM（完整 GEMM，register blocking + 双缓冲，单次乘法的优化方向）· #30 Batched Matrix Multiplication（batched GEMM，多矩阵并行调度）· #32 INT8 Quantized MatMul（INT8 量化 GEMM，低精度计算） | 重复 matmul + tiling 复用，练习 compute-bound kernel 的迭代应用与算法层面优化 |
 | `matrix-transpose` | #31 Matrix Copy（纯拷贝带宽优化，对比转置的访存模式）· #10 2D Convolution（2D shared memory halo + tiling）· #2 Matrix Multiplication（tiled matmul，同样用 shared mem 分块）· #63 Interleave（写索引重排，coalesced 练习） | shared memory tiling + bank conflict padding，练习矩阵数据重排类 kernel |
 | `int8-quantized-matmul` | #22 GEMM（GEMM tiling 基础）· #30 Batched Matrix Multiplication（batched GEMM）· #81 INT4 Weight-Only Quantized MatMul（4-bit 量化进阶）· #64 Weight Dequantization（反量化基础操作） | INT8 量化 GEMM，练习低精度计算与 requantize 流程 |
 | `sparse-matrix-vector-multiplication` | #17 Dot Product（warp shuffle 归约，SpMV 行内归约的基础组件）· #75 Sparse Matrix-Dense Matrix Multiplication（稀疏 GEMM，SpMV 的矩阵版进阶）· #22 General Matrix Multiplication (GEMM)（稠密 GEMM tiling，对比稀疏 vs 稠密访存模式）· #4 Reduction（树形归约，SpMV 行内归约的基础组件） | CSR 稀疏格式 + warp shuffle 行内归约，练习不规则访存与稀疏矩阵乘模板 |
@@ -425,6 +428,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | `int8-kv-cache-attention` | #80 GQA（KV head 复用的 attention 基础）· #64 Weight Dequantization（反量化基础）· #53 Causal Self-Attention（attention 基础）· #32 INT8 Quantized MatMul（INT8 计算基础） | 量化 KV cache + attention，练习低精度推理与 attention 的结合 |
 | `attn-w-linear-bias` | #6 Softmax Attention（fused softmax+matmul 基础版）· #53 Causal Self-Attention（因果掩码变体）· #12 Multi-Head Attention（head 并行进阶）· #59 Sliding Window Self-Attention（滑窗注意力变体） | 线性偏置注意力，练习 attention + positional bias 的融合 |
 | `decaying-causal-attention` | #53 Causal Self-Attention（因果掩码基础版）· #59 Sliding Window Self-Attention（滑窗注意力变体）· #6 Softmax Attention（无掩码基础版）· #80 Grouped Query Attention (GQA)（KV head 共享变体） | 衰减因子 + 因果掩码，练习 attention mask 变体与增量衰减计算 |
+| `linear-self-attention` | #6 Softmax Attention（标准 softmax attention，对比 O(M²) softmax 与 O(Md²) 线性注意力的复杂度差异）· #82 Linear Recurrence（线性注意力的 RNN 视角，φ(K)^T V 状态可递推更新，scan 基础）· #17 Dot Product（φ(Q)·z 分母的归约基础组件，block reduce 模板）· #22 General Matrix Multiplication (GEMM)（S=φ(K)^T V 与 num=φ(Q)@S 两个 GEMM 的 tiling 基础） | kernel trick 降复杂度 + 多 kernel GEMM/reduction 流水线，练习线性注意力 O(Md²) 的分阶段矩阵计算 |
 
 #### F. 归一化与嵌入（Normalization & Embedding）
 
@@ -464,9 +468,18 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | 题解 (slug) | 推荐练习（编号 · 关联） | 选材主线 |
 |-------------|------------------------|----------|
 | `nearest-neighbor` | #22 General Matrix Multiplication (GEMM)（GEMM tiling，nearest neighbor 的分块复用同构）· #20 K-Means Clustering（K-Means 距离矩阵，pairwise distance 的迭代应用）· #4 Reduction（树形归约，argmin 更新的归约基础组件）· #33 Ordinary Least Squares（线性代数 + 归约，距离/矩阵计算的另一变体） | pairwise distance + shared memory tiling 数据复用，练习 compute-bound kernel 的算术强度提升 |
+| `kmeans-clustering` | #38 Nearest Neighbor（pairwise distance + argmin，K-Means assign 步骤的距离计算同构，本题 k 极小无需 tiling，可回看 tiling 版）· #13 Histogramming（shared memory 直方图 + atomic，K-Means update 步骤的 atomicAdd 归约同构）· #4 Reduction（树形归约 + warp shuffle，centroid update 的归约基础组件，对比 atomic vs 树形归约）· #69 2D Jacobi Stencil（stencil 迭代 + shared memory halo，迭代算法的跨领域类比，同为多轮 kernel launch + 边界/收敛处理） | 迭代算法 + pairwise distance + atomic 归约，练习迭代 kernel 编排与归约/atomic 权衡 |
 | `2d-jacobi-stencil` | #10 2D Convolution（2D shared memory halo + tiling，stencil 的加权变体）· #9 1D Convolution（1D shared memory halo，stencil 的一维基础）· #42 2D Max Pooling（滑窗 reduction，类似的 tiling + 边界处理模式）· #11 3D Convolution（3D shared memory halo，stencil 扩展到体数据） | stencil 计算 + shared memory halo 边界复用，练习网格类 kernel 的邻居冗余读消除 |
 | `monte-carlo-integration` | #4 Reduction（树形归约 + warp shuffle，本题的核心底层模板）· #17 Dot Product（元素乘 + 全局归约，reduction 的变体应用）· #27 Mean Squared Error（平方差归约，reduction 在损失函数中的应用）· #43 Count Array Element（predicate 计数归约，reduction + atomic 的对比） | 大规模 sum reduction + atomicAdd 标量聚合，练习 memory-bound 归约 kernel 的两阶段模板 |
 | `ssm-selective-scan` | #82 Linear Recurrence（标量线性递推 + 关联扫描，SSM 的最简形态，对比 selective vs 固定系数）· #16 Prefix Sum（并行前缀扫描基础，SSM 状态递推的底层模板）· #70 Segmented Prefix Sum（分段 scan，多序列并行的进阶，类比 batch 维多通道并行）· #72 Stream Compaction（scan + predicate 的筛选应用，scan 的另一场景） | 顺序递推 + register 状态 + 跨 channel 并行，练习不可并行化的序列依赖如何通过独立维度并行加速 |
+| `ordinary-least-squares` | #22 General Matrix Multiplication (GEMM)（tiled GEMM，XᵀX 的核心计算组件）· #17 Dot Product（block 归约，Xᵀy 的归约模板）· #4 Reduction（树形归约 + warp shuffle，行内归约与对角元归约的基础组件）· #38 Nearest Neighbor（pairwise distance + shared memory tiling，跨领域的矩阵计算 + 归约） | 线性代数求解（normal equations + Cholesky），练习 GEMM 归约 + 小矩阵三角分解在 GPU 上的编排 |
+
+#### L. 其他综合与模拟（Other & Simulation）
+
+| 题解 (slug) | 推荐练习（编号 · 关联） | 选材主线 |
+|-------------|------------------------|----------|
+| `rainbow-table` | #1 Vector Addition（grid-stride + coalesced 基础，rainbow-table 外层并行的最简形态）· #35 Monte Carlo Integration（每线程串行采样累加后归约，同为「外层并行、内层串行循环」结构）· #34 Logistic Regression（迭代训练 + sigmoid，串行迭代与逐元素计算的组合）· #9 1D Convolution（每个输出元素串行累加卷积核，跨领域的「逐元素 + 串行内层循环」模板） | 逐元素 grid-stride + 串行内层循环（哈希迭代），练习「外层并行、内层串行依赖」的 kernel 模板与 32 位整数回绕运算 |
+| `multi-agent-simulation` | #38 Nearest Neighbor（pairwise distance + shared mem tiling + argmin 归约，本题 sum/count 归约的同构前驱，骨架完全一致仅归约算子不同）· #20 K-Means Clustering（迭代 pairwise distance + atomic centroid update，本题的迭代多 pass 变体，assign 步骤的距离计算同构）· #69 2D Jacobi Stencil（网格邻居交互 + shared memory halo，结构化网格上的同类「每元素从邻居更新」模式）· #24 Rainbow Table（同为「外层并行、内层串行循环」结构，跨领域的串行内层依赖模板） | O(N²) pairwise interaction + shared memory tiling 数据复用 + per-thread 串行归约，练习 n-body 类 compute-bound kernel 的算术强度提升 |
 
 > 💡 **选材原则**：每道题的 4 条推荐遵循「**1 道同类型基础题 + 1 道进阶变体 + 1 道综合应用 + 1 道跨领域延伸**」的结构，确保从基础到进阶的渐进练习路径。推荐题优先选 §1.2 推荐路径中已完成的题（可回看自己题解），其次选 §1.4 清单中相关概念题。
 

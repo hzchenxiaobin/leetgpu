@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 480" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="23" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="940" height="480" fill="#fdfcf7"/>
+
+  <text x="470" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">两步并行化：assign（每点 argmin）与 update（每点 atomicAdd 归约）</text>
+  <path d="M 270 42 Q 470 50 670 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- ============ LEFT: assign ============ -->
+  <text x="40" y="74" font-size="13" font-weight="bold" fill="#2e6e2e">① assign_kernel：每点 1 thread</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="84" width="420" height="360" rx="8" fill="#f5fbf5" stroke="#4a8e4a" stroke-width="1.2"/>
+  </g>
+
+  <!-- shared centroids -->
+  <text x="60" y="108" font-size="11" font-weight="bold" fill="#7a5415">shared memory（k 个中心，block 协作载入）</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="116" width="46" height="26" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="106" y="116" width="46" height="26" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="152" y="116" width="46" height="26" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="198" y="116" width="46" height="26" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="244" y="116" width="46" height="26" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="83" y="134" text-anchor="middle" font-size="10" fill="#7a5415">c0</text>
+  <text x="129" y="134" text-anchor="middle" font-size="10" fill="#7a5415">c1</text>
+  <text x="175" y="134" text-anchor="middle" font-size="10" fill="#7a5415">c2</text>
+  <text x="221" y="134" text-anchor="middle" font-size="10" fill="#7a5415">c3</text>
+  <text x="267" y="134" text-anchor="middle" font-size="10" fill="#7a5415">c4</text>
+  <text x="320" y="134" font-size="9" fill="#888">k=5，256 thread 共享</text>
+
+  <!-- threads -->
+  <text x="60" y="170" font-size="11" font-weight="bold" fill="#2b6e9e">每点 1 thread（寄存器持 px,py）</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="178" width="50" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="112" y="178" width="50" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="164" y="178" width="50" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="216" y="178" width="50" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="268" y="178" width="50" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+  </g>
+  <text x="85" y="195" text-anchor="middle" font-size="9" fill="#2b6e9e">p0</text>
+  <text x="137" y="195" text-anchor="middle" font-size="9" fill="#2b6e9e">p1</text>
+  <text x="189" y="195" text-anchor="middle" font-size="9" fill="#2b6e9e">p2</text>
+  <text x="241" y="195" text-anchor="middle" font-size="9" fill="#2b6e9e">...</text>
+  <text x="293" y="195" text-anchor="middle" font-size="9" fill="#2b6e9e">pN</text>
+
+  <!-- distance arrows -->
+  <path d="M 85 202 L 83 116" stroke="#bbb" stroke-width="1" fill="none" filter="url(#sk)"/>
+  <path d="M 137 202 L 129 116" stroke="#bbb" stroke-width="1" fill="none" filter="url(#sk)"/>
+  <text x="330" y="220" font-size="10" fill="#444">每点对 k 中心算 d²=(px-cx)²+(py-cy)²</text>
+
+  <!-- argmin -->
+  <g filter="url(#sk)">
+    <rect x="60" y="232" width="360" height="34" rx="5" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+  </g>
+  <text x="240" y="254" text-anchor="middle" font-size="11" fill="#b85450">if (d &lt; best) { best=d; best_j=j; }  ← 严格 &lt;：并列取小索引</text>
+
+  <!-- labels output -->
+  <text x="60" y="290" font-size="11" font-weight="bold" fill="#2e6e2e">输出 labels[N]（int32，coalesced 顺序写）</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="298" width="40" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="100" y="298" width="40" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="140" y="298" width="40" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="180" y="298" width="40" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+  </g>
+  <text x="80" y="315" text-anchor="middle" font-size="10" fill="#2e6e2e">0</text>
+  <text x="120" y="315" text-anchor="middle" font-size="10" fill="#2e6e2e">0</text>
+  <text x="160" y="315" text-anchor="middle" font-size="10" fill="#2e6e2e">1</text>
+  <text x="200" y="315" text-anchor="middle" font-size="10" fill="#2e6e2e">1</text>
+
+  <text x="60" y="350" font-size="10" fill="#888">• embarrassingly parallel：N 点互不干扰</text>
+  <text x="60" y="368" font-size="10" fill="#888">• k 极小（=5），无需 tiling，中心 shared 即可</text>
+  <text x="60" y="386" font-size="10" fill="#888">• 距离计算与 torch 逐位同构 → argmin 一致</text>
+  <text x="60" y="404" font-size="10" fill="#888">• 同步①：中心载入后 __syncthreads 再算距离</text>
+  <text x="60" y="426" font-size="10" fill="#b85450">瓶颈：memory-bound（读点坐标），~3k FLOP/点</text>
+
+  <!-- ============ RIGHT: update ============ -->
+  <text x="490" y="74" font-size="13" font-weight="bold" fill="#b85450">② accum + finalize：每点 atomicAdd 归约</text>
+  <g filter="url(#sk)">
+    <rect x="490" y="84" width="420" height="360" rx="8" fill="#fff5f5" stroke="#b85450" stroke-width="1.2"/>
+  </g>
+
+  <!-- threads read labels -->
+  <text x="510" y="108" font-size="11" font-weight="bold" fill="#2b6e9e">每点 1 thread（读 labels[i] 得归属 j）</text>
+  <g filter="url(#sk)">
+    <rect x="510" y="116" width="46" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="560" y="116" width="46" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="610" y="116" width="46" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="660" y="116" width="46" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="710" y="116" width="46" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+  </g>
+  <text x="533" y="132" text-anchor="middle" font-size="9" fill="#2b6e9e">p0→j0</text>
+  <text x="583" y="132" text-anchor="middle" font-size="9" fill="#2b6e9e">p1→j0</text>
+  <text x="633" y="132" text-anchor="middle" font-size="9" fill="#2b6e9e">p2→j1</text>
+  <text x="683" y="132" text-anchor="middle" font-size="9" fill="#2b6e9e">p3→j1</text>
+  <text x="733" y="132" text-anchor="middle" font-size="9" fill="#2b6e9e">...</text>
+
+  <!-- atomic arrows to k bins -->
+  <path d="M 533 140 Q 533 165 540 188" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 583 140 Q 583 165 540 188" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 633 140 Q 633 165 640 188" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 683 140 Q 683 165 640 188" stroke="#b85450" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="760" y="160" font-size="10" fill="#b85450">atomicAdd</text>
+  <text x="760" y="174" font-size="9" fill="#888">sum_x[j]+=dx[i]</text>
+
+  <!-- k bins -->
+  <text x="510" y="184" font-size="11" font-weight="bold" fill="#7a5415">k 个归约 bin（sum_x / sum_y / count）</text>
+  <g filter="url(#sk)">
+    <rect x="510" y="192" width="80" height="46" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+    <rect x="600" y="192" width="80" height="46" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+    <rect x="690" y="192" width="80" height="46" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+  </g>
+  <text x="550" y="212" text-anchor="middle" font-size="10" fill="#7a5415">bin0</text>
+  <text x="550" y="228" text-anchor="middle" font-size="9" fill="#888">count, sum</text>
+  <text x="640" y="212" text-anchor="middle" font-size="10" fill="#7a5415">bin1</text>
+  <text x="640" y="228" text-anchor="middle" font-size="9" fill="#888">count, sum</text>
+  <text x="730" y="212" text-anchor="middle" font-size="10" fill="#7a5415">bin2</text>
+  <text x="730" y="228" text-anchor="middle" font-size="9" fill="#888">count, sum</text>
+
+  <!-- finalize -->
+  <g filter="url(#sk)">
+    <rect x="510" y="252" width="380" height="34" rx="5" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+  </g>
+  <text x="700" y="274" text-anchor="middle" font-size="11" fill="#b85450">finalize: if count&gt;0 → centroid=sum/count；空簇保留旧值</text>
+
+  <!-- centroid output -->
+  <text x="510" y="310" font-size="11" font-weight="bold" fill="#2e6e2e">更新 final_centroid_x/y[k]</text>
+  <g filter="url(#sk)">
+    <rect x="510" y="318" width="60" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="574" y="318" width="60" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="638" y="318" width="60" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+  </g>
+  <text x="540" y="335" text-anchor="middle" font-size="10" fill="#2e6e2e">c0'</text>
+  <text x="604" y="335" text-anchor="middle" font-size="10" fill="#2e6e2e">c1'</text>
+  <text x="668" y="335" text-anchor="middle" font-size="10" fill="#2e6e2e">c2'</text>
+
+  <text x="510" y="368" font-size="10" fill="#888">• 翻转归约方向：每中心扫全部点 → 每点贡献一次</text>
+  <text x="510" y="386" font-size="10" fill="#888">• 读流量 O(N·k) → O(N)，降 k 倍</text>
+  <text x="510" y="404" font-size="10" fill="#888">• atomic 冲突限制在 k 个 bin（k=5 时 ~N/5 次/bin）</text>
+  <text x="510" y="422" font-size="10" fill="#888">• 空簇 count==0 不写 → 中心不漂移（与 reference 一致）</text>
+  <text x="510" y="442" font-size="10" fill="#b85450">瓶颈：atomic + launch-bound（非算力瓶颈）</text>
+</svg>

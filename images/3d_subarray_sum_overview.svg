@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 520" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="37" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="920" height="520" fill="#fdfcf7"/>
+
+  <text x="460" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">3D Subarray Sum：子立方体求和 = 展平 + 两级归约</text>
+  <path d="M 260 42 Q 460 50 660 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- 3D volume: stacked slices with sub-cuboid highlight -->
+  <text x="60" y="80" font-size="12" font-weight="bold" fill="#2b6e9e">输入：input[N][M][K]（int32，N 片 × M 行 × K 列，row-major）</text>
+  <text x="60" y="96" font-size="10" fill="#888">三维体 = 多个 2D 切片堆叠，高亮子立方体 [S_DEP..E_DEP][S_ROW..E_ROW][S_COL..E_COL]</text>
+
+  <!-- slice 0 (back, lighter) -->
+  <g filter="url(#sk)" opacity="0.5">
+    <rect x="170" y="112" width="150" height="84" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+  </g>
+  <text x="178" y="126" font-size="10" fill="#4a8edb">slice d=0</text>
+
+  <!-- slice 1 (front) -->
+  <g filter="url(#sk)">
+    <rect x="140" y="132" width="150" height="84" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.4"/>
+  </g>
+  <text x="148" y="146" font-size="10" font-weight="bold" fill="#2b6e9e">slice d=1</text>
+
+  <!-- cells in front slice: sub-cuboid cols highlighted -->
+  <g filter="url(#sk)">
+    <rect x="150" y="158" width="44" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="0.9"/>
+    <rect x="194" y="158" width="44" height="24" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.8"/>
+    <rect x="238" y="158" width="44" height="24" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.8"/>
+    <rect x="150" y="184" width="44" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="0.9"/>
+    <rect x="194" y="184" width="44" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="0.9"/>
+    <rect x="238" y="184" width="44" height="24" rx="3" fill="#e8f0fa" stroke="#4a8edb" stroke-width="0.9"/>
+  </g>
+  <text x="216" y="174" text-anchor="middle" font-size="9" fill="#7a5415">S_COL..E_COL</text>
+
+  <!-- depth connector lines -->
+  <path d="M 140 132 L 170 112" stroke="#4a8edb" stroke-width="0.9" fill="none" filter="url(#sk)"/>
+  <path d="M 290 132 L 320 112" stroke="#4a8edb" stroke-width="0.9" fill="none" filter="url(#sk)"/>
+  <path d="M 290 216 L 320 196" stroke="#4a8edb" stroke-width="0.9" fill="none" filter="url(#sk)"/>
+
+  <text x="60" y="232" font-size="10" fill="#888">idx = ((d·M + r)·K + c)</text>
+  <text x="60" y="246" font-size="10" fill="#888">plane = row_len × col_len</text>
+
+  <!-- flatten arrow -->
+  <path d="M 215 232 L 215 262" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="227" y="258" font-size="11" fill="#7a5415">展平子立方体为 1D</text>
+
+  <!-- 1D flattened -->
+  <text x="60" y="280" font-size="12" font-weight="bold" fill="#2b6e9e">子立方体展平为 1D：off ∈ [0, total)，total = dep_len × row_len × col_len</text>
+  <g filter="url(#sk)">
+    <rect x="100" y="290" width="50" height="30" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="150" y="290" width="50" height="30" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="200" y="290" width="50" height="30" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="250" y="290" width="50" height="30" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="300" y="290" width="50" height="30" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="350" y="290" width="50" height="30" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="125" y="310" text-anchor="middle" font-size="10" fill="#7a5415">off=0</text>
+  <text x="175" y="310" text-anchor="middle" font-size="10" fill="#7a5415">1</text>
+  <text x="225" y="310" text-anchor="middle" font-size="10" fill="#7a5415">2</text>
+  <text x="275" y="310" text-anchor="middle" font-size="10" fill="#7a5415">...</text>
+  <text x="375" y="310" text-anchor="middle" font-size="10" fill="#7a5415">total-1</text>
+  <text x="420" y="308" font-size="10" fill="#888">dep = off / plane</text>
+  <text x="420" y="322" font-size="10" fill="#888">r = rem / col_len, c = rem % col_len</text>
+
+  <!-- reduce arrow -->
+  <path d="M 215 326 L 215 350" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="227" y="346" font-size="11" fill="#2e6e2e">grid-stride 累加（long long）+ 两级归约</text>
+
+  <!-- reduction pipeline -->
+  <rect x="60" y="358" width="240" height="50" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="6" filter="url(#sk)"/>
+  <text x="74" y="378" font-family="monospace" font-size="10" fill="#333">long long sum = 0;</text>
+  <text x="74" y="394" font-family="monospace" font-size="10" fill="#333">for(off=tid; off&lt;total; off+=stride)</text>
+  <text x="74" y="406" font-family="monospace" font-size="9" fill="#666">  sum += input[((S_DEP+dep)·M+S_ROW+r)·K+S_COL+c];</text>
+
+  <rect x="320" y="358" width="240" height="50" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1" rx="6" filter="url(#sk)"/>
+  <text x="334" y="378" font-size="11" fill="#7a5415" font-weight="bold">warp_reduce + block 终约</text>
+  <text x="334" y="394" font-size="10" fill="#555">__shfl_down_sync 树形归约（long long）</text>
+  <text x="334" y="406" font-size="10" fill="#555">shared → warp 0 终约 → block_sum</text>
+
+  <!-- cross-block -->
+  <path d="M 440 412 L 440 430" stroke="#446688" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <rect x="310" y="434" width="260" height="34" fill="#e8f0fe" stroke="#446688" stroke-width="1.3" rx="6" filter="url(#sk)"/>
+  <text x="440" y="450" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">atomicAdd → scratch(long long)</text>
+  <text x="440" y="462" text-anchor="middle" font-size="9" fill="#888">output[0] = (int)scratch[0]（匹配 torch.sum int64→int32）</text>
+
+  <!-- output -->
+  <g filter="url(#sk)">
+    <rect x="630" y="436" width="150" height="44" rx="8" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.7"/>
+  </g>
+  <text x="705" y="456" text-anchor="middle" font-size="11" fill="#2e6e2e">output[0]</text>
+  <text x="705" y="474" text-anchor="middle" font-size="15" font-weight="bold" fill="#2e6e2e">= 子立方体和</text>
+  <path d="M 572 451 Q 602 451 625 451" stroke="#4a7a3a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- insight box -->
+  <g filter="url(#sk)">
+    <rect x="590" y="110" width="300" height="220" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/>
+  </g>
+  <text x="608" y="134" font-size="12" font-weight="bold" fill="#444">💡 核心洞察</text>
+  <text x="608" y="156" font-size="11" fill="#444">子立方体在内存中并非连续——</text>
+  <text x="608" y="172" font-size="11" fill="#444">每个深度片间隔 M·K，每行间隔 K。</text>
+  <text x="608" y="188" font-size="11" fill="#444">故展平需 off→(dep,r,c)→全局下标，</text>
+  <text x="608" y="204" font-size="11" fill="#444">多一层 div/mod（共 2 次）。</text>
+  <text x="608" y="230" font-size="11" font-weight="bold" fill="#b85450">与 #48 的差异：</text>
+  <text x="608" y="246" font-size="11" fill="#b85450">索引从 2D 映射 input[(S_ROW+r)·M</text>
+  <text x="608" y="262" font-size="11" fill="#b85450">+ S_COL+c] 升级为 3D 映射 input[((</text>
+  <text x="608" y="278" font-size="11" fill="#b85450">S_DEP+dep)·M+r)·K+c]，归约骨架复用。</text>
+  <text x="608" y="304" font-size="11" fill="#2e6e2e">long long 累加 → memory-bound</text>
+  <text x="608" y="320" font-size="11" fill="#2e6e2e">total 务必用 long long 防溢出</text>
+</svg>

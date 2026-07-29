@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 440" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="11"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.6"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="740" height="440" fill="#fdfcf7"/>
+
+  <text x="370" y="30" text-anchor="middle" font-size="16" fill="#2b2b2b" font-weight="bold">Ordinary Least Squares：normal equations + Cholesky 三段流水线</text>
+  <text x="370" y="50" text-anchor="middle" font-size="11" fill="#888">β = (XᵀX)⁻¹ Xᵀy  ⇒  先算 A=XᵀX、b=Xᵀy，再 Cholesky 分解 + 前代/回代</text>
+
+  <!-- 输入 -->
+  <text x="34" y="92" font-size="12" fill="#446688" font-weight="bold">输入</text>
+  <rect x="34" y="100" width="96" height="56" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="82" y="122" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">X</text>
+  <text x="82" y="138" text-anchor="middle" font-size="9" fill="#666">n_samples × n_feat</text>
+  <text x="82" y="150" text-anchor="middle" font-size="9" fill="#666">行主序</text>
+  <rect x="34" y="170" width="96" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="82" y="188" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">y</text>
+  <text x="82" y="202" text-anchor="middle" font-size="9" fill="#666">n_samples</text>
+
+  <!-- ① Gram -->
+  <path d="M 134 128 L 196 128" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="150" y="120" font-size="9" fill="#888">X</text>
+  <rect x="200" y="96" width="150" height="68" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="275" y="118" text-anchor="middle" font-size="12" fill="#7a5415" font-weight="bold">① gram_kernel</text>
+  <text x="275" y="134" text-anchor="middle" font-size="10" fill="#555">tiled GEMM（shared mem）</text>
+  <text x="275" y="150" text-anchor="middle" font-size="10" fill="#555">A[i][j] = Σ_k X[k][i]·X[k][j]</text>
+
+  <!-- ② Matvec -->
+  <path d="M 134 190 L 196 168" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="150" y="178" font-size="9" fill="#888">y</text>
+  <rect x="200" y="178" width="150" height="56" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="275" y="198" text-anchor="middle" font-size="12" fill="#7a5415" font-weight="bold">② matvec_kernel</text>
+  <text x="275" y="214" text-anchor="middle" font-size="10" fill="#555">coalesced per-feature</text>
+  <text x="275" y="228" text-anchor="middle" font-size="10" fill="#555">b[i] = Σ_k X[k][i]·y[k]</text>
+
+  <!-- 中间量 A / b -->
+  <path d="M 352 130 L 392 130" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <rect x="396" y="104" width="86" height="52" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="439" y="124" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">A = XᵀX</text>
+  <text x="439" y="140" text-anchor="middle" font-size="9" fill="#666">n×n（对称正定）</text>
+  <path d="M 352 206 L 392 178" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <rect x="396" y="178" width="86" height="44" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="439" y="196" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">b = Xᵀy</text>
+  <text x="439" y="212" text-anchor="middle" font-size="9" fill="#666">n</text>
+
+  <!-- ③ Cholesky + solve -->
+  <path d="M 484 130 L 540 150" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <path d="M 484 200 L 540 175" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <rect x="544" y="118" width="168" height="92" fill="#fce4ec" stroke="#b85450" stroke-width="1.6" rx="6" filter="url(#rough2)"/>
+  <text x="628" y="140" text-anchor="middle" font-size="12" fill="#b85450" font-weight="bold">③ cholesky_solve_kernel</text>
+  <text x="628" y="156" text-anchor="middle" font-size="10" fill="#555">单 block，A 驻 shared</text>
+  <text x="628" y="172" text-anchor="middle" font-size="10" fill="#555">A = L Lᵀ  →  L z = b</text>
+  <text x="628" y="188" text-anchor="middle" font-size="10" fill="#555">→  Lᵀ β = z</text>
+  <text x="628" y="204" text-anchor="middle" font-size="9" fill="#888">列间顺序依赖 + 列内并行 + barrier</text>
+
+  <!-- 输出 -->
+  <path d="M 714 164 L 700 164" stroke="#5a5a5a" stroke-width="0" fill="none"/>
+  <rect x="560" y="232" width="136" height="44" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.6" rx="6" filter="url(#rough2)"/>
+  <text x="628" y="252" text-anchor="middle" font-size="12" fill="#4a7a3a" font-weight="bold">β（n_feat）</text>
+  <text x="628" y="268" text-anchor="middle" font-size="9" fill="#666">最小二乘解，写回 device</text>
+  <path d="M 628 212 L 628 230" stroke="#b85450" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- 下方说明 -->
+  <rect x="34" y="300" width="672" height="124" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="50" y="322" font-size="12" fill="#2e6e2e" font-weight="bold">三段流水线的 CUDA 概念对应</text>
+  <text x="50" y="342" font-size="11" fill="#444">① gram_kernel：Shared Memory Tiling —— 复用 X 子块算 XᵀX，把归约维度 n_samples 折叠进 tile</text>
+  <text x="50" y="362" font-size="11" fill="#444">② matvec_kernel：coalesced 访存 —— 一个 thread 一个 feature，warp 内读 X 同一行连续列，合并读</text>
+  <text x="50" y="382" font-size="11" fill="#444">③ cholesky_solve_kernel：顺序算法并行化 —— 列间依赖串行、列内行并行，block_reduce + __syncthreads 推进</text>
+  <text x="50" y="402" font-size="11" fill="#444">规模判据：n_feat 小（≤NMAX）时 A 整块驻 shared；graded 测点 n_feat=32，A 仅 4KB</text>
+  <text x="50" y="418" font-size="10" fill="#888">瓶颈：① memory-bound（折叠 n_samples）③ compute/latency-bound（n³ 但 n 小，受 barrier 与串行列限制）</text>
+</svg>

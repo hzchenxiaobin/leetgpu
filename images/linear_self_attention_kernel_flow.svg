@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" font-family="'Comic Sans MS','Marker Felt','Kaiti SC',楷体,'Segoe UI',cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="29" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#3a3a3a"/>
+    </marker>
+    <marker id="ard" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#b03a3a"/>
+    </marker>
+  </defs>
+
+  <rect width="960" height="540" fill="#fdfcf7"/>
+
+  <text x="480" y="34" text-anchor="middle" font-size="19" fill="#2b2b2b" font-weight="bold">四 kernel 数据流与 block 映射</text>
+  <path d="M 300 44 Q 480 52 660 44" stroke="#2b2b2b" stroke-width="1.4" fill="none" filter="url(#sk)"/>
+
+  <!-- 输入 -->
+  <g filter="url(#sk)">
+    <rect x="30" y="120" width="70" height="40" rx="5" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+  </g>
+  <text x="65" y="138" text-anchor="middle" font-size="11" fill="#2b6e9e" font-weight="bold">Q, K, V</text>
+  <text x="65" y="152" text-anchor="middle" font-size="9" fill="#888">device ptrs</text>
+
+  <!-- ============ kernel 1: phi ============ -->
+  <g filter="url(#sk)">
+    <rect x="150" y="92" width="150" height="96" rx="8" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.5"/>
+  </g>
+  <text x="225" y="112" text-anchor="middle" font-size="12" fill="#2b6e9e" font-weight="bold">① phi_kernel</text>
+  <text x="225" y="130" text-anchor="middle" font-size="10" fill="#444">φQ=φ(Q), φK=φ(K)</text>
+  <text x="225" y="146" text-anchor="middle" font-size="9" fill="#888">grid-stride over M·d</text>
+  <text x="225" y="162" text-anchor="middle" font-size="9" fill="#888">block=256, coalesced</text>
+  <text x="225" y="178" text-anchor="middle" font-size="9" fill="#888">ELU+1: (x&gt;0)?x+1:expf(x)</text>
+
+  <path d="M 100 140 L 148 140" stroke="#3a3a3a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- φQ, φK 中间 -->
+  <g filter="url(#sk)">
+    <rect x="340" y="120" width="70" height="40" rx="5" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.2"/>
+  </g>
+  <text x="375" y="138" text-anchor="middle" font-size="11" fill="#c98a2b" font-weight="bold">φQ, φK</text>
+  <text x="375" y="152" text-anchor="middle" font-size="9" fill="#888">M×d (HBM)</text>
+
+  <path d="M 300 140 L 338 140" stroke="#3a3a3a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- ============ kernel 2: S ============ -->
+  <g filter="url(#sk)">
+    <rect x="460" y="60" width="170" height="80" rx="8" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.5"/>
+  </g>
+  <text x="545" y="80" text-anchor="middle" font-size="12" fill="#2e6e2e" font-weight="bold">② compute_S_kernel</text>
+  <text x="545" y="98" text-anchor="middle" font-size="10" fill="#444">S = φK^T @ V  (d×d)</text>
+  <text x="545" y="114" text-anchor="middle" font-size="9" fill="#888">一线程一 (i,j)，串行归约 m</text>
+  <text x="545" y="128" text-anchor="middle" font-size="9" fill="#888">grid=⌈d²/256⌉, block=256</text>
+
+  <!-- ============ kernel 3: z ============ -->
+  <g filter="url(#sk)">
+    <rect x="460" y="150" width="170" height="80" rx="8" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.5"/>
+  </g>
+  <text x="545" y="170" text-anchor="middle" font-size="12" fill="#2e6e2e" font-weight="bold">② compute_z_kernel</text>
+  <text x="545" y="188" text-anchor="middle" font-size="10" fill="#444">z = Σ_m φK[m]  (d)</text>
+  <text x="545" y="204" text-anchor="middle" font-size="9" fill="#888">一 block 一列 i, grid-stride m</text>
+  <text x="545" y="218" text-anchor="middle" font-size="9" fill="#888">warp shuffle 树形归约</text>
+
+  <path d="M 410 130 L 458 95" stroke="#3a3a3a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 410 150 L 458 185" stroke="#3a3a3a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="425" y="118" font-size="9" fill="#888">φK,V</text>
+  <text x="425" y="178" font-size="9" fill="#888">φK</text>
+
+  <!-- S, z 中间 -->
+  <g filter="url(#sk)">
+    <rect x="670" y="86" width="46" height="34" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.2"/>
+  </g>
+  <text x="693" y="108" text-anchor="middle" font-size="10" fill="#c98a2b" font-weight="bold">S d×d</text>
+  <g filter="url(#sk)">
+    <rect x="670" y="174" width="46" height="26" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.2"/>
+  </g>
+  <text x="693" y="191" text-anchor="middle" font-size="10" fill="#c98a2b" font-weight="bold">z (d)</text>
+
+  <path d="M 630 95 L 668 100" stroke="#3a3a3a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 630 185 L 668 185" stroke="#3a3a3a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- ============ kernel 4: output fused ============ -->
+  <g filter="url(#sk)">
+    <rect x="760" y="92" width="180" height="120" rx="8" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.5"/>
+  </g>
+  <text x="850" y="112" text-anchor="middle" font-size="12" fill="#8e5db8" font-weight="bold">③④ compute_output_kernel</text>
+  <text x="850" y="130" text-anchor="middle" font-size="10" fill="#444">num=φQ@S, den=φQ@z</text>
+  <text x="850" y="146" text-anchor="middle" font-size="10" fill="#444">output = num / den</text>
+  <text x="850" y="164" text-anchor="middle" font-size="9" fill="#888">一 block 一 query 行 m</text>
+  <text x="850" y="178" text-anchor="middle" font-size="9" fill="#888">block=d 线程</text>
+  <text x="850" y="192" text-anchor="middle" font-size="9" fill="#888">smem_q[D_MAX] 缓存 φQ 行</text>
+  <text x="850" y="206" text-anchor="middle" font-size="9" fill="#888">thread0 归约 den 广播</text>
+
+  <path d="M 716 103 L 758 120" stroke="#b03a3a" stroke-width="1.3" fill="none" marker-end="url(#ard)" filter="url(#sk)"/>
+  <path d="M 716 187 L 758 175" stroke="#b03a3a" stroke-width="1.3" fill="none" marker-end="url(#ard)" filter="url(#sk)"/>
+  <path d="M 410 130 L 758 150" stroke="#b03a3a" stroke-width="1" stroke-dasharray="3,3" fill="none" marker-end="url(#ard)" filter="url(#sk)"/>
+  <text x="565" y="245" font-size="9" fill="#b03a3a">φQ (经 HBM)</text>
+
+  <!-- 输出 -->
+  <g filter="url(#sk)">
+    <rect x="800" y="232" width="100" height="40" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="850" y="250" text-anchor="middle" font-size="11" fill="#2e6e2e" font-weight="bold">output</text>
+  <text x="850" y="264" text-anchor="middle" font-size="9" fill="#888">M×d</text>
+  <path d="M 850 212 L 850 230" stroke="#8e5db8" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- ============ 底部：shared memory 与同步说明 ============ -->
+  <g filter="url(#sk)">
+    <rect x="30" y="300" width="430" height="210" rx="8" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="50" y="324" font-size="12" fill="#7a5415" font-weight="bold">存储层次使用</text>
+  <text x="50" y="346" font-size="11" fill="#444">• global：Q/K/V 读，φQ/φK/S/z 物化，output 写</text>
+  <text x="50" y="366" font-size="11" fill="#444">• shared（output kernel）：</text>
+  <text x="62" y="384" font-size="10" fill="#666">  smem_q[D_MAX]：φQ[m] 整行，d 线程复用做点积</text>
+  <text x="62" y="402" font-size="10" fill="#666">  smem_den：thread0 算分母后广播给全 block</text>
+  <text x="50" y="424" font-size="11" fill="#444">• shared（z kernel）：warp_sum[16] 跨 warp 归约</text>
+  <text x="50" y="446" font-size="11" fill="#444">• register：num 累加器、z 的 acc</text>
+  <text x="50" y="476" font-size="11" fill="#b03a3a" font-weight="bold">S 仅 d²≤16384 float（64KB）→ 可常驻 shared</text>
+  <text x="50" y="496" font-size="10" fill="#888">无 M×M 中间矩阵，长序列不 OOM</text>
+
+  <g filter="url(#sk)">
+    <rect x="480" y="300" width="450" height="210" rx="8" fill="#fdecec" stroke="#b03a3a" stroke-width="1.2"/>
+  </g>
+  <text x="500" y="324" font-size="12" fill="#b03a3a" font-weight="bold">output kernel 两次 __syncthreads</text>
+  <text x="500" y="348" font-size="11" fill="#444">① 载入 smem_q[tid]=φQ[m*d+tid] 后</text>
+  <text x="510" y="366" font-size="10" fill="#666">  全 block 写 smem_q → 读 smem_q 做点积</text>
+  <text x="510" y="382" font-size="10" fill="#b03a3a">  缺失：分子读到未初始化 φQ → 错误</text>
+  <text x="500" y="408" font-size="11" fill="#444">② thread0 写 smem_den 后</text>
+  <text x="510" y="426" font-size="10" fill="#666">  thread0 算 den → 全 block 读 smem_den 除法</text>
+  <text x="510" y="442" font-size="10" fill="#b03a3a">  缺失：分母读垃圾值 → 除法错误</text>
+  <text x="500" y="472" font-size="11" fill="#2e6e2e" font-weight="bold">coalesced 访问：num += smem_q[i]*S[i*d+tid]</text>
+  <text x="510" y="490" font-size="10" fill="#666">  同 i 全线程读 S[i*d+0..d-1] 连续，smem_q[i] 广播</text>
+</svg>

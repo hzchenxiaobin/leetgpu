@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 380" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="9"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="620" height="380" fill="#fafafa"/>
+
+  <text x="310" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">fnv1a 一轮内部：拆 4 字节 × 乘 FNV_PRIME（mod 2³²）</text>
+
+  <!-- input 32-bit value -->
+  <text x="30" y="62" font-size="12" fill="#446688" font-weight="bold">hash 状态（32 位）</text>
+  <g font-size="11" fill="#333">
+    <rect x="30" y="70" width="220" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="140" y="89" text-anchor="middle">h  （上一轮输出 / 初始 = OFFSET_BASIS）</text>
+  </g>
+
+  <!-- 4 bytes -->
+  <text x="30" y="124" font-size="12" fill="#666" font-weight="bold">拆成 4 字节（小端）</text>
+  <g font-size="11" fill="#333">
+    <rect x="30" y="132" width="50" height="26" fill="#fff" stroke="#888" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="55" y="150" text-anchor="middle">byte0</text>
+    <rect x="84" y="132" width="50" height="26" fill="#fff" stroke="#888" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="109" y="150" text-anchor="middle">byte1</text>
+    <rect x="138" y="132" width="50" height="26" fill="#fff" stroke="#888" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="163" y="150" text-anchor="middle">byte2</text>
+    <rect x="192" y="132" width="50" height="26" fill="#fff" stroke="#888" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="217" y="150" text-anchor="middle">byte3</text>
+  </g>
+  <g stroke="#888" stroke-width="1" fill="none" filter="url(#rough2)">
+    <path d="M 140 98 L 55 130" marker-end="url(#arr)"/>
+    <path d="M 140 98 L 109 130" marker-end="url(#arr)"/>
+    <path d="M 140 98 L 163 130" marker-end="url(#arr)"/>
+    <path d="M 140 98 L 217 130" marker-end="url(#arr)"/>
+  </g>
+  <text x="260" y="150" font-size="10" fill="#888">= (h &gt;&gt; 8·k) &amp; 0xFF</text>
+
+  <!-- per-byte op -->
+  <text x="290" y="124" font-size="12" fill="#b85450" font-weight="bold">每个字节做一次：</text>
+  <rect x="290" y="132" width="300" height="26" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="440" y="150" text-anchor="middle" font-size="12" fill="#b85450" font-weight="bold">h = (h ^ byte) * FNV_PRIME</text>
+  <text x="290" y="174" font-size="11" fill="#555">unsigned int 乘法自动 mod 2³² ≡ 64 位乘后 &amp; 0xFFFFFFFF</text>
+
+  <!-- loop arrow -->
+  <path d="M 590 145 C 612 145 612 110 590 110 L 440 110" stroke="#b85450" stroke-width="1.3" fill="none" filter="url(#rough2)" marker-end="url(#arr)"/>
+  <text x="500" y="104" font-size="10" fill="#b85450">循环 4 次（byte0→3）</text>
+
+  <!-- output -->
+  <text x="30" y="208" font-size="12" fill="#4a7a3a" font-weight="bold">本轮输出（新 32 位哈希）</text>
+  <g font-size="11" fill="#333">
+    <rect x="30" y="216" width="220" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="140" y="235" text-anchor="middle">h' = fnv1a(x)</text>
+  </g>
+  <g stroke="#4a7a3a" stroke-width="1.3" fill="none" filter="url(#rough2)">
+    <path d="M 440 158 L 440 200 L 140 200 L 140 214" marker-end="url(#arr)"/>
+  </g>
+
+  <!-- R-round chain -->
+  <rect x="24" y="262" width="572" height="100" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="8" filter="url(#rough2)"/>
+  <text x="34" y="282" font-size="12" fill="#d6a040" font-weight="bold">R 轮链式调用：每轮输出喂下一轮输入</text>
+  <g font-size="11" fill="#333">
+    <rect x="40" y="298" width="40" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="60" y="315" text-anchor="middle">x</text>
+    <rect x="110" y="298" width="60" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="140" y="315" text-anchor="middle">round 1</text>
+    <rect x="210" y="298" width="60" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="240" y="315" text-anchor="middle">round 2</text>
+    <rect x="310" y="298" width="40" height="24" fill="#f5f5f5" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="330" y="315" text-anchor="middle" fill="#888">…</text>
+    <rect x="380" y="298" width="60" height="24" fill="#fce4ec" stroke="#b85450" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="410" y="315" text-anchor="middle">round R</text>
+    <rect x="470" y="298" width="50" height="24" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.1" rx="3" filter="url(#rough2)"/>
+    <text x="495" y="315" text-anchor="middle">output</text>
+  </g>
+  <g stroke="#d6a040" stroke-width="1.3" fill="none" filter="url(#rough2)">
+    <path d="M 80 310 L 108 310" marker-end="url(#arr)"/>
+    <path d="M 170 310 L 208 310" marker-end="url(#arr)"/>
+    <path d="M 270 310 L 308 310" marker-end="url(#arr)"/>
+    <path d="M 350 310 L 378 310" marker-end="url(#arr)"/>
+    <path d="M 440 310 L 468 310" marker-end="url(#arr)"/>
+  </g>
+  <text x="310" y="348" text-anchor="middle" font-size="11" fill="#555">每元素 = R × 4 次 (XOR + 32 位乘) → R=10 时约 40 次整数乘，算术强度高</text>
+</svg>

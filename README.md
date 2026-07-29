@@ -1,6 +1,6 @@
 # LeetGPU 题解
 
-> 73 道 [LeetGPU](https://leetgpu.com/) CUDA 挑战题解 —— 每道含完整可编译 kernel + ncu profiling + 手绘 sketch 风 SVG 图解，按 CUDA 概念覆盖选题、按难度归档。
+> 80 道 [LeetGPU](https://leetgpu.com/) CUDA 挑战题解 —— 每道含完整可编译 kernel + ncu profiling + 手绘 sketch 风 SVG 图解，按 CUDA 概念覆盖选题、按难度归档。
 
 📚 **在线网站**：https://hzchenxiaobin.github.io/leetgpu/
 
@@ -19,9 +19,9 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## 题解列表
 
-共 **73 道**（简单 21 / 中等 46 / 困难 6），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
+共 **81 道**（简单 22 / 中等 49 / 困难 10），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention、Linear Attention、K-Means、Bitonic Sort、Multi-Agent Simulation 等。
 
-### Easy · 简单（21 道）
+### Easy · 简单（22 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
@@ -34,6 +34,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 19 | [Reverse Array](easy/19_reverse_array/leetgpu-reverse-array-solution.md) | in-place swap、1D 并行、coalesced access |
 | 21 | [ReLU](easy/21_relu/leetgpu-relu-solution.md) | elementwise、warp divergence、branchless |
 | 23 | [Leaky ReLU](easy/23_leaky_relu/leetgpu-leaky-relu-solution.md) | elementwise、branchless、activation |
+| 24 | [Rainbow Table](easy/24_rainbow_table/leetgpu-rainbow-table-solution.md) | elementwise、grid-stride、串行哈希循环、整数回绕 |
 | 31 | [Matrix Copy](easy/31_matrix_copy/leetgpu-matrix-copy-solution.md) | 内存带宽、coalesced access、float4 向量化 |
 | 41 | [Simple Inference](easy/41_simple_inference/leetgpu-simple-inference-solution.md) | PyTorch、Linear、batch size、GEMM |
 | 52 | [SiLU](easy/52_silu/leetgpu-silu-solution.md) | elementwise、grid-stride、`__expf` 快速数学 |
@@ -47,7 +48,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 110 | [Scalar Multiply](easy/110_scalar_multiply/leetgpu-scalar-multiply-solution.md) | element-wise、attention scaling |
 | 111 | [Element Reversal](easy/111_element_reversal/leetgpu-element-reversal-solution.md) | element-wise、结果验证 |
 
-### Medium · 中等（46 道）
+### Medium · 中等（49 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
@@ -66,6 +67,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 29 | [Top K Selection](medium/29_top_k_selection/leetgpu-top-k-selection-solution.md) | bitonic sort、堆归约、selection |
 | 30 | [Batched Matrix Multiplication](medium/30_batched_matrix_multiplication/leetgpu-batched-matrix-multiplication-solution.md) | batched GEMM、tiled matmul、register blocking |
 | 32 | [INT8 Quantized MatMul](medium/32_int8_quantized_matmul/leetgpu-int8-quantized-matmul-solution.md) | INT8 量化、tiled GEMM、INT32 累加、requantize |
+| 33 | [Ordinary Least Squares](medium/33_ordinary_least_squares/leetgpu-ordinary-least-squares-solution.md) | 线性代数、GEMM（XᵀX）、归约、Cholesky 分解、三角求解 |
 | 35 | [Monte Carlo Integration](medium/35_monte_carlo_integration/leetgpu-monte-carlo-integration-solution.md) | sum reduction、warp shuffle、atomicAdd、memory-bound |
 | 38 | [Nearest Neighbor](medium/38_nearest_neighbor/leetgpu-nearest-neighbor-solution.md) | pairwise distance、shared memory tiling、argmin 归约 |
 | 40 | [Batch Normalization](medium/40_batch_normalization/leetgpu-batch-normalization-solution.md) | normalization、reduction、数值稳定性 |
@@ -74,6 +76,8 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 44 | [Count 2D Array Element](medium/44_count_2d_array_element/leetgpu-count-2d-array-element-solution.md) | 2D 展平、predicate 归约、`atomicAdd`、warp shuffle |
 | 45 | [Count 3D Array Element](medium/45_count_3d_array_element/leetgpu-count-3d-array-element-solution.md) | 3D 展平、predicate 归约、`size_t` 防溢出、warp shuffle |
 | 47 | [Subarray Sum](medium/47_subarray_sum/leetgpu-subarray-sum-solution.md) | reduction、warp shuffle、block 归约 |
+| 48 | [2D Subarray Sum](medium/48_2d_subarray_sum/leetgpu-2d-subarray-sum-solution.md) | 2D 索引映射、子矩形展平、reduction、warp shuffle |
+| 49 | [3D Subarray Sum](medium/49_3d_subarray_sum/leetgpu-3d-subarray-sum-solution.md) | 3D 索引映射、子立方体展平、reduction、warp shuffle |
 | 50 | [RMS Normalization](medium/50_rms_normalization/leetgpu-rms-normalization-solution.md) | RMSNorm、warp shuffle、Llama |
 | 51 | [Max Subarray Sum](medium/51_max_subarray_sum/leetgpu-max-subarray-sum-solution.md) | 滑动窗口、prefix sum、reduction |
 | 55 | [Attention with Linear Biases (ALiBi)](medium/55_attn_w_linear_bias/leetgpu-attn-w-linear-bias-solution.md) | ALiBi、positional bias、online softmax |
@@ -98,12 +102,16 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 106 | [Token Embedding Layer](medium/106_token_embedding_layer/leetgpu-token-embedding-layer-solution.md) | embedding、gather、LayerNorm、融合 kernel |
 | 107 | [Argmax](medium/107_argmax/leetgpu-argmax-solution.md) | 归约、argmax、`__shfl_down_sync` |
 
-### Hard · 困难（6 道）
+### Hard · 困难（10 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
 | 12 | [Multi-Head Attention](hard/12_multi_head_attention/leetgpu-multi-head-attention-solution.md) | MHA、FlashAttention、融合 attention |
+| 14 | [Multi-Agent Simulation](hard/14_multi_agent_sim/leetgpu-multi-agent-simulation-solution.md) | O(N²) pairwise interaction、shared memory tiling、per-thread 串行归约、float4 向量化 |
+| 15 | [Sorting](hard/15_sorting/leetgpu-sorting-solution.md) | bitonic sort、排序网络、compare-swap、shared memory 局部排序 |
+| 20 | [K-Means Clustering](hard/20_kmeans_clustering/leetgpu-kmeans-clustering-solution.md) | 迭代算法、assign↔update 双 kernel、atomicAdd 归约、空簇处理 |
 | 53 | [Causal Self-Attention](hard/53_casual_attention/leetgpu-causal-self-attention-solution.md) | causal mask、online softmax、LLM prefill、PagedAttention 对偶 |
+| 56 | [Linear Self-Attention](hard/56_linear_attention/leetgpu-linear-self-attention-solution.md) | linear attention、kernel trick、ELU feature map、GEMM+reduction 流水线 |
 | 59 | [Sliding Window Self-Attention](hard/59_sliding_window_attn/leetgpu-sliding-window-self-attention-solution.md) | sliding window、kernel fusion |
 | 74 | [GPT-2 Transformer Block](hard/74_gpt2_block/leetgpu-gpt-2-transformer-block-solution.md) | Transformer、FlashAttention、LayerNorm、GEMM 端到端 |
 | 93 | [Llama Transformer Block](hard/93_llama_transformer_block/leetgpu-llama-transformer-block-solution.md) | RMSNorm+RoPE+GQA+SwiGLU、multi-kernel pipeline、算子融合 |
@@ -113,10 +121,10 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## leetgpu-challenges 题目完成情况
 
-下表对照 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库 `challenges/<difficulty>/<编号>_<name>/` 的 **全部 91 道题**，标注本仓库题解完成情况：✅ 已完成 74 道 / ⬜ 未完成 17 道。已完成题目链接到本仓库题解，未完成题目链接到 LeetGPU 在线题目。
+下表对照 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库 `challenges/<difficulty>/<编号>_<name>/` 的 **全部 91 道题**，标注本仓库题解完成情况：✅ 已完成 85 道 / ⬜ 未完成 6 道。已完成题目链接到本仓库题解，未完成题目链接到 LeetGPU 在线题目。
 
 
-### Easy · 简单（18/19）
+### Easy · 简单（19/19）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -129,7 +137,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 19 | Reverse Array | ✅ | [题解](easy/19_reverse_array/leetgpu-reverse-array-solution.md) |
 | 21 | ReLU | ✅ | [题解](easy/21_relu/leetgpu-relu-solution.md) |
 | 23 | Leaky ReLU | ✅ | [题解](easy/23_leaky_relu/leetgpu-leaky-relu-solution.md) |
-| 24 | Rainbow Table | ⬜ | [题目](https://leetgpu.com/challenges/rainbow-table) |
+| 24 | Rainbow Table | ✅ | [题解](easy/24_rainbow_table/leetgpu-rainbow-table-solution.md) |
 | 31 | Matrix Copy | ✅ | [题解](easy/31_matrix_copy/leetgpu-matrix-copy-solution.md) |
 | 41 | Simple Inference | ✅ | [题解](easy/41_simple_inference/leetgpu-simple-inference-solution.md) |
 | 52 | Sigmoid Linear Unit | ✅ | [题解](easy/52_silu/leetgpu-silu-solution.md) |
@@ -140,7 +148,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 66 | RGB to Grayscale | ✅ | [题解](easy/66_rgb_to_grayscale/leetgpu-rgb-to-grayscale-solution.md) |
 | 68 | Sigmoid Activation | ✅ | [题解](easy/68_sigmoid/leetgpu-sigmoid-solution.md) |
 
-### Medium · 中等（51/59）
+### Medium · 中等（57/59）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -160,10 +168,10 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 29 | Top K Selection | ✅ | [题解](medium/29_top_k_selection/leetgpu-top-k-selection-solution.md) |
 | 30 | Batched Matrix Multiplication | ✅ | [题解](medium/30_batched_matrix_multiplication/leetgpu-batched-matrix-multiplication-solution.md) |
 | 32 | INT8 Quantized MatMul | ✅ | [题解](medium/32_int8_quantized_matmul/leetgpu-int8-quantized-matmul-solution.md) |
-| 33 | Ordinary Least Squares | ⬜ | [题目](https://leetgpu.com/challenges/ordinary-least-squares) |
-| 34 | Logistic Regression | ⬜ | [题目](https://leetgpu.com/challenges/logistic-regression) |
+| 33 | Ordinary Least Squares | ✅ | [题解](medium/33_ordinary_least_squares/leetgpu-ordinary-least-squares-solution.md) |
+| 34 | Logistic Regression | ✅ | [题解](medium/34_logistic_regression/leetgpu-logistic-regression-solution.md) |
 | 35 | Monte Carlo Integration | ✅ | [题解](medium/35_monte_carlo_integration/leetgpu-monte-carlo-integration-solution.md) |
-| 37 | Matrix Power | ⬜ | [题目](https://leetgpu.com/challenges/matrix-power) |
+| 37 | Matrix Power | ✅ | [题解](medium/37_matrix_power/leetgpu-matrix-power-solution.md) |
 | 38 | Nearest Neighbor | ✅ | [题解](medium/38_nearest_neighbor/leetgpu-nearest-neighbor-solution.md) |
 | 40 | Batch Normalization | ✅ | [题解](medium/40_batch_normalization/leetgpu-batch-normalization-solution.md) |
 | 42 | 2D Max Pooling | ✅ | [题解](medium/42_2d_max_pooling/leetgpu-2d-max-pooling-solution.md) |
@@ -171,8 +179,8 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 44 | Count 2D Array Element | ✅ | [题解](medium/44_count_2d_array_element/leetgpu-count-2d-array-element-solution.md) |
 | 45 | Count 3D Array Element | ✅ | [题解](medium/45_count_3d_array_element/leetgpu-count-3d-array-element-solution.md) |
 | 47 | Subarray Sum | ✅ | [题解](medium/47_subarray_sum/leetgpu-subarray-sum-solution.md) |
-| 48 | 2D Subarray Sum | ⬜ | [题目](https://leetgpu.com/challenges/2d-subarray-sum) |
-| 49 | 3D Subarray Sum | ⬜ | [题目](https://leetgpu.com/challenges/3d-subarray-sum) |
+| 48 | 2D Subarray Sum | ✅ | [题解](medium/48_2d_subarray_sum/leetgpu-2d-subarray-sum-solution.md) |
+| 49 | 3D Subarray Sum | ✅ | [题解](medium/49_3d_subarray_sum/leetgpu-3d-subarray-sum-solution.md) |
 | 50 | RMS Normalization | ✅ | [题解](medium/50_rms_normalization/leetgpu-rms-normalization-solution.md) |
 | 51 | Max Subarray Sum | ✅ | [题解](medium/51_max_subarray_sum/leetgpu-max-subarray-sum-solution.md) |
 | 55 | Attention with Linear Biases | ✅ | [题解](medium/55_attn_w_linear_bias/leetgpu-attn-w-linear-bias-solution.md) |
@@ -202,21 +210,21 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 105 | Group Normalization | ✅ | [题解](medium/105_group_normalization/leetgpu-group-normalization-solution.md) |
 | 106 | Token Embedding Layer | ✅ | [题解](medium/106_token_embedding_layer/leetgpu-token-embedding-layer-solution.md) |
 | 109 | GRPO Surrogate Loss | ⬜ | [题目](https://leetgpu.com/challenges/grpo-surrogate-loss) |
-| 110 | Parallel Reverse Scan (GAE) | ⬜ | [题目](https://leetgpu.com/challenges/gae-reverse-scan) |
+| 110 | Parallel Reverse Scan (GAE) | ✅ | [题解](medium/110_gae_reverse_scan/leetgpu-gae-reverse-scan-solution.md) |
 
-### Hard · 困难（5/13）
+### Hard · 困难（8/13）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
 | 12 | Multi-Head Attention | ✅ | [题解](hard/12_multi_head_attention/leetgpu-multi-head-attention-solution.md) |
-| 14 | Multi-Agent Simulation | ⬜ | [题目](https://leetgpu.com/challenges/multi-agent-simulation) |
-| 15 | Sorting | ⬜ | [题目](https://leetgpu.com/challenges/sorting) |
-| 20 | K-Means Clustering | ⬜ | [题目](https://leetgpu.com/challenges/kmeans-clustering) |
+| 14 | Multi-Agent Simulation | ✅ | [题解](hard/14_multi_agent_sim/leetgpu-multi-agent-simulation-solution.md) |
+| 15 | Sorting | ✅ | [题解](hard/15_sorting/leetgpu-sorting-solution.md) |
+| 20 | K-Means Clustering | ✅ | [题解](hard/20_kmeans_clustering/leetgpu-kmeans-clustering-solution.md) |
 | 36 | Radix Sort | ⬜ | [题目](https://leetgpu.com/challenges/radix-sort) |
 | 39 | Fast Fourier Transform | ⬜ | [题目](https://leetgpu.com/challenges/fast-fourier-transform) |
 | 46 | BFS Shortest Path | ⬜ | [题目](https://leetgpu.com/challenges/bfs-shortest-path) |
 | 53 | Causal Self-Attention | ✅ | [题解](hard/53_casual_attention/leetgpu-causal-self-attention-solution.md) |
-| 56 | Linear Self-Attention | ⬜ | [题目](https://leetgpu.com/challenges/linear-self-attention) |
+| 56 | Linear Self-Attention | ✅ | [题解](hard/56_linear_attention/leetgpu-linear-self-attention-solution.md) |
 | 59 | Sliding Window Self-Attention | ✅ | [题解](hard/59_sliding_window_attn/leetgpu-sliding-window-self-attention-solution.md) |
 | 73 | All-Pairs Shortest Paths | ⬜ | [题目](https://leetgpu.com/challenges/all-pairs-shortest-paths) |
 | 74 | GPT-2 Transformer Block | ✅ | [题解](hard/74_gpt2_block/leetgpu-gpt-2-transformer-block-solution.md) |

@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 540" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="3" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+    <marker id="arL" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#b85450"/>
+    </marker>
+  </defs>
+  <rect width="900" height="540" fill="#fdfcf7"/>
+
+  <text x="450" y="32" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">Worked Example：B=1, S=4, γ=0.9, λ=0.5, decay=0.45</text>
+  <path d="M 250 40 Q 450 48 650 40" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- rewards row -->
+  <text x="40" y="74" font-size="12" font-weight="bold" fill="#2b6e9e">rewards</text>
+  <g filter="url(#sk)">
+    <rect x="180" y="58" width="90" height="32" rx="5" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="270" y="58" width="90" height="32" rx="5" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="360" y="58" width="90" height="32" rx="5" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="450" y="58" width="90" height="32" rx="5" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+  </g>
+  <text x="225" y="79" text-anchor="middle" font-size="13" fill="#2b6e9e">1.0</text>
+  <text x="315" y="79" text-anchor="middle" font-size="13" fill="#2b6e9e">2.0</text>
+  <text x="405" y="79" text-anchor="middle" font-size="13" fill="#2b6e9e">3.0</text>
+  <text x="495" y="79" text-anchor="middle" font-size="13" fill="#2b6e9e">4.0</text>
+  <text x="556" y="79" font-size="10" fill="#888">t=0,1,2,3</text>
+
+  <!-- values row -->
+  <text x="40" y="112" font-size="12" font-weight="bold" fill="#2b6e9e">values</text>
+  <g filter="url(#sk)">
+    <rect x="180" y="96" width="90" height="32" rx="5" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="270" y="96" width="90" height="32" rx="5" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="360" y="96" width="90" height="32" rx="5" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="450" y="96" width="90" height="32" rx="5" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+  </g>
+  <text x="225" y="117" text-anchor="middle" font-size="13" fill="#2b6e9e">0.5</text>
+  <text x="315" y="117" text-anchor="middle" font-size="13" fill="#2b6e9e">1.0</text>
+  <text x="405" y="117" text-anchor="middle" font-size="13" fill="#2b6e9e">1.5</text>
+  <text x="495" y="117" text-anchor="middle" font-size="13" fill="#2b6e9e">2.0</text>
+
+  <!-- delta computation -->
+  <path d="M 315 130 L 315 150" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="328" y="144" font-size="10" fill="#7a5415">δₜ = rₜ + γ·next_v − vₜ（末步 next_v=0）</text>
+
+  <!-- delta row -->
+  <text x="40" y="168" font-size="12" font-weight="bold" fill="#7a5415">δ (TD)</text>
+  <g filter="url(#sk)">
+    <rect x="180" y="152" width="90" height="32" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+    <rect x="270" y="152" width="90" height="32" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+    <rect x="360" y="152" width="90" height="32" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+    <rect x="450" y="152" width="90" height="32" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+  </g>
+  <text x="225" y="173" text-anchor="middle" font-size="13" fill="#7a5415">1.4</text>
+  <text x="315" y="173" text-anchor="middle" font-size="13" fill="#7a5415">2.35</text>
+  <text x="405" y="173" text-anchor="middle" font-size="13" fill="#7a5415">3.3</text>
+  <text x="495" y="173" text-anchor="middle" font-size="13" fill="#7a5415">2.0</text>
+  <text x="556" y="173" font-size="10" fill="#888">(0.45, δ) per step</text>
+
+  <!-- element-as-pair row -->
+  <text x="40" y="210" font-size="12" font-weight="bold" fill="#7a5415">元素</text>
+  <g filter="url(#sk)">
+    <rect x="180" y="194" width="90" height="32" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+    <rect x="270" y="194" width="90" height="32" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+    <rect x="360" y="194" width="90" height="32" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+    <rect x="450" y="194" width="90" height="32" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+  </g>
+  <text x="225" y="215" text-anchor="middle" font-size="12" fill="#7a5415">(0.45,1.4)</text>
+  <text x="315" y="215" text-anchor="middle" font-size="12" fill="#7a5415">(0.45,2.35)</text>
+  <text x="405" y="215" text-anchor="middle" font-size="12" fill="#7a5415">(0.45,3.3)</text>
+  <text x="495" y="215" text-anchor="middle" font-size="12" fill="#7a5415">(0.45,2.0)</text>
+
+  <!-- reverse scan: big leftward arrow -->
+  <path d="M 480 244 L 240 244" stroke="#b85450" stroke-width="2.2" fill="none" marker-end="url(#arL)" filter="url(#sk)"/>
+  <text x="360" y="238" text-anchor="middle" font-size="12" font-weight="bold" fill="#b85450">反向 inclusive scan：inc[t] = combine(元素[t..3])</text>
+
+  <!-- inc row -->
+  <text x="40" y="278" font-size="12" font-weight="bold" fill="#b85450">inc[t]</text>
+  <g filter="url(#sk)">
+    <rect x="180" y="262" width="90" height="38" rx="5" fill="#fce4ec" stroke="#b85450" stroke-width="1.3"/>
+    <rect x="270" y="262" width="90" height="38" rx="5" fill="#fce4ec" stroke="#b85450" stroke-width="1.3"/>
+    <rect x="360" y="262" width="90" height="38" rx="5" fill="#fce4ec" stroke="#b85450" stroke-width="1.3"/>
+    <rect x="450" y="262" width="90" height="38" rx="5" fill="#fce4ec" stroke="#b85450" stroke-width="1.3"/>
+  </g>
+  <text x="225" y="278" text-anchor="middle" font-size="10" fill="#b85450">(0.0410,</text>
+  <text x="225" y="293" text-anchor="middle" font-size="11" font-weight="bold" fill="#b85450">3.308)</text>
+  <text x="315" y="278" text-anchor="middle" font-size="10" fill="#b85450">(0.0911,</text>
+  <text x="315" y="293" text-anchor="middle" font-size="11" font-weight="bold" fill="#b85450">4.24)</text>
+  <text x="405" y="278" text-anchor="middle" font-size="10" fill="#b85450">(0.2025,</text>
+  <text x="405" y="293" text-anchor="middle" font-size="11" font-weight="bold" fill="#b85450">4.2)</text>
+  <text x="495" y="278" text-anchor="middle" font-size="10" fill="#b85450">(0.45,</text>
+  <text x="495" y="293" text-anchor="middle" font-size="11" font-weight="bold" fill="#b85450">2.0)</text>
+
+  <!-- step-by-step on the right -->
+  <g filter="url(#sk)">
+    <rect x="560" y="262" width="320" height="120" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-width="1.2" stroke-dasharray="5 3"/>
+  </g>
+  <text x="572" y="282" font-size="12" font-weight="bold" fill="#444">逐步推演（取 b 分量）</text>
+  <text x="572" y="302" font-size="11" fill="#444">A[3] = 2.0</text>
+  <text x="572" y="320" font-size="11" fill="#444">A[2] = 3.3 + 0.45·2.0 = 4.2</text>
+  <text x="572" y="338" font-size="11" fill="#444">A[1] = 2.35 + 0.45·4.2 = 4.24</text>
+  <text x="572" y="356" font-size="11" fill="#444">A[0] = 1.4 + 0.45·4.24 = 3.308</text>
+  <text x="572" y="374" font-size="11" font-weight="bold" fill="#2e6e2e">✓ 与 §1 示例一致</text>
+
+  <!-- advantages output -->
+  <path d="M 315 306 L 315 326" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="328" y="322" font-size="10" fill="#2e6e2e">取 b 分量 = Aₜ</text>
+
+  <text x="40" y="358" font-size="12" font-weight="bold" fill="#2e6e2e">advantages</text>
+  <g filter="url(#sk)">
+    <rect x="180" y="342" width="90" height="34" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+    <rect x="270" y="342" width="90" height="34" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+    <rect x="360" y="342" width="90" height="34" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+    <rect x="450" y="342" width="90" height="34" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+  </g>
+  <text x="225" y="364" text-anchor="middle" font-size="13" font-weight="bold" fill="#2e6e2e">3.308</text>
+  <text x="315" y="364" text-anchor="middle" font-size="13" font-weight="bold" fill="#2e6e2e">4.24</text>
+  <text x="405" y="364" text-anchor="middle" font-size="13" font-weight="bold" fill="#2e6e2e">4.2</text>
+  <text x="495" y="364" text-anchor="middle" font-size="13" font-weight="bold" fill="#2e6e2e">2.0</text>
+
+  <!-- bottom insight -->
+  <g filter="url(#sk)">
+    <rect x="40" y="400" width="840" height="120" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-width="1.2" stroke-dasharray="5 3"/>
+  </g>
+  <text x="56" y="424" font-size="13" font-weight="bold" fill="#444">💡 关键洞察</text>
+  <text x="56" y="446" font-size="12" fill="#444">inc[t] 的 a 分量 = decay^(S−t)（右侧所有 decay 连乘），仅用于跨 chunk/warp 拼接时缩放右侧 b；</text>
+  <text x="56" y="466" font-size="12" fill="#444">最终只要 b 分量 = Aₜ。并行时每段独立算 (a,b)，右侧 carry 提供后续衰减累积，O(log S) 拼接。</text>
+  <text x="56" y="488" font-size="12" fill="#b85450">Aₜ = a_loc[j] · carry.b + b_loc[j]　—— carry=identity 时退化为 chunk 内局部值（最右 chunk）。</text>
+  <text x="56" y="510" font-size="11" fill="#888">本质：把"串行递推"改写成"可结合函数复合的反向 scan"，并行深度从 O(S) 降到 O(log S)。</text>
+</svg>

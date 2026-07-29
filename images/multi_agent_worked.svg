@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 500" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="37" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="920" height="500" fill="#fdfcf7"/>
+
+  <text x="460" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">Worked Example：两 agent 交互（N=2, r²=25, α=0.05）</text>
+  <path d="M 250 42 Q 460 50 670 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- input agents -->
+  <text x="40" y="74" font-size="12" font-weight="bold" fill="#2b6e9e">输入</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="84" width="180" height="44" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+  </g>
+  <text x="130" y="104" text-anchor="middle" font-size="10" font-weight="bold" fill="#2b6e9e">agent0: pos(0,0) vel(1,0)</text>
+  <text x="130" y="120" text-anchor="middle" font-size="9" fill="#888">agents = [0,0,1,0, 1,1,0,1]</text>
+  <g filter="url(#sk)">
+    <rect x="240" y="84" width="180" height="44" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+  </g>
+  <text x="330" y="104" text-anchor="middle" font-size="10" font-weight="bold" fill="#2b6e9e">agent1: pos(1,1) vel(0,1)</text>
+  <text x="330" y="120" text-anchor="middle" font-size="9" fill="#888">距离² = (0−1)²+(0−1)² = 2 &lt; 25 → 互为邻居</text>
+
+  <!-- thread 0 compute -->
+  <text x="40" y="158" font-size="12" font-weight="bold" fill="#b85450">t0 (agent0):  邻居 = {agent1}</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="168" width="400" height="118" rx="6" fill="#fff5f5" stroke="#b85450" stroke-width="1.1"/>
+  </g>
+  <text x="52" y="188" font-size="10" fill="#444">sum_vx = 0 (vel1.x),  sum_vy = 1 (vel1.y),  count = 1</text>
+  <text x="52" y="206" font-size="10" fill="#444">avg_vx = 0/1 = 0,  avg_vy = 1/1 = 1</text>
+  <text x="52" y="226" font-size="10" fill="#444">nvx = 1 + 0.05×(0 − 1) = <tspan font-weight="bold" fill="#b85450">0.95</tspan></text>
+  <text x="52" y="244" font-size="10" fill="#444">nvy = 0 + 0.05×(1 − 0) = <tspan font-weight="bold" fill="#b85450">0.05</tspan></text>
+  <text x="52" y="264" font-size="10" fill="#444">npx = 0 + 0.95 = <tspan font-weight="bold" fill="#b85450">0.95</tspan>,  npy = 0 + 0.05 = <tspan font-weight="bold" fill="#b85450">0.05</tspan></text>
+  <text x="52" y="282" font-size="9" fill="#888">→ agent0' = [0.95, 0.05, 0.95, 0.05]</text>
+
+  <!-- thread 1 compute -->
+  <text x="480" y="158" font-size="12" font-weight="bold" fill="#b85450">t1 (agent1):  邻居 = {agent0}</text>
+  <g filter="url(#sk)">
+    <rect x="480" y="168" width="400" height="118" rx="6" fill="#fff5f5" stroke="#b85450" stroke-width="1.1"/>
+  </g>
+  <text x="492" y="188" font-size="10" fill="#444">sum_vx = 1 (vel0.x),  sum_vy = 0 (vel0.y),  count = 1</text>
+  <text x="492" y="206" font-size="10" fill="#444">avg_vx = 1/1 = 1,  avg_vy = 0/1 = 0</text>
+  <text x="492" y="226" font-size="10" fill="#444">nvx = 0 + 0.05×(1 − 0) = <tspan font-weight="bold" fill="#b85450">0.05</tspan></text>
+  <text x="492" y="244" font-size="10" fill="#444">nvy = 1 + 0.05×(0 − 1) = <tspan font-weight="bold" fill="#b85450">0.95</tspan></text>
+  <text x="492" y="264" font-size="10" fill="#444">npx = 1 + 0.05 = <tspan font-weight="bold" fill="#b85450">1.05</tspan>,  npy = 1 + 0.95 = <tspan font-weight="bold" fill="#b85450">1.95</tspan></text>
+  <text x="492" y="282" font-size="9" fill="#888">→ agent1' = [1.05, 1.95, 0.05, 0.95]</text>
+
+  <!-- geometry: positions before/after -->
+  <text x="40" y="316" font-size="12" font-weight="bold" fill="#7a5415">几何示意（位置/速度）</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="326" width="400" height="120" rx="6" fill="#fdfcf7" stroke="#d6a040" stroke-width="1.1"/>
+    <line x1="60" y1="430" x2="420" y2="430" stroke="#bbb" stroke-width="1"/>
+    <line x1="60" y1="340" x2="60" y2="436" stroke="#bbb" stroke-width="1"/>
+  </g>
+  <!-- agent0 before (0,0) -> after (0.95,0.05) -->
+  <g filter="url(#sk)">
+    <circle cx="100" cy="410" r="6" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <line x1="100" y1="410" x2="124" y2="410" stroke="#4a8edb" stroke-width="1.6" marker-end="url(#ar)"/>
+    <circle cx="157" cy="406" r="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="100" y="398" text-anchor="middle" font-size="8" fill="#2b6e9e">a0(0,0)</text>
+  <text x="157" y="394" text-anchor="middle" font-size="8" fill="#2e6e2e">a0'(0.95,.05)</text>
+  <!-- agent1 before (1,1) -> after (1.05,1.95) -->
+  <g filter="url(#sk)">
+    <circle cx="230" cy="380" r="6" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <line x1="230" y1="380" x2="230" y2="358" stroke="#4a8edb" stroke-width="1.6" marker-end="url(#ar)"/>
+    <circle cx="248" cy="346" r="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="230" y="368" text-anchor="middle" font-size="8" fill="#2b6e9e">a1(1,1)</text>
+  <text x="262" y="340" text-anchor="middle" font-size="8" fill="#2e6e2e">a1'(1.05,1.95)</text>
+  <!-- neighbor link -->
+  <g filter="url(#sk)">
+    <line x1="106" y1="406" x2="224" y2="382" stroke="#d6a040" stroke-width="1.2" stroke-dasharray="4,3"/>
+  </g>
+  <text x="165" y="356" text-anchor="middle" font-size="8" fill="#7a5415">d²=2 &lt; 25 邻居</text>
+  <text x="240" y="430" text-anchor="middle" font-size="8" fill="#888">蓝=更新前  绿=更新后  箭头=原速度方向</text>
+
+  <!-- output -->
+  <text x="480" y="316" font-size="12" font-weight="bold" fill="#2e6e2e">输出 agents_next</text>
+  <g filter="url(#sk)">
+    <rect x="480" y="326" width="400" height="58" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="680" y="350" text-anchor="middle" font-size="11" font-weight="bold" fill="#2e6e2e">[0.95, 0.05, 0.95, 0.05,   1.05, 1.95, 0.05, 0.95]</text>
+  <text x="680" y="370" text-anchor="middle" font-size="9" fill="#888">agent0'                    agent1'</text>
+
+  <!-- key insight -->
+  <g filter="url(#sk)">
+    <rect x="480" y="394" width="400" height="52" rx="6" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="680" y="416" text-anchor="middle" font-size="11" fill="#7a5415">两 agent 互相把对方速度"拉"向自己 → 速度靠拢</text>
+  <text x="680" y="434" text-anchor="middle" font-size="10" fill="#888">无邻居时 avg=自身速度, α(avg−v)=0, 速度不变（boundary 测试）</text>
+</svg>

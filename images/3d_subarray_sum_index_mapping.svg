@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 540" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="41" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="920" height="540" fill="#fdfcf7"/>
+
+  <text x="460" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">3D 索引映射：off → (dep, r, c) → 全局下标 idx</text>
+  <path d="M 260 42 Q 460 50 660 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <text x="60" y="76" font-size="12" font-weight="bold" fill="#2b6e9e">子立方体参数：dep_len × row_len × col_len = total（plane = row_len × col_len）</text>
+
+  <!-- Step 1: off -->
+  <g filter="url(#sk)">
+    <rect x="60" y="100" width="150" height="60" rx="8" fill="#e8f0fe" stroke="#446688" stroke-width="1.4"/>
+  </g>
+  <text x="135" y="124" text-anchor="middle" font-size="13" font-weight="bold" fill="#446688">线性偏移 off</text>
+  <text x="135" y="142" text-anchor="middle" font-size="11" fill="#555">off ∈ [0, total)</text>
+  <text x="135" y="156" text-anchor="middle" font-size="10" fill="#888">grid-stride 步进</text>
+
+  <path d="M 215 130 L 245 130" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="218" y="122" font-size="10" fill="#7a5415">div plane</text>
+
+  <!-- Step 2: dep + rem -->
+  <g filter="url(#sk)">
+    <rect x="250" y="90" width="170" height="44" rx="8" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+  </g>
+  <text x="335" y="110" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">dep = off / plane</text>
+  <text x="335" y="126" text-anchor="middle" font-size="10" fill="#888">子立方体内深度号</text>
+
+  <g filter="url(#sk)">
+    <rect x="250" y="140" width="170" height="44" rx="8" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+  </g>
+  <text x="335" y="160" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">rem = off % plane</text>
+  <text x="335" y="176" text-anchor="middle" font-size="10" fill="#888">片内偏移 [0, plane)</text>
+
+  <path d="M 425 162 L 455 162" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="428" y="154" font-size="10" fill="#7a5415">div col_len</text>
+
+  <!-- Step 3: r + c -->
+  <g filter="url(#sk)">
+    <rect x="460" y="120" width="160" height="44" rx="8" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+  </g>
+  <text x="540" y="140" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">r = rem / col_len</text>
+  <text x="540" y="156" text-anchor="middle" font-size="10" fill="#888">子立方体内行号</text>
+
+  <g filter="url(#sk)">
+    <rect x="460" y="170" width="160" height="44" rx="8" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+  </g>
+  <text x="540" y="190" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">c = rem % col_len</text>
+  <text x="540" y="206" text-anchor="middle" font-size="10" fill="#888">子立方体内列号</text>
+
+  <path d="M 625 142 L 655 142" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="628" y="134" font-size="10" fill="#2e6e2e">加基准偏移</text>
+
+  <!-- Step 4: global idx -->
+  <g filter="url(#sk)">
+    <rect x="660" y="100" width="230" height="86" rx="8" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5"/>
+  </g>
+  <text x="775" y="124" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">全局下标 idx</text>
+  <text x="775" y="146" text-anchor="middle" font-family="monospace" font-size="11" fill="#333">idx = ((S_DEP+dep)·M</text>
+  <text x="775" y="162" text-anchor="middle" font-family="monospace" font-size="11" fill="#333">    + (S_ROW+r))·K</text>
+  <text x="775" y="178" text-anchor="middle" font-family="monospace" font-size="11" fill="#333">    + (S_COL+c)</text>
+
+  <!-- formula comparison box -->
+  <g filter="url(#sk)">
+    <rect x="60" y="210" width="420" height="150" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/>
+  </g>
+  <text x="78" y="234" font-size="12" font-weight="bold" fill="#444">📐 维度递进：每升一维多一层 div/mod</text>
+  <text x="78" y="258" font-size="11" fill="#2b6e9e">#47 (1D)：idx = S + off</text>
+  <text x="78" y="276" font-size="10" fill="#888">  → 0 次 div/mod（区间连续）</text>
+  <text x="78" y="300" font-size="11" fill="#2b6e9e">#48 (2D)：idx = (S_ROW + off/col_len)·M + (S_COL + off%col_len)</text>
+  <text x="78" y="318" font-size="10" fill="#888">  → 1 次 div + 1 次 mod</text>
+  <text x="78" y="342" font-size="11" fill="#b85450" font-weight="bold">#49 (3D)：idx = ((S_DEP+off/plane)·M + S_ROW+rem/col_len)·K + S_COL+rem%col_len</text>
+
+  <!-- coalesced note -->
+  <g filter="url(#sk)">
+    <rect x="500" y="210" width="390" height="150" rx="8" fill="#fff5f5" stroke="#b85450" stroke-dasharray="5 3"/>
+  </g>
+  <text x="518" y="234" font-size="12" font-weight="bold" fill="#b85450">⚠ 合并访存条件</text>
+  <text x="518" y="258" font-size="11" fill="#b85450">同一 warp 的 32 线程 off 连续 →</text>
+  <text x="518" y="274" font-size="11" fill="#b85450">c = off % col_len 连续（不跨行时）</text>
+  <text x="518" y="290" font-size="11" fill="#b85450">→ idx 连续 → 同片同行的合并读 ✓</text>
+  <text x="518" y="316" font-size="11" fill="#b85450">跨行/跨片边界处不合并，占比极低</text>
+  <text x="518" y="342" font-size="11" fill="#2e6e2e" font-weight="bold">展平后天然 coalesced，优于 3D grid</text>
+
+  <!-- variable table -->
+  <text x="60" y="392" font-size="12" font-weight="bold" fill="#2b6e9e">关键变量对照</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="402" width="830" height="120" rx="6" fill="#fffdf3" stroke="#9e9e9e" stroke-width="1"/>
+    <line x1="60" y1="430" x2="890" y2="430" stroke="#ccc" stroke-width="1"/>
+    <line x1="220" y1="402" x2="220" y2="522" stroke="#ccc" stroke-width="1"/>
+    <line x1="500" y1="402" x2="500" y2="522" stroke="#ccc" stroke-width="1"/>
+  </g>
+  <text x="140" y="420" text-anchor="middle" font-size="11" font-weight="bold" fill="#444">变量</text>
+  <text x="360" y="420" text-anchor="middle" font-size="11" font-weight="bold" fill="#444">公式</text>
+  <text x="695" y="420" text-anchor="middle" font-size="11" font-weight="bold" fill="#444">含义</text>
+  <text x="140" y="450" text-anchor="middle" font-family="monospace" font-size="11" fill="#333">dep_len</text>
+  <text x="360" y="450" text-anchor="middle" font-family="monospace" font-size="11" fill="#333">E_DEP − S_DEP + 1</text>
+  <text x="695" y="450" text-anchor="middle" font-size="11" fill="#444">子立方体深度数</text>
+  <text x="140" y="476" text-anchor="middle" font-family="monospace" font-size="11" fill="#333">plane</text>
+  <text x="360" y="476" text-anchor="middle" font-family="monospace" font-size="11" fill="#333">row_len × col_len</text>
+  <text x="695" y="476" text-anchor="middle" font-size="11" fill="#444">每个深度片的元素数</text>
+  <text x="140" y="502" text-anchor="middle" font-family="monospace" font-size="11" fill="#333">total</text>
+  <text x="360" y="502" text-anchor="middle" font-family="monospace" font-size="11" fill="#333">dep_len × plane</text>
+  <text x="695" y="502" text-anchor="middle" font-size="11" fill="#444">展平总长（long long 防溢出）</text>
+</svg>

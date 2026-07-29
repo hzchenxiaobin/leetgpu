@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="31" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="880" height="440" fill="#fdfcf7"/>
+
+  <text x="440" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#2b2b2b">2D 索引映射：off → (r, c) → 全局下标</text>
+  <text x="440" y="48" text-anchor="middle" font-size="11" fill="#888">子矩形行 row_len、列 col_len；M 为矩阵列数（行间距）</text>
+
+  <!-- formula box -->
+  <g filter="url(#sk)">
+    <rect x="40" y="64" width="800" height="58" rx="8" fill="#eef5fb" stroke="#4a8edb" stroke-width="1.3"/>
+  </g>
+  <text x="60" y="88" font-family="monospace" font-size="13" fill="#2b6e9e">total = row_len * col_len</text>
+  <text x="60" y="108" font-family="monospace" font-size="13" fill="#2b6e9e">r = off / col_len ;  c = off % col_len ;  idx = (S_ROW + r) * M + (S_COL + c)</text>
+
+  <!-- worked mini: N=3 M=5, rect rows 0..1 (row_len=2), cols 1..2 (col_len=2), total=4 -->
+  <text x="40" y="150" font-size="12" font-weight="bold" fill="#2b6e9e">举例：N=3, M=5, S_ROW=0, E_ROW=1, S_COL=1, E_COL=2 → row_len=2, col_len=2, total=4</text>
+
+  <!-- matrix 3x5 -->
+  <text x="40" y="176" font-size="10" fill="#888">col: 0    1    2    3    4</text>
+  <g font-size="11" fill="#333" filter="url(#sk)">
+    <!-- row 0 -->
+    <rect x="80" y="184" width="44" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="124" y="184" width="44" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.6"/>
+    <rect x="168" y="184" width="44" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.6"/>
+    <rect x="212" y="184" width="44" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="256" y="184" width="44" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <!-- row 1 -->
+    <rect x="80" y="214" width="44" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="124" y="214" width="44" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.6"/>
+    <rect x="168" y="214" width="44" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.6"/>
+    <rect x="212" y="214" width="44" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="256" y="214" width="44" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <!-- row 2 -->
+    <rect x="80" y="244" width="44" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="124" y="244" width="44" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="168" y="244" width="44" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="212" y="244" width="44" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="256" y="244" width="44" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+  </g>
+  <text x="66" y="204" font-size="9" fill="#888">r0</text>
+  <text x="66" y="234" font-size="9" fill="#888">r1</text>
+  <text x="66" y="264" font-size="9" fill="#888">r2</text>
+  <text x="146" y="203" text-anchor="middle" font-size="10" font-weight="bold" fill="#7a5415">a</text>
+  <text x="190" y="203" text-anchor="middle" font-size="10" font-weight="bold" fill="#7a5415">b</text>
+  <text x="146" y="233" text-anchor="middle" font-size="10" font-weight="bold" fill="#7a5415">c</text>
+  <text x="190" y="233" text-anchor="middle" font-size="10" font-weight="bold" fill="#7a5415">d</text>
+
+  <!-- mapping table -->
+  <text x="380" y="176" font-size="12" font-weight="bold" fill="#7a5415">off → (r, c) → idx 映射表（col_len=2, M=5, S_ROW=0, S_COL=1）</text>
+  <g filter="url(#sk)">
+    <rect x="380" y="184" width="460" height="140" rx="6" fill="#fffdf3" stroke="#d6a040" stroke-width="1.1"/>
+  </g>
+  <text x="398" y="206" font-family="monospace" font-size="11" fill="#444" font-weight="bold">off   r=off/2   c=off%2   idx=(0+r)·5+(1+c)</text>
+  <text x="398" y="228" font-family="monospace" font-size="11" fill="#7a5415"> 0      0         0         1   → input[1]=a</text>
+  <text x="398" y="250" font-family="monospace" font-size="11" fill="#7a5415"> 1      0         1         2   → input[2]=b</text>
+  <text x="398" y="272" font-family="monospace" font-size="11" fill="#7a5415"> 2      1         0         6   → input[6]=c</text>
+  <text x="398" y="294" font-family="monospace" font-size="11" fill="#7a5415"> 3      1         1         7   → input[7]=d</text>
+  <text x="398" y="316" font-size="10" fill="#888">注意：off=0→idx=1，off=2→idx=6（跳到下一行，间距 M=5，非连续！）</text>
+
+  <!-- coalescing note -->
+  <path d="M 440 330 L 440 348" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <g filter="url(#sk)">
+    <rect x="40" y="352" width="800" height="72" rx="8" fill="#fce4ec" stroke="#b85450" stroke-width="1.3"/>
+  </g>
+  <text x="58" y="376" font-size="12" font-weight="bold" fill="#b85450">⚠️ 合并访存（coalesced）与 div/mod 开销</text>
+  <text x="58" y="396" font-size="11" fill="#444">grid-stride 展平后，同一 warp 的 32 个线程 off 连续 → c 连续 → idx 连续（同一行内），读合并 ✓</text>
+  <text x="58" y="414" font-size="11" fill="#444">代价：每元素一次整数除/取模（runtime col_len，非编译期常量）。可改"列优先 grid-stride"消除 div/mod（见 §5.3）</text>
+</svg>

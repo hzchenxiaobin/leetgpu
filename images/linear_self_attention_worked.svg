@@ -1,0 +1,201 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" font-family="'Comic Sans MS','Marker Felt','Kaiti SC',楷体,'Segoe UI',cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="37" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.5"/>
+    </filter>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#3a3a3a"/>
+    </marker>
+  </defs>
+
+  <rect width="960" height="620" fill="#fdfcf7"/>
+
+  <text x="480" y="32" text-anchor="middle" font-size="19" fill="#2b2b2b" font-weight="bold">Worked Example：M=2, d=4 逐步数值演算</text>
+  <path d="M 300 42 Q 480 50 660 42" stroke="#2b2b2b" stroke-width="1.4" fill="none" filter="url(#sk)"/>
+  <text x="480" y="60" text-anchor="middle" font-size="11" fill="#888">φ(x)=ELU(x)+1，φ(1)=2，φ(0)=e⁰=1　输入 Q=K=[[1,0,0,0],[0,1,0,0]]，V=[[1,2,3,4],[5,6,7,8]]</text>
+
+  <!-- ============ ① φ ============ -->
+  <text x="60" y="92" font-size="13" fill="#2b6e9e" font-weight="bold">① φQ = φ(K) =</text>
+  <g filter="url(#sk)">
+    <rect x="180" y="74" width="40" height="24" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/>
+    <rect x="220" y="74" width="40" height="24" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/>
+    <rect x="260" y="74" width="40" height="24" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/>
+    <rect x="300" y="74" width="40" height="24" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/>
+    <rect x="180" y="98" width="40" height="24" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/>
+    <rect x="220" y="98" width="40" height="24" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/>
+    <rect x="260" y="98" width="40" height="24" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/>
+    <rect x="300" y="98" width="40" height="24" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/>
+  </g>
+  <text x="200" y="91" text-anchor="middle" font-size="11" fill="#2b6e9e">2</text>
+  <text x="240" y="91" text-anchor="middle" font-size="11" fill="#2b6e9e">1</text>
+  <text x="280" y="91" text-anchor="middle" font-size="11" fill="#2b6e9e">1</text>
+  <text x="320" y="91" text-anchor="middle" font-size="11" fill="#2b6e9e">1</text>
+  <text x="200" y="115" text-anchor="middle" font-size="11" fill="#2b6e9e">1</text>
+  <text x="240" y="115" text-anchor="middle" font-size="11" fill="#2b6e9e">2</text>
+  <text x="280" y="115" text-anchor="middle" font-size="11" fill="#2b6e9e">1</text>
+  <text x="320" y="115" text-anchor="middle" font-size="11" fill="#2b6e9e">1</text>
+  <text x="400" y="100" font-size="10" fill="#888">S[i][j]=Σ_m φK[m][i]·V[m][j]</text>
+  <text x="400" y="116" font-size="10" fill="#888">z[i]=Σ_m φK[m][i]</text>
+
+  <path d="M 480 90 L 510 90" stroke="#3a3a3a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- ============ ② S (4x4) ============ -->
+  <text x="530" y="92" font-size="13" fill="#2e6e2e" font-weight="bold">② S = φK^T V (4×4) =</text>
+  <g filter="url(#sk)">
+    <!-- row0: 7 10 13 16 -->
+    <rect x="690" y="74" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="724" y="74" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="758" y="74" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="792" y="74" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <!-- row1: 11 14 17 20 -->
+    <rect x="690" y="96" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="724" y="96" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="758" y="96" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="792" y="96" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <!-- row2: 6 8 10 12 -->
+    <rect x="690" y="118" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="724" y="118" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="758" y="118" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="792" y="118" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <!-- row3: 6 8 10 12 -->
+    <rect x="690" y="140" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="724" y="140" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="758" y="140" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="792" y="140" width="34" height="22" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+  </g>
+  <text x="707" y="90" text-anchor="middle" font-size="10" fill="#2e6e2e">7</text>
+  <text x="741" y="90" text-anchor="middle" font-size="10" fill="#2e6e2e">10</text>
+  <text x="775" y="90" text-anchor="middle" font-size="10" fill="#2e6e2e">13</text>
+  <text x="809" y="90" text-anchor="middle" font-size="10" fill="#2e6e2e">16</text>
+  <text x="707" y="112" text-anchor="middle" font-size="10" fill="#2e6e2e">11</text>
+  <text x="741" y="112" text-anchor="middle" font-size="10" fill="#2e6e2e">14</text>
+  <text x="775" y="112" text-anchor="middle" font-size="10" fill="#2e6e2e">17</text>
+  <text x="809" y="112" text-anchor="middle" font-size="10" fill="#2e6e2e">20</text>
+  <text x="707" y="134" text-anchor="middle" font-size="10" fill="#2e6e2e">6</text>
+  <text x="741" y="134" text-anchor="middle" font-size="10" fill="#2e6e2e">8</text>
+  <text x="775" y="134" text-anchor="middle" font-size="10" fill="#2e6e2e">10</text>
+  <text x="809" y="134" text-anchor="middle" font-size="10" fill="#2e6e2e">12</text>
+  <text x="707" y="156" text-anchor="middle" font-size="10" fill="#2e6e2e">6</text>
+  <text x="741" y="156" text-anchor="middle" font-size="10" fill="#2e6e2e">8</text>
+  <text x="775" y="156" text-anchor="middle" font-size="10" fill="#2e6e2e">10</text>
+  <text x="809" y="156" text-anchor="middle" font-size="10" fill="#2e6e2e">12</text>
+
+  <!-- z 向量 -->
+  <text x="60" y="180" font-size="13" fill="#2e6e2e" font-weight="bold">② z = Σ_m φK[m] =</text>
+  <g filter="url(#sk)">
+    <rect x="180" y="166" width="40" height="24" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="220" y="166" width="40" height="24" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="260" y="166" width="40" height="24" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+    <rect x="300" y="166" width="40" height="24" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/>
+  </g>
+  <text x="200" y="183" text-anchor="middle" font-size="11" fill="#2e6e2e">3</text>
+  <text x="240" y="183" text-anchor="middle" font-size="11" fill="#2e6e2e">3</text>
+  <text x="280" y="183" text-anchor="middle" font-size="11" fill="#2e6e2e">2</text>
+  <text x="320" y="183" text-anchor="middle" font-size="11" fill="#2e6e2e">2</text>
+  <text x="400" y="183" font-size="10" fill="#888">z[0]=2+1=3, z[2]=1+1=2</text>
+
+  <path d="M 480 240 L 510 240" stroke="#3a3a3a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- ============ ③ num ============ -->
+  <text x="60" y="240" font-size="13" fill="#c98a2b" font-weight="bold">③ num = φQ @ S (2×4) =</text>
+  <g filter="url(#sk)">
+    <rect x="200" y="224" width="36" height="22" fill="#fef6e6" stroke="#c98a2b" stroke-width="1"/>
+    <rect x="236" y="224" width="36" height="22" fill="#fef6e6" stroke="#c98a2b" stroke-width="1"/>
+    <rect x="272" y="224" width="36" height="22" fill="#fef6e6" stroke="#c98a2b" stroke-width="1"/>
+    <rect x="308" y="224" width="36" height="22" fill="#fef6e6" stroke="#c98a2b" stroke-width="1"/>
+    <rect x="200" y="246" width="36" height="22" fill="#fef6e6" stroke="#c98a2b" stroke-width="1"/>
+    <rect x="236" y="246" width="36" height="22" fill="#fef6e6" stroke="#c98a2b" stroke-width="1"/>
+    <rect x="272" y="246" width="36" height="22" fill="#fef6e6" stroke="#c98a2b" stroke-width="1"/>
+    <rect x="308" y="246" width="36" height="22" fill="#fef6e6" stroke="#c98a2b" stroke-width="1"/>
+  </g>
+  <text x="218" y="240" text-anchor="middle" font-size="10" fill="#c98a2b">37</text>
+  <text x="254" y="240" text-anchor="middle" font-size="10" fill="#c98a2b">50</text>
+  <text x="290" y="240" text-anchor="middle" font-size="10" fill="#c98a2b">63</text>
+  <text x="326" y="240" text-anchor="middle" font-size="10" fill="#c98a2b">76</text>
+  <text x="218" y="262" text-anchor="middle" font-size="10" fill="#c98a2b">41</text>
+  <text x="254" y="262" text-anchor="middle" font-size="10" fill="#c98a2b">54</text>
+  <text x="290" y="262" text-anchor="middle" font-size="10" fill="#c98a2b">67</text>
+  <text x="326" y="262" text-anchor="middle" font-size="10" fill="#c98a2b">80</text>
+
+  <!-- den -->
+  <text x="60" y="300" font-size="13" fill="#c98a2b" font-weight="bold">③ den = φQ @ z =</text>
+  <g filter="url(#sk)">
+    <rect x="200" y="286" width="40" height="24" fill="#fef6e6" stroke="#c98a2b" stroke-width="1"/>
+    <rect x="240" y="286" width="40" height="24" fill="#fef6e6" stroke="#c98a2b" stroke-width="1"/>
+  </g>
+  <text x="220" y="303" text-anchor="middle" font-size="11" fill="#c98a2b">13</text>
+  <text x="260" y="303" text-anchor="middle" font-size="11" fill="#c98a2b">13</text>
+  <text x="330" y="303" font-size="10" fill="#888">den[0]=2·3+1·3+1·2+1·2=13</text>
+
+  <!-- 核验框 -->
+  <g filter="url(#sk)">
+    <rect x="540" y="214" width="390" height="100" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-width="1.2" stroke-dasharray="4,3"/>
+  </g>
+  <text x="560" y="238" font-size="11" fill="#7a5415" font-weight="bold">核验 num[0][0] 与 den[0]</text>
+  <text x="560" y="258" font-size="10" fill="#444">num[0][0] = 2·7 + 1·11 + 1·6 + 1·6</text>
+  <text x="575" y="274" font-size="10" fill="#444">= 14 + 11 + 6 + 6 = 37 ✓</text>
+  <text x="560" y="294" font-size="10" fill="#444">den[0] = 2·3 + 1·3 + 1·2 + 1·2 = 13</text>
+  <text x="575" y="308" font-size="10" fill="#2e6e2e" font-weight="bold">output[0][0] = 37/13 = 2.846 ✓</text>
+
+  <path d="M 480 330 L 510 330" stroke="#3a3a3a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- ============ ④ output ============ -->
+  <text x="60" y="360" font-size="13" fill="#8e5db8" font-weight="bold">④ output = num / den (2×4) =</text>
+  <g filter="url(#sk)">
+    <rect x="240" y="344" width="64" height="26" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.2"/>
+    <rect x="304" y="344" width="64" height="26" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.2"/>
+    <rect x="368" y="344" width="64" height="26" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.2"/>
+    <rect x="432" y="344" width="64" height="26" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.2"/>
+    <rect x="240" y="370" width="64" height="26" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.2"/>
+    <rect x="304" y="370" width="64" height="26" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.2"/>
+    <rect x="368" y="370" width="64" height="26" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.2"/>
+    <rect x="432" y="370" width="64" height="26" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.2"/>
+  </g>
+  <text x="272" y="361" text-anchor="middle" font-size="10" fill="#8e5db8">2.846</text>
+  <text x="336" y="361" text-anchor="middle" font-size="10" fill="#8e5db8">3.846</text>
+  <text x="400" y="361" text-anchor="middle" font-size="10" fill="#8e5db8">4.846</text>
+  <text x="464" y="361" text-anchor="middle" font-size="10" fill="#8e5db8">5.846</text>
+  <text x="272" y="387" text-anchor="middle" font-size="10" fill="#8e5db8">3.154</text>
+  <text x="336" y="387" text-anchor="middle" font-size="10" fill="#8e5db8">4.154</text>
+  <text x="400" y="387" text-anchor="middle" font-size="10" fill="#8e5db8">5.154</text>
+  <text x="464" y="387" text-anchor="middle" font-size="10" fill="#8e5db8">6.154</text>
+  <text x="540" y="361" font-size="11" fill="#2e6e2e" font-weight="bold">与官方 Example 1 一致 ✓</text>
+
+  <!-- ============ 底部：output kernel 执行示意 ============ -->
+  <g filter="url(#sk)">
+    <rect x="40" y="420" width="880" height="170" rx="8" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="60" y="444" font-size="12" fill="#7a5415" font-weight="bold">compute_output_kernel：一 block 处理一行 query m=0（block=d=4 线程）</text>
+
+  <!-- smem_q -->
+  <text x="60" y="472" font-size="11" fill="#444">载入 smem_q = [2, 1, 1, 1]（φQ[0] 整行）→ __syncthreads ①</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="480" width="36" height="22" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/>
+    <rect x="96" y="480" width="36" height="22" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/>
+    <rect x="132" y="480" width="36" height="22" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/>
+    <rect x="168" y="480" width="36" height="22" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1"/>
+  </g>
+  <text x="78" y="496" text-anchor="middle" font-size="10" fill="#2b6e9e">2</text>
+  <text x="114" y="496" text-anchor="middle" font-size="10" fill="#2b6e9e">1</text>
+  <text x="150" y="496" text-anchor="middle" font-size="10" fill="#2b6e9e">1</text>
+  <text x="186" y="496" text-anchor="middle" font-size="10" fill="#2b6e9e">1</text>
+  <text x="220" y="496" font-size="10" fill="#888">shared memory，d 线程复用</text>
+
+  <!-- tid 分工 -->
+  <text x="380" y="472" font-size="11" fill="#444">4 个线程各算一列 j（coalesced 读 S 列）</text>
+  <g filter="url(#sk)">
+    <rect x="380" y="480" width="60" height="22" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1"/>
+    <rect x="444" y="480" width="60" height="22" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1"/>
+    <rect x="508" y="480" width="60" height="22" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1"/>
+    <rect x="572" y="480" width="60" height="22" rx="4" fill="#fef6e6" stroke="#c98a2b" stroke-width="1"/>
+  </g>
+  <text x="410" y="496" text-anchor="middle" font-size="10" fill="#c98a2b">tid0→37</text>
+  <text x="474" y="496" text-anchor="middle" font-size="10" fill="#c98a2b">tid1→50</text>
+  <text x="538" y="496" text-anchor="middle" font-size="10" fill="#c98a2b">tid2→63</text>
+  <text x="602" y="496" text-anchor="middle" font-size="10" fill="#c98a2b">tid3→76</text>
+
+  <text x="60" y="528" font-size="11" fill="#444">thread0 归约 den = 2·3+1·3+1·2+1·2 = 13 → smem_den → __syncthreads ② → 全 block 读到 13</text>
+  <text x="60" y="552" font-size="11" fill="#8e5db8" font-weight="bold">output[0] = [37,50,63,76] / 13 = [2.846, 3.846, 4.846, 5.846]</text>
+  <text x="60" y="576" font-size="10" fill="#888">blockIdx.x=m 遍历所有 M 行；每行独立，无跨 block 依赖 → M 个 block 并行</text>
+</svg>

@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 460" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="19"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.6"/>
+    </filter>
+    <marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="740" height="460" fill="#fdfcf7"/>
+
+  <text x="370" y="30" text-anchor="middle" font-size="16" fill="#2b2b2b" font-weight="bold">gram_kernel：tiled GEMM 算 A = XᵀX 的子块</text>
+  <text x="370" y="50" text-anchor="middle" font-size="11" fill="#888">一个 block 算 A 的 TILE×TILE 子块；沿 n_samples 维滑动，每步把两片 X 载入 shared 复用</text>
+
+  <!-- X 矩阵示意 -->
+  <text x="40" y="86" font-size="12" fill="#446688" font-weight="bold">X（n_samples × n_feat）</text>
+  <g font-size="9" fill="#333">
+    <!-- rows -->
+    <rect x="120" y="96" width="44" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4" rx="3" filter="url(#rough2)"/>
+    <text x="142" y="112" text-anchor="middle" font-size="8" fill="#7a5415">X[k][i列块]</text>
+    <rect x="166" y="96" width="14" height="24" fill="#eee" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <rect x="182" y="96" width="44" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4" rx="3" filter="url(#rough2)"/>
+    <text x="204" y="112" text-anchor="middle" font-size="8" fill="#7a5415">X[k][j列块]</text>
+    <text x="236" y="112" font-size="9" fill="#aaa">…</text>
+
+    <rect x="120" y="122" width="44" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <rect x="166" y="122" width="14" height="20" fill="#eee" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <rect x="182" y="122" width="44" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="120" y="156" font-size="9" fill="#aaa">⋮  (kb .. kb+TILE 的 TILE 行)</text>
+  </g>
+  <path d="M 200 164 L 200 186" stroke="#d6a040" stroke-width="1.4" fill="none" marker-end="url(#arr2)" filter="url(#rough2)"/>
+  <text x="206" y="180" font-size="9" fill="#888">协作加载（每 thread 搬 1 元素）</text>
+
+  <!-- shared Asub / Bsub -->
+  <rect x="80" y="192" width="130" height="64" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="145" y="210" text-anchor="middle" font-size="11" fill="#7a5415" font-weight="bold">Asub[TILE][TILE]</text>
+  <text x="145" y="226" text-anchor="middle" font-size="9" fill="#666">= X[kb.. ][ i 列块 ]</text>
+  <text x="145" y="240" text-anchor="middle" font-size="9" fill="#666">shared memory</text>
+  <rect x="250" y="192" width="130" height="64" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="315" y="210" text-anchor="middle" font-size="11" fill="#7a5415" font-weight="bold">Bsub[TILE][TILE]</text>
+  <text x="315" y="226" text-anchor="middle" font-size="9" fill="#666">= X[kb.. ][ j 列块 ]</text>
+  <text x="315" y="240" text-anchor="middle" font-size="9" fill="#666">shared memory</text>
+
+  <path d="M 200 264 L 200 286" stroke="#d6a040" stroke-width="1.4" fill="none" marker-end="url(#arr2)" filter="url(#rough2)"/>
+  <text x="206" y="280" font-size="9" fill="#888">__syncthreads 后读</text>
+
+  <!-- compute -->
+  <rect x="60" y="292" width="360" height="56" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="240" y="312" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">thread (ii, jj) 累加 acc += Σ_kk Asub[kk][ii]·Bsub[kk][jj]</text>
+  <text x="240" y="328" text-anchor="middle" font-size="10" fill="#555">= Σ_kk X[kb+kk][gi]·X[kb+kk][gj]</text>
+  <text x="240" y="342" text-anchor="middle" font-size="9" fill="#888">TILE=16，block=16×16=256 thread，每 thread 算 1 个 A 元素</text>
+
+  <!-- A 输出 tile -->
+  <path d="M 420 320 L 470 320" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#arr2)" filter="url(#rough2)"/>
+  <rect x="474" y="268" width="220" height="120" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="584" y="288" text-anchor="middle" font-size="12" fill="#4a7a3a" font-weight="bold">A = XᵀX（n×n）</text>
+  <g font-size="9" fill="#666">
+    <rect x="494" y="298" width="40" height="26" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="3" filter="url(#rough2)"/>
+    <text x="514" y="315" text-anchor="middle" font-size="8" fill="#7a5415">本 block</text>
+    <rect x="534" y="298" width="40" height="26" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="3" filter="url(#rough2)"/>
+    <rect x="574" y="298" width="40" height="26" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="3" filter="url(#rough2)"/>
+    <rect x="614" y="298" width="40" height="26" fill="#eee" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <rect x="494" y="324" width="40" height="26" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="3" filter="url(#rough2)"/>
+    <rect x="534" y="324" width="40" height="26" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="3" filter="url(#rough2)"/>
+    <rect x="574" y="324" width="40" height="26" fill="#eee" stroke="#bbb" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="624" y="338" font-size="9" fill="#aaa">…</text>
+    <text x="494" y="366" font-size="9" fill="#888">grid = ⌈n/TILE⌉ × ⌈n/TILE⌉ 个 block 各算一块</text>
+  </g>
+
+  <!-- insight -->
+  <rect x="40" y="402" width="660" height="46" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="370" y="422" text-anchor="middle" font-size="11" fill="#2e6e2e" font-weight="bold">关键复用：同一片 X 行被 i 列块与 j 列块两次读 → 载入 shared 后 block 内 256 thread 复用</text>
+  <text x="370" y="440" text-anchor="middle" font-size="10" fill="#666">A 对称 → Cholesky 只读下三角，故只需保证下三角子块正确（上三角冗余计算可裁剪为优化）</text>
+</svg>

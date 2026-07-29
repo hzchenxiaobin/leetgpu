@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+    <marker id="arrG" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#4a7a3a"/>
+    </marker>
+    <marker id="arrO" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#d6a040"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="480" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">二进制快速幂数据流（P=13=1101₂）</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">result 累积答案，base 不断 squaring，三缓冲避免就地覆盖</text>
+
+  <!-- ===== 三缓冲区 ===== -->
+  <text x="30" y="72" font-size="12" fill="#446688" font-weight="bold">Device 端三缓冲</text>
+
+  <!-- d_result -->
+  <rect x="30" y="80" width="120" height="50" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="90" y="100" text-anchor="middle" font-family="monospace" font-size="10" fill="#446688" font-weight="bold">d_result</text>
+  <text x="90" y="116" text-anchor="middle" font-size="9" fill="#888">初始 = I（单位阵）</text>
+  <text x="90" y="128" text-anchor="middle" font-size="8" fill="#888">累积答案</text>
+
+  <!-- d_base -->
+  <rect x="260" y="80" width="120" height="50" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="320" y="100" text-anchor="middle" font-family="monospace" font-size="10" fill="#4a7a3a" font-weight="bold">d_base</text>
+  <text x="320" y="116" text-anchor="middle" font-size="9" fill="#888">初始 = A（输入）</text>
+  <text x="320" y="128" text-anchor="middle" font-size="8" fill="#888">不断 squaring</text>
+
+  <!-- d_tmp -->
+  <rect x="490" y="80" width="120" height="50" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="550" y="100" text-anchor="middle" font-family="monospace" font-size="10" fill="#d6a040" font-weight="bold">d_tmp</text>
+  <text x="550" y="116" text-anchor="middle" font-size="9" fill="#888">matmul 输出</text>
+  <text x="550" y="128" text-anchor="middle" font-size="8" fill="#888">临时暂存</text>
+
+  <!-- ===== 迭代步骤 ===== -->
+
+  <!-- Round 0: p=1101, bit=1 -->
+  <text x="30" y="158" font-size="11" fill="#444" font-weight="bold">轮 0：p=1101₂，bit=1 → result × base</text>
+
+  <rect x="30" y="165" width="580" height="42" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="45" y="183" font-family="monospace" font-size="10" fill="#333">matmul(d_result=I, d_base=A¹) → d_tmp</text>
+  <text x="45" y="198" font-family="monospace" font-size="10" fill="#b85450">→ copy d_tmp → d_result</text>
+  <text x="560" y="190" text-anchor="middle" font-size="10" fill="#446688" font-weight="bold">result=A¹</text>
+
+  <path d="M 90 130 L 90 165" stroke="#446688" stroke-width="1.2" fill="none" stroke-dasharray="3,2" filter="url(#rough2)"/>
+  <path d="M 320 130 L 320 165" stroke="#4a7a3a" stroke-width="1.2" fill="none" stroke-dasharray="3,2" filter="url(#rough2)"/>
+  <path d="M 550 130 L 550 165" stroke="#d6a040" stroke-width="1.2" fill="none" stroke-dasharray="3,2" filter="url(#rough2)"/>
+
+  <!-- Round 0: squaring -->
+  <text x="30" y="225" font-size="11" fill="#444" font-weight="bold">轮 0：base = base²</text>
+  <rect x="30" y="232" width="580" height="42" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="45" y="250" font-family="monospace" font-size="10" fill="#333">matmul(d_base=A¹, d_base=A¹) → d_tmp</text>
+  <text x="45" y="265" font-family="monospace" font-size="10" fill="#4a7a3a">→ copy d_tmp → d_base</text>
+  <text x="560" y="257" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">base=A²</text>
+
+  <path d="M 320 207 L 320 232" stroke="#4a7a3a" stroke-width="1.2" fill="none" stroke-dasharray="3,2" filter="url(#rough2)"/>
+  <path d="M 550 207 L 550 232" stroke="#d6a040" stroke-width="1.2" fill="none" stroke-dasharray="3,2" filter="url(#rough2)"/>
+
+  <!-- separator -->
+  <line x1="30" y1="285" x2="610" y2="285" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <!-- Round 1: p=110, bit=0 -->
+  <text x="30" y="305" font-size="11" fill="#444" font-weight="bold">轮 1：p=110₂，bit=0 → 跳过乘法，仅 squaring</text>
+  <rect x="30" y="312" width="580" height="42" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="45" y="330" font-family="monospace" font-size="10" fill="#333">matmul(d_base=A², d_base=A²) → d_tmp → d_base</text>
+  <text x="560" y="337" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">base=A⁴</text>
+  <text x="560" y="350" text-anchor="middle" font-size="9" fill="#888">result 不变</text>
+
+  <!-- separator -->
+  <line x1="30" y1="365" x2="610" y2="365" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <!-- Round 2: p=11, bit=1 -->
+  <text x="30" y="385" font-size="11" fill="#444" font-weight="bold">轮 2：p=11₂，bit=1 → result × base，然后 base²</text>
+  <rect x="30" y="392" width="580" height="42" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="45" y="410" font-family="monospace" font-size="10" fill="#333">matmul(d_result=A¹, d_base=A⁴) → d_tmp → d_result</text>
+  <text x="45" y="425" font-family="monospace" font-size="10" fill="#4a7a3a">matmul(d_base=A⁴, d_base=A⁴) → d_tmp → d_base</text>
+  <text x="560" y="406" text-anchor="middle" font-size="10" fill="#446688" font-weight="bold">result=A⁵</text>
+  <text x="560" y="422" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">base=A⁸</text>
+
+  <!-- ===== bottom note ===== -->
+  <rect x="30" y="448" width="580" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3" rx="6" filter="url(#rough2)"/>
+  <text x="320" y="464" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">轮 3：p=1₂，bit=1 → result=A⁵×A⁸=A¹³ ✓  共 6 次 matmul（朴素法 12 次）</text>
+</svg>

@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 440" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="9" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="900" height="440" fill="#fdfcf7"/>
+
+  <text x="450" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">仿射算子 ⊕：把线性递推抽象成可结合的函数复合</text>
+  <path d="M 250 42 Q 450 50 650 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- step 1: each step is an affine function -->
+  <text x="40" y="78" font-size="13" font-weight="bold" fill="#7a5415">① 每一步是一个仿射函数 fₜ(x) = decay·x + δₜ，用二元组 (a, b) 表示</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="90" width="140" height="56" rx="8" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/>
+  </g>
+  <text x="130" y="113" text-anchor="middle" font-size="14" font-weight="bold" fill="#7a5415">(decay, δₜ)</text>
+  <text x="130" y="134" text-anchor="middle" font-size="11" fill="#7a5415">x ↦ decay·x + δₜ</text>
+  <text x="220" y="122" font-size="12" fill="#444">⇒ Aₜ = fₜ(Aₜ₊₁)，整条序列 = 复合 fₜ∘fₜ₊₁∘…∘f_S₋₁(0)</text>
+
+  <!-- step 2: composition rule -->
+  <text x="40" y="180" font-size="13" font-weight="bold" fill="#2b6e9e">② 复合规则（左 = 更早时刻，先作用外侧）</text>
+  <g filter="url(#sk)">
+    <rect x="60" y="192" width="120" height="56" rx="8" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.4"/>
+  </g>
+  <text x="120" y="215" text-anchor="middle" font-size="14" font-weight="bold" fill="#2b6e9e">(a, b)</text>
+  <text x="120" y="236" text-anchor="middle" font-size="10" fill="#2b6e9e">x↦a·x+b</text>
+
+  <text x="200" y="224" font-size="20" font-weight="bold" fill="#444">⊕</text>
+
+  <g filter="url(#sk)">
+    <rect x="225" y="192" width="120" height="56" rx="8" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.4"/>
+  </g>
+  <text x="285" y="215" text-anchor="middle" font-size="14" font-weight="bold" fill="#2b6e9e">(c, d)</text>
+  <text x="285" y="236" text-anchor="middle" font-size="10" fill="#2b6e9e">x↦c·x+d</text>
+
+  <text x="365" y="224" font-size="20" font-weight="bold" fill="#444">=</text>
+
+  <g filter="url(#sk)">
+    <rect x="395" y="192" width="170" height="56" rx="8" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+  </g>
+  <text x="480" y="215" text-anchor="middle" font-size="14" font-weight="bold" fill="#2e6e2e">(a·c,  a·d + b)</text>
+  <text x="480" y="236" text-anchor="middle" font-size="10" fill="#2e6e2e">x ↦ a(cx+d)+b = (ac)x + (ad+b)</text>
+
+  <text x="585" y="216" font-size="11" fill="#888">单位元</text>
+  <g filter="url(#sk)">
+    <rect x="585" y="226" width="90" height="32" rx="6" fill="#fce4ec" stroke="#b85450" stroke-width="1.3"/>
+  </g>
+  <text x="630" y="247" text-anchor="middle" font-size="13" font-weight="bold" fill="#b85450">(1, 0)</text>
+  <text x="690" y="247" font-size="11" fill="#888">= 恒等 x↦x</text>
+
+  <!-- step 3: associativity enables parallel scan -->
+  <text x="40" y="290" font-size="13" font-weight="bold" fill="#2e6e2e">③ 结合律成立 ⇒ 任意一段都能独立算 (a,b)，再 O(log S) 步拼接 ⇒ 可并行</text>
+  <g filter="url(#sk)">
+    <rect x="50" y="302" width="800" height="48" rx="8" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="450" y="324" text-anchor="middle" font-size="12" fill="#2e6e2e">Aₜ = (本段 a) · (右侧段 b) + (本段 b)  —— 拼接时 a 用来缩放右侧累积</text>
+  <text x="450" y="342" text-anchor="middle" font-size="11" fill="#2e6e2e">最终 Aₜ = a_loc[j] · carry.b + b_loc[j]　（carry = 全部严格右侧 chunk 的聚合）</text>
+
+  <!-- bottom: three-phase decomposition -->
+  <g filter="url(#sk)">
+    <rect x="50" y="362" width="800" height="62" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-width="1.2" stroke-dasharray="5 3"/>
+  </g>
+  <text x="64" y="384" font-size="12" font-weight="bold" fill="#444">💡 三段拼接：chunk 串行 → warp __shfl_down → block shared</text>
+  <text x="64" y="404" font-size="11" fill="#444">carry = combine( warp内右侧(lane级), warp间右侧(warp级) )；越界 step 补 identity (1,0) 不污染复合。</text>
+  <text x="64" y="420" font-size="11" fill="#b85450">scan 不止于求和：任何结合律成立的算子都能套同一套 warp shuffle 蝶形模板。</text>
+</svg>

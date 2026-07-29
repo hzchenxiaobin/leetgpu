@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 470" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="4" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+    <marker id="arR" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#b85450"/>
+    </marker>
+  </defs>
+  <rect width="900" height="470" fill="#fdfcf7"/>
+
+  <text x="450" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">Bitonic 排序：补齐 2 的幂 → 局部排序 → 全局逐级归并</text>
+  <path d="M 250 42 Q 450 50 650 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- Step 0: pad to power of two -->
+  <text x="40" y="78" font-size="13" font-weight="bold" fill="#2b6e9e">① 补齐到 P = next_pow2(N)，补位填 +∞</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="88" width="34" height="28" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="74" y="88" width="34" height="28" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="108" y="88" width="34" height="28" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="142" y="88" width="34" height="28" rx="4" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <rect x="176" y="88" width="34" height="28" rx="4" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" stroke-dasharray="4 3"/>
+  </g>
+  <text x="57" y="107" text-anchor="middle" font-size="11" fill="#2b6e9e">5</text>
+  <text x="91" y="107" text-anchor="middle" font-size="11" fill="#2b6e9e">2</text>
+  <text x="125" y="107" text-anchor="middle" font-size="11" fill="#2b6e9e">8</text>
+  <text x="159" y="107" text-anchor="middle" font-size="11" fill="#b85450">∞</text>
+  <text x="193" y="107" text-anchor="middle" font-size="11" fill="#b85450">∞</text>
+  <text x="230" y="107" font-size="11" fill="#888">N=3 → P=8（其余类推）</text>
+
+  <path d="M 130 124 L 130 146" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- Step 1: local sort in shared memory -->
+  <text x="40" y="160" font-size="13" font-weight="bold" fill="#7a5415">② 局部排序（shared memory，每 block 排 TILE=1024 元素）</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="170" width="120" height="34" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+    <rect x="165" y="170" width="120" height="34" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+    <rect x="290" y="170" width="120" height="34" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+    <rect x="415" y="170" width="60" height="34" rx="5" fill="#eef2f7" stroke="#9bb6d6" stroke-width="1.1" stroke-dasharray="4 3"/>
+  </g>
+  <text x="100" y="191" text-anchor="middle" font-size="11" fill="#7a5415">block 0 排序 ↑</text>
+  <text x="225" y="191" text-anchor="middle" font-size="11" fill="#7a5415">block 1 排序 ↓</text>
+  <text x="350" y="191" text-anchor="middle" font-size="11" fill="#7a5415">block 2 排序 ↑</text>
+  <text x="445" y="191" text-anchor="middle" font-size="10" fill="#8aa0bb">…</text>
+  <text x="500" y="191" font-size="11" fill="#7a5415">相邻 tile 方向交替 → 拼</text>
+  <text x="500" y="205" font-size="11" fill="#7a5415">成 bitonic 序列</text>
+
+  <path d="M 250 210 L 250 232" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- Step 2: global merge stages -->
+  <text x="40" y="248" font-size="13" font-weight="bold" fill="#2e6e2e">③ 全局逐级归并：size 从 2·TILE 翻倍到 P，每步一次 kernel</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="258" width="60" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="100" y="258" width="60" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="165" y="258" width="40" height="30" rx="4" fill="#eef2f7" stroke="#9bb6d6" stroke-width="1.1" stroke-dasharray="4 3"/>
+  </g>
+  <text x="70" y="277" text-anchor="middle" font-size="10" fill="#2e6e2e">归并 1024→2048</text>
+  <text x="130" y="277" text-anchor="middle" font-size="10" fill="#2e6e2e">stride=1024..1</text>
+  <text x="225" y="277" font-size="10" fill="#888">size 翻倍 × log₂(P/TILE) 级</text>
+
+  <path d="M 250 292 L 250 314" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <g filter="url(#sk)">
+    <rect x="40" y="320" width="60" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="100" y="320" width="60" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="165" y="320" width="40" height="30" rx="4" fill="#eef2f7" stroke="#9bb6d6" stroke-width="1.1" stroke-dasharray="4 3"/>
+  </g>
+  <text x="70" y="339" text-anchor="middle" font-size="10" fill="#2e6e2e">归并 2048→4096</text>
+  <text x="130" y="339" text-anchor="middle" font-size="10" fill="#2e6e2e">stride=2048..1</text>
+  <text x="225" y="339" font-size="10" fill="#888">每子步一个 kernel：比较-交换 (i, i⊕stride)</text>
+
+  <path d="M 250 354 L 250 376" stroke="#b85450" stroke-width="1.6" fill="none" marker-end="url(#arR)" filter="url(#sk)"/>
+
+  <!-- result -->
+  <text x="40" y="398" font-size="13" font-weight="bold" fill="#2b6e9e">④ 全局升序，取前 N 个写回（+∞ 自动沉到末尾）</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="408" width="34" height="28" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="74" y="408" width="34" height="28" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="108" y="408" width="34" height="28" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="142" y="408" width="34" height="28" rx="4" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <rect x="176" y="408" width="34" height="28" rx="4" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" stroke-dasharray="4 3"/>
+  </g>
+  <text x="57" y="427" text-anchor="middle" font-size="11" fill="#2b6e9e">2</text>
+  <text x="91" y="427" text-anchor="middle" font-size="11" fill="#2b6e9e">5</text>
+  <text x="125" y="427" text-anchor="middle" font-size="11" fill="#2b6e9e">8</text>
+  <text x="159" y="427" text-anchor="middle" font-size="11" fill="#b85450">∞</text>
+  <text x="193" y="427" text-anchor="middle" font-size="11" fill="#b85450">∞</text>
+  <text x="230" y="427" font-size="11" fill="#888">前 N 个即排序结果</text>
+
+  <g filter="url(#sk)">
+    <rect x="540" y="158" width="330" height="160" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-width="1.2" stroke-dasharray="5 3"/>
+  </g>
+  <text x="556" y="180" font-size="13" font-weight="bold" fill="#444">💡 为什么是 Bitonic？</text>
+  <text x="556" y="202" font-size="11" fill="#444">排序网络 = 固定的比较-交换模式，</text>
+  <text x="556" y="220" font-size="11" fill="#444">无数据依赖分支 → GPU 上无 warp divergence。</text>
+  <text x="556" y="242" font-size="11" fill="#444">每个 (size, stride) 子步：</text>
+  <text x="556" y="260" font-size="11" fill="#7a5415">partner = i ⊕ stride；方向 = (i &amp; size)==0</text>
+  <text x="556" y="278" font-size="11" fill="#444">补 +∞ 让非 2 的幂 N 也能套同一网络。</text>
+  <text x="556" y="298" font-size="11" fill="#b85450">总子步数 = log₂P·(log₂P+1)/2</text>
+</svg>

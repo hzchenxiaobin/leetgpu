@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 480" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="41" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="880" height="480" fill="#fdfcf7"/>
+
+  <text x="440" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#2b2b2b">Worked Example：子矩形求和逐步演算</text>
+  <text x="440" y="48" text-anchor="middle" font-size="11" fill="#888">input=[[1,2,3],[4,5,1]], N=2, M=3, S_ROW=0, E_ROW=1, S_COL=1, E_COL=2</text>
+
+  <!-- input matrix -->
+  <text x="40" y="80" font-size="12" font-weight="bold" fill="#2b6e9e">输入矩阵 input[2][3]（row-major）</text>
+  <text x="120" y="98" font-size="10" fill="#888">col0  col1  col2</text>
+  <g filter="url(#sk)">
+    <rect x="100" y="104" width="50" height="32" rx="5" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="150" y="104" width="50" height="32" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.8"/>
+    <rect x="200" y="104" width="50" height="32" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.8"/>
+    <rect x="100" y="136" width="50" height="32" rx="5" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.1"/>
+    <rect x="150" y="136" width="50" height="32" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.8"/>
+    <rect x="200" y="136" width="50" height="32" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.8"/>
+  </g>
+  <text x="125" y="125" text-anchor="middle" font-size="13" fill="#2b6e9e">1</text>
+  <text x="175" y="125" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">2</text>
+  <text x="225" y="125" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">3</text>
+  <text x="125" y="157" text-anchor="middle" font-size="13" fill="#2b6e9e">4</text>
+  <text x="175" y="157" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">5</text>
+  <text x="225" y="157" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">1</text>
+  <text x="92" y="125" font-size="9" fill="#888">r0</text>
+  <text x="92" y="157" font-size="9" fill="#888">r1</text>
+  <text x="175" y="184" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">子矩形 = [[2,3],[5,1]]，row_len=2, col_len=2, total=4</text>
+
+  <!-- flatten arrow -->
+  <path d="M 175 190 L 175 208" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="187" y="204" font-size="10" fill="#7a5415">展平 + 索引映射</text>
+
+  <!-- flattened with idx -->
+  <text x="40" y="228" font-size="12" font-weight="bold" fill="#2b6e9e">展平为 1D（off→(r,c)→idx）</text>
+  <g filter="url(#sk)">
+    <rect x="100" y="236" width="60" height="34" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="160" y="236" width="60" height="34" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="220" y="236" width="60" height="34" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="280" y="236" width="60" height="34" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="130" y="258" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">2</text>
+  <text x="190" y="258" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">3</text>
+  <text x="250" y="258" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">5</text>
+  <text x="310" y="258" text-anchor="middle" font-size="13" font-weight="bold" fill="#7a5415">1</text>
+  <text x="130" y="284" text-anchor="middle" font-size="9" fill="#888">off0→idx1</text>
+  <text x="190" y="284" text-anchor="middle" font-size="9" fill="#888">off1→idx2</text>
+  <text x="250" y="284" text-anchor="middle" font-size="9" fill="#888">off2→idx4</text>
+  <text x="310" y="284" text-anchor="middle" font-size="9" fill="#888">off3→idx5</text>
+
+  <!-- reduce arrow -->
+  <path d="M 205 290 L 205 308" stroke="#5a5a5a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="217" y="304" font-size="10" fill="#2e6e2e">warp_reduce（long long）</text>
+
+  <!-- reduction tree -->
+  <text x="40" y="324" font-size="12" font-weight="bold" fill="#2e6e2e">两级归约树（4 个元素 → 1 个和）</text>
+  <g filter="url(#sk)">
+    <circle cx="130" cy="354" r="16" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <circle cx="250" cy="354" r="16" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <circle cx="190" cy="402" r="17" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+    <circle cx="190" cy="448" r="19" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.7"/>
+  </g>
+  <text x="130" y="358" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">2</text>
+  <text x="250" y="358" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">3</text>
+  <text x="190" y="406" text-anchor="middle" font-size="13" font-weight="bold" fill="#2e6e2e">5</text>
+  <text x="190" y="453" text-anchor="middle" font-size="14" font-weight="bold" fill="#2e6e2e">11</text>
+  <path d="M 130 370 Q 160 388 178 392" stroke="#4a8e4a" stroke-width="1.3" fill="none" filter="url(#sk)"/>
+  <path d="M 250 370 Q 220 388 202 392" stroke="#4a8e4a" stroke-width="1.3" fill="none" filter="url(#sk)"/>
+  <path d="M 190 419 L 190 430" stroke="#4a7a3a" stroke-width="1.4" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="150" y="384" font-size="9" fill="#888">2+3</text>
+  <text x="220" y="384" font-size="9" fill="#888">5+1</text>
+
+  <!-- final output -->
+  <g filter="url(#sk)">
+    <rect x="560" y="410" width="180" height="50" rx="8" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.7"/>
+  </g>
+  <text x="650" y="432" text-anchor="middle" font-size="11" fill="#2e6e2e">output[0] = (int)scratch</text>
+  <text x="650" y="452" text-anchor="middle" font-size="16" font-weight="bold" fill="#2e6e2e">= 11 ✓</text>
+  <path d="M 210 448 Q 380 470 555 432" stroke="#4a7a3a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- note box -->
+  <g filter="url(#sk)">
+    <rect x="540" y="90" width="320" height="160" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/>
+  </g>
+  <text x="558" y="114" font-size="12" font-weight="bold" fill="#444">📌 演算要点</text>
+  <text x="558" y="136" font-size="11" fill="#444">· 子矩形 4 元素：2,3,5,1</text>
+  <text x="558" y="154" font-size="11" fill="#444">· off=0→(r0,c0)→idx=0·3+1=1 → input[1]=2</text>
+  <text x="558" y="172" font-size="11" fill="#444">· off=1→(r0,c1)→idx=0·3+2=2 → input[2]=3</text>
+  <text x="558" y="190" font-size="11" fill="#444">· off=2→(r1,c0)→idx=1·3+1=4 → input[4]=5</text>
+  <text x="558" y="208" font-size="11" fill="#444">· off=3→(r1,c1)→idx=1·3+2=5 → input[5]=1</text>
+  <text x="558" y="230" font-size="11" font-weight="bold" fill="#b85450">long long 累加 → (int)11 写入 output[0]</text>
+</svg>
