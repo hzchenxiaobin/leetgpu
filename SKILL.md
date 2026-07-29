@@ -461,36 +461,38 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 
 ## 2. 目录组织
 
-LeetGPU 题解按 `weekN/dayM/` 组织，与[独立 LeetCode 题解仓库](https://hzchenxiaobin.github.io/leetcode/)的 `daily/` 结构一致；`weekN/dayM/` 主要用于本地归类与侧边栏分组，**不强求与每日教程** `aiinfra/daily/weekN/dayM/` **严格一一对应**。题解系列可以独立扩展，例如继续新增 `week9/week10/` 等，只要题解文件名中的 slug 唯一即可：
+LeetGPU 题解按 **难度** 组织，目录形式对齐 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库的 `challenges/<difficulty>/<编号>_<name>/`：题解放在 `leetgpu/<difficulty>/<编号>_<name>/leetgpu-<slug>-solution.md`，`<difficulty>` ∈ {`easy`, `medium`, `hard`}，`<编号>` 与 `<name>` 取自 `leetgpu-challenges` 对应题目目录（如 `1_vector_add`、`22_gemm`）。题解系列可以独立扩展，只要题解文件名中的 slug 唯一即可：
 
 ```
 leetgpu/
-├── week1/
-│   ├── day1/
-│   │   └── leetgpu-vector-addition-solution.md   # Day1: grid-stride
-│   ├── day2/
-│   │   └── leetgpu-relu-solution.md              # Day2: coalesced access
+├── easy/
+│   ├── 1_vector_add/
+│   │   └── leetgpu-vector-addition-solution.md   # #1: grid-stride
+│   ├── 21_relu/
+│   │   └── leetgpu-relu-solution.md              # #21: coalesced access
 │   └── ...
-├── week2/
+├── medium/
+│   └── ...
+├── hard/
 │   └── ...
 ├── images/                                  # 所有题解共享的 SVG/PNG 插图
 │   ├── vector_addition_overview.svg
 │   ├── reduction_overview.svg
 │   └── generate_figures.py                  # matplotlib 生成脚本
-├── website/                                 # 网站构建（build.py + 生成的 HTML）
-│   ├── build.py
-│   ├── index.html
-│   └── leetgpu-<slug>-solution.html
+├── build/                                   # 网站构建（common.py + leetgpu.py）
+│   └── ...
+├── public/                                  # 构建产物（build.py 生成）
 └── SKILL.md                                 # 本文件
 ```
 
 **规则**：
 
 1. **题解根目录**：`leetgpu/`，不要写到其他位置。
-2. **按 weekN/dayM 组织**：题解 `.md` 放在 `leetgpu/weekN/dayM/` 下，**周/日编号与每日教程** `aiinfra/daily/weekN/dayM/` **对齐**（Day 1 → `week1/day1/`，Day 7 → `week1/day7/`）。一个 day 目录下通常只有一篇题解（即当日教程任务 4 对应的题）。
-3. **题解文件名**：`leetgpu-<slug>-solution.md`，其中 `<slug>` 是 LeetGPU 平台的题目 URL slug（如 `vector-addition`、`prefix-sum`）。文件名不随 week/day 变化，slug 即唯一标识。
-4. **图片目录**：`leetgpu/images/`，所有题解共享（不按 week/day/题分散）。图片在题解中用 `../../images/xxx.svg` 相对路径引用（题解位于 `weekN/dayM/` 下，`../../` 回到 `leetgpu/`；`build.py` 递归扫描时统一重写为 `./images/xxx.svg`，输出页面扁平化到 `website/` 根）。
-5. **选题与每日教程对齐（推荐但非强制）**：题解尽量与 `aiinfra/daily/weekN/dayM/` 每日教程的「任务 4」LeetGPU 在线题目主题保持一致，便于读者按周学习；但 LeetGPU 题解可以独立扩展，不强制一一对应，新增题解可放入 `week9/week10/` 等目录，slug 为唯一标识。
+2. **按难度组织**：题解 `.md` 放在 `leetgpu/<difficulty>/<编号>_<name>/` 下，`<difficulty>` 与 `<编号>_<name>` 对齐 `leetgpu-challenges` 仓库（如 Day1 的 Vector Addition → `easy/1_vector_add/`）。难度以 `leetgpu-challenges` 仓库为准；新增题解时优先从 `challenges/<difficulty>/*/challenge.py` 取编号与目录名。
+3. **题解文件名**：`leetgpu-<slug>-solution.md`，其中 `<slug>` 是 LeetGPU 平台的题目 URL slug（如 `vector-addition`、`prefix-sum`）。文件名不随难度/编号变化，slug 即唯一标识。
+4. **图片目录**：`leetgpu/images/`，所有题解共享（不按难度/题分散）。图片在题解中用 `../../images/xxx.svg` 相对路径引用（题解位于 `<difficulty>/<编号>_<name>/` 下，`../../` 回到 `leetgpu/`；`build.py` 递归扫描时统一重写为 `./images/xxx.svg`，输出页面扁平化到 `public/` 根）。
+5. **未收录进 leetgpu-challenges 的题**：若题解对应的题目暂不在 `leetgpu-challenges` 仓库中（如 Argmax、Vector Reversal、Attention、Scalar Multiply、Element Reversal），则在对应难度目录下顺延分配编号（`107_argmax`、`108_vector_reversal`、`109_attention`、`110_scalar_multiply`、`111_element_reversal`），并在 README 与本节注明。
+6. **选题与每日教程对齐（推荐但非强制）**：题解尽量与 `aiinfra/daily/weekN/dayM/` 每日教程的「任务 4」LeetGPU 在线题目主题保持一致，便于读者按周学习；但 LeetGPU 题解按难度独立归类，不强制与教程周/日一一对应。
 
 ## 3. 题解文档结构
 
@@ -532,7 +534,7 @@ leetgpu/
 - 代码块标注语言：` ```cuda` / ` ```cpp` / ` ```bash` / ` ```text`。
 - **Kernel 代码必须完整可编译**：包含 `#include`、`__global__` kernel、`main()`、host 端 `cudaMalloc`/`cudaMemcpy`、验证逻辑、`cudaFree`。
 - 代码块首行带注释：`// <filename>.cu —— <说明>` + `// 编译命令: nvcc ...`。
-- 图片引用用相对路径：`![<中文alt>](../../images/<filename>.svg)`（题解位于 `weekN/dayM/` 下，`../../images/` 解析到共享的 `leetgpu/images/`，由 `build.py` 统一重写为 `./images/`）。
+- 图片引用用相对路径：`![<中文alt>](../../images/<filename>.svg)`（题解位于 `<difficulty>/<编号>_<name>/` 下，`../../images/` 解析到共享的 `leetgpu/images/`，由 `build.py` 统一重写为 `./images/`）。
 - 每篇题解引用 **2-4 张 SVG/PNG 插图**，并配 `### 4.2 代码详解` 子节（详见 §5）。
 
 ### 数学公式
@@ -679,7 +681,7 @@ leetgpu/
 
 #### SVG 引用路径
 
-题解位于 `leetgpu/weekN/dayM/`，SVG 位于 `leetgpu/images/`，因此引用路径为：
+题解位于 `leetgpu/<difficulty>/<编号>_<name>/`，SVG 位于 `leetgpu/images/`，因此引用路径为：
 
 ```markdown
 ![<中文描述>](../../images/<filename>.svg)
@@ -734,12 +736,12 @@ cp leetgpu/week2/day5/leetgpu-softmax-attention-solution.md \
 
 题解写完后会被 `build/leetgpu.py` 自动读取并生成网页：
 
-- `build.py` **递归扫描** `leetgpu/` 下所有 `leetgpu-*.md` 文件（用 `rglob()`，自动识别 `weekN/dayM/` 子目录）。
-- 解析路径中的 `weekN/dayM/` 作为分组依据，侧边栏按 week→day 手风琴式分组。
+- `build.py` **递归扫描** `leetgpu/` 下所有 `leetgpu-*.md` 文件（用 `rglob()`，自动识别 `<difficulty>/<编号>_<name>/` 子目录）。
+- 解析路径中的 `<difficulty>` 与 `<编号>` 作为分组依据，侧边栏按难度（easy→medium→hard）手风琴式分组，组内按编号排序。
 - 解析一级标题 `# LeetGPU <题目名> 题解` 作为侧边栏与列表页标题。
 - 图片路径 `images/xxx.svg` 在题解页被重写为 `./images/xxx.svg`（网站输出目录扁平化）。
-- 生成 `public/leetgpu/index.html`（概览页）和 `public/leetgpu/leetgpu-<slug>-solution.html`（各题解页，扁平输出）。
-- `leetgpu/images/` 自动复制到 `public/leetgpu/images/` 部署。
+- 生成 `public/index.html`（概览页）和 `public/leetgpu-<slug>-solution.html`（各题解页，扁平输出）。
+- `leetgpu/images/` 自动复制到 `public/images/` 部署。
 
 **验证命令**：
 
@@ -749,7 +751,7 @@ python3 build.py                     # 组合构建全站（含 leetgpu）
 
 **自检清单**：
 
-- [ ] 题解位于 `leetgpu/weekN/dayM/leetgpu-<slug>-solution.md`（week/day 用于本地归类，slug 唯一）
+- [ ] 题解位于 `leetgpu/<difficulty>/<编号>_<name>/leetgpu-<slug>-solution.md`（难度/编号用于本地归类，slug 唯一）
 - [ ] 一级标题 `# LeetGPU <题目名> 题解`
 - [ ] 含 6 段结构（题目概述/CPU基线/GPU设计/Kernel实现/性能分析/复杂度分析）
 - [ ] Kernel 代码完整可编译（含 main、cudaMalloc、验证、cudaFree）

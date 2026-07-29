@@ -10,26 +10,32 @@ from .common import REPO_ROOT, page_template
 
 LEETGPU_DIR = REPO_ROOT
 
+DIFFICULTY_ORDER = {"easy": 0, "medium": 1, "hard": 2}
+DIFFICULTY_LABELS = {
+    "easy": "Easy · 简单",
+    "medium": "Medium · 中等",
+    "hard": "Hard · 困难",
+}
+
 
 def _rewrite_md_links_to_html(markdown_text: str) -> str:
-    """Rewrite local .md links to .html for GitHub Pages deployment.
+    """Rewrite local LeetGPU solution .md links to flat .html pages.
 
-    Solution pages are emitted flat in the public/ output directory.
+    Solution pages are emitted flat in the public/ output directory, so any
+    link to a `leetgpu-<slug>-solution.md` file (regardless of its source path
+    prefix) is flattened to `./leetgpu-<slug>-solution.html`. External/README
+    links are left untouched.
     """
 
     def replace_link(match):
         url = match.group(1)
         if not url.endswith(".md"):
             return match.group(0)
-        new_url = url[:-3] + ".html"
-        if new_url.endswith("README.html"):
-            new_url = new_url[: -len("README.html")] + "index.html"
-        new_url = re.sub(
-            r"^\.\./\.\./leetgpu/week\d+/day\d+/(leetgpu-.*-solution\.html)$",
-            r"./\1",
-            new_url,
-        )
-        return f"]({new_url})"
+        filename = url.rsplit("/", 1)[-1]
+        if filename.startswith("leetgpu-") and filename.endswith("-solution.md"):
+            new_url = "./" + filename[:-3] + ".html"
+            return f"]({new_url})"
+        return match.group(0)
 
     return re.sub(r"\]\((?!https?://|#)([^)]+)\)", replace_link, markdown_text)
 
@@ -49,66 +55,61 @@ def _display_title(title: str) -> str:
     return t.strip()
 
 
-def _pretty_name(name: str) -> str:
-    m = re.match(r"^([a-zA-Z]+)(\d+)$", name)
-    if m:
-        return f"{m.group(1).capitalize()} {m.group(2)}"
-    return name
+def _difficulty_sort_key(difficulty: str) -> int:
+    return DIFFICULTY_ORDER.get(difficulty, 99)
 
 
-def _sort_key_numeric(name: str) -> int:
-    m = re.search(r"(\d+)$", name)
+def _number_from_dirname(name: str) -> int:
+    m = re.match(r"^(\d+)_", name)
     return int(m.group(1)) if m else 0
 
 
 def _build_nav(current_slug: Optional[str], solutions: List[Dict]) -> str:
-    """Build sidebar navigation as a week accordion with inline day tags."""
+    """Build sidebar navigation as a difficulty accordion with inline number tags."""
     lines = []
 
     overview_class = "nav-link active" if current_slug is None else "nav-link"
     lines.append(f'<a class="{overview_class}" href="./index.html">📌 LeetGPU 题解</a>')
     lines.append('<div class="nav-section-title">题目</div>')
 
-    current_week: Optional[str] = None
+    current_difficulty: Optional[str] = None
     if current_slug is not None:
         for s in solutions:
             if s["slug"] == current_slug:
-                current_week = s["week"]
+                current_difficulty = s["difficulty"]
                 break
 
-    tree: Dict[str, Dict[str, List[Dict]]] = {}
+    tree: Dict[str, List[Dict]] = {}
     for s in solutions:
-        w = s["week"] or "未分组"
-        d = s["day"] or ""
-        tree.setdefault(w, {}).setdefault(d, []).append(s)
+        d = s["difficulty"] or "未分组"
+        tree.setdefault(d, []).append(s)
 
-    for w in sorted(tree.keys(), key=_sort_key_numeric):
-        days = tree[w]
-        is_week_expanded = current_week == w
-        expanded_cls = " is-expanded" if is_week_expanded else ""
-        aria_expanded = "true" if is_week_expanded else "false"
-        toggle_icon = "▼" if is_week_expanded else "▶"
+    for d in sorted(tree.keys(), key=_difficulty_sort_key):
+        items = sorted(tree[d], key=lambda s: s["number"])
+        is_expanded = current_difficulty == d
+        expanded_cls = " is-expanded" if is_expanded else ""
+        aria_expanded = "true" if is_expanded else "false"
+        toggle_icon = "▼" if is_expanded else "▶"
+        label = DIFFICULTY_LABELS.get(d, d)
 
         lines.append(f'<div class="nav-accordion-item level-1{expanded_cls}">')
         lines.append('  <div class="nav-accordion-header">')
         lines.append(
-            f'    <span class="nav-link week-link">{_pretty_name(w)}</span>'
-            f'<button class="nav-accordion-toggle" aria-label="收起/展开 {_pretty_name(w)}" aria-expanded="{aria_expanded}">{toggle_icon}</button>'
+            f'    <span class="nav-link week-link">{label}</span>'
+            f'<button class="nav-accordion-toggle" aria-label="收起/展开 {label}" aria-expanded="{aria_expanded}">{toggle_icon}</button>'
         )
         lines.append('  </div>')
         lines.append('  <div class="nav-accordion-content">')
         lines.append('    <div class="nav-section">')
 
-        for d in sorted(days.keys(), key=_sort_key_numeric):
-            day_label = d if d else "未分组"
-            for s in days[d]:
-                cls = "nav-link active" if current_slug == s["slug"] else "nav-link"
-                lines.append(
-                    f'<a class="{cls}" href="./{s["slug"]}.html">'
-                    f'<span class="nav-day-tag">{day_label}</span>'
-                    f'{s["display_title"]}'
-                    f'</a>'
-                )
+        for s in items:
+            cls = "nav-link active" if current_slug == s["slug"] else "nav-link"
+            lines.append(
+                f'<a class="{cls}" href="./{s["slug"]}.html">'
+                f'<span class="nav-day-tag">#{s["number"]}</span>'
+                f'{s["display_title"]}'
+                f'</a>'
+            )
 
         lines.append('    </div>')
         lines.append('  </div>')
@@ -150,17 +151,17 @@ def build(public_dir: Path) -> None:
         base_slug = md_file.stem
 
         rel_parts = md_file.relative_to(LEETGPU_DIR).parts
-        week = None
-        day = None
-        if len(rel_parts) >= 3 and re.match(r"^week\d+$", rel_parts[0]) and re.match(r"^day\d+$", rel_parts[1]):
-            week = rel_parts[0]
-            day = rel_parts[1]
+        difficulty = None
+        number = 0
+        if len(rel_parts) >= 3 and rel_parts[0] in DIFFICULTY_ORDER:
+            difficulty = rel_parts[0]
+            number = _number_from_dirname(rel_parts[1])
 
         slug = base_slug
         if slug in seen_slugs:
             seen_slugs[slug] += 1
-            if week and day:
-                slug = f"{week}-{day}-{base_slug}"
+            if difficulty:
+                slug = f"{difficulty}-{number}-{base_slug}"
             else:
                 slug = f"{len(seen_slugs)}-{base_slug}"
         else:
@@ -170,8 +171,8 @@ def build(public_dir: Path) -> None:
             "slug": slug,
             "title": title,
             "display_title": _display_title(title),
-            "week": week,
-            "day": day,
+            "difficulty": difficulty,
+            "number": number,
             "markdown": markdown_text,
         })
 
@@ -224,37 +225,36 @@ def build(public_dir: Path) -> None:
 
 """
 
-    weekly_groups: Dict[str, Dict[str, List[Dict]]] = {}
+    diff_groups: Dict[str, List[Dict]] = {}
     for s in solutions:
-        w = s["week"] or "未分组"
-        d = s["day"] or ""
-        weekly_groups.setdefault(w, {}).setdefault(d, []).append(s)
+        d = s["difficulty"] or "未分组"
+        diff_groups.setdefault(d, []).append(s)
 
-    weeks = sorted(weekly_groups.keys(), key=_sort_key_numeric)
+    difficulties = sorted(diff_groups.keys(), key=_difficulty_sort_key)
 
-    def render_week_section(w: str) -> str:
+    def render_diff_section(d: str) -> str:
+        items = sorted(diff_groups[d], key=lambda s: s["number"])
         section = f'<div class="leetcode-section">\n'
-        section += f'  <div class="leetcode-section-title">{_pretty_name(w)}</div>\n'
+        section += f'  <div class="leetcode-section-title">{DIFFICULTY_LABELS.get(d, d)}</div>\n'
         section += f'  <div class="leetcode-problem-list">\n'
-        for d in sorted(weekly_groups[w].keys(), key=_sort_key_numeric):
-            for s in weekly_groups[w][d]:
-                section += (
-                    f'    <a class="leetcode-problem-link" href="./{s["slug"]}.html">'
-                    f'<span class="leetcode-problem-day">{d}</span>'
-                    f'<span class="leetcode-problem-title">{s["display_title"]}</span>'
-                    f'</a>\n'
-                )
+        for s in items:
+            section += (
+                f'    <a class="leetcode-problem-link" href="./{s["slug"]}.html">'
+                f'<span class="leetcode-problem-day">#{s["number"]}</span>'
+                f'<span class="leetcode-problem-title">{s["display_title"]}</span>'
+                f'</a>\n'
+            )
         section += '  </div>\n'
         section += '</div>\n\n'
         return section
 
-    for i in range(0, len(weeks), 3):
+    for i in range(0, len(difficulties), 3):
         overview_markdown += '<div class="leetcode-overview-row">\n'
         for j in range(3):
-            if i + j < len(weeks):
+            if i + j < len(difficulties):
                 col_cls = "leetcode-col-left" if j == 0 else "leetcode-col-middle" if j == 1 else "leetcode-col-right"
                 overview_markdown += f'  <div class="leetcode-col {col_cls}">\n'
-                overview_markdown += render_week_section(weeks[i + j])
+                overview_markdown += render_diff_section(difficulties[i + j])
                 overview_markdown += '  </div>\n'
         overview_markdown += '</div>\n\n'
 
