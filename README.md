@@ -19,7 +19,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## 题解列表
 
-共 **64 道**（简单 18 / 中等 41 / 困难 5），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
+共 **65 道**（简单 18 / 中等 41 / 困难 6），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
 
 ### Easy · 简单（18 道）
 
@@ -90,7 +90,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 106 | [Token Embedding Layer](medium/106_token_embedding_layer/leetgpu-token-embedding-layer-solution.md) | embedding、gather、LayerNorm、融合 kernel |
 | 107 | [Argmax](medium/107_argmax/leetgpu-argmax-solution.md) | 归约、argmax、`__shfl_down_sync` |
 
-### Hard · 困难（5 道）
+### Hard · 困难（6 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
@@ -98,6 +98,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 53 | [Causal Self-Attention](hard/53_casual_attention/leetgpu-causal-self-attention-solution.md) | causal mask、online softmax、LLM prefill、PagedAttention 对偶 |
 | 59 | [Sliding Window Self-Attention](hard/59_sliding_window_attn/leetgpu-sliding-window-self-attention-solution.md) | sliding window、kernel fusion |
 | 74 | [GPT-2 Transformer Block](hard/74_gpt2_block/leetgpu-gpt-2-transformer-block-solution.md) | Transformer、FlashAttention、LayerNorm、GEMM 端到端 |
+| 93 | [Llama Transformer Block](hard/93_llama_transformer_block/leetgpu-llama-transformer-block-solution.md) | RMSNorm+RoPE+GQA+SwiGLU、multi-kernel pipeline、算子融合 |
 | 109 | [Attention](hard/109_attention/leetgpu-attention-solution.md) | online softmax、FlashAttention、分块计算 |
 
 > 编号与目录名对应 `leetgpu-challenges` 仓库的 `challenges/<difficulty>/<编号>_<name>/`。其中 `#107 Argmax`、`#108 Vector Reversal`、`#109 Attention`、`#110 Scalar Multiply`、`#111 Element Reversal` 暂未收录进 `leetgpu-challenges`，编号为本仓库顺延分配。
@@ -195,7 +196,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 109 | GRPO Surrogate Loss | ⬜ | [题目](https://leetgpu.com/challenges/grpo-surrogate-loss) |
 | 110 | Parallel Reverse Scan (GAE) | ⬜ | [题目](https://leetgpu.com/challenges/gae-reverse-scan) |
 
-### Hard · 困难（4/13）
+### Hard · 困难（5/13）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -211,7 +212,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 59 | Sliding Window Self-Attention | ✅ | [题解](hard/59_sliding_window_attn/leetgpu-sliding-window-self-attention-solution.md) |
 | 73 | All-Pairs Shortest Paths | ⬜ | [题目](https://leetgpu.com/challenges/all-pairs-shortest-paths) |
 | 74 | GPT-2 Transformer Block | ✅ | [题解](hard/74_gpt2_block/leetgpu-gpt-2-transformer-block-solution.md) |
-| 93 | Llama Transformer Block | ⬜ | [题目](https://leetgpu.com/challenges/llama-transformer-block) |
+| 93 | Llama Transformer Block | ✅ | [题解](hard/93_llama_transformer_block/leetgpu-llama-transformer-block-solution.md) |
 
 ### 补充题解（未收录在 leetgpu-challenges）
 

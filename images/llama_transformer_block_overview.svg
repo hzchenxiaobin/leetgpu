@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 640" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="560" height="640" fill="#fafafa"/>
+
+  <text x="280" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Llama Transformer Block 架构</text>
+  <text x="280" y="44" text-anchor="middle" font-size="11" fill="#888">Pre-norm + GQA + RoPE + SwiGLU，d=512, 8Q/2KV heads, head_dim=64</text>
+
+  <!-- Input -->
+  <text x="180" y="72" text-anchor="middle" font-size="11" fill="#446688" font-family="monospace">x (seq_len, 512)</text>
+  <line x1="180" y1="78" x2="180" y2="90" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- Residual 1 line (right side) -->
+  <path d="M 180 82 L 420 82 L 420 340 L 200 340" stroke="#b85450" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="435" y="210" font-size="9" fill="#b85450" transform="rotate(90 435 210)">residual 1</text>
+
+  <!-- RMSNorm 1 -->
+  <rect x="100" y="92" width="160" height="28" fill="#f0f0f0" stroke="#888" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="180" y="110" text-anchor="middle" font-size="11" fill="#555" font-weight="bold">RMSNorm 1</text>
+  <line x1="180" y1="122" x2="180" y2="134" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- QKV Projection -->
+  <rect x="100" y="136" width="160" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="180" y="154" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">QKV Projection (GQA)</text>
+  <text x="180" y="166" text-anchor="middle" font-size="8" fill="#888">W_Q: 512×512, W_K/V: 128×512</text>
+  <line x1="180" y1="168" x2="180" y2="180" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- RoPE -->
+  <rect x="100" y="182" width="160" height="28" fill="#f3e8ff" stroke="#7755aa" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="180" y="200" text-anchor="middle" font-size="11" fill="#7755aa" font-weight="bold">RoPE (Q and K)</text>
+  <text x="180" y="212" text-anchor="middle" font-size="8" fill="#888">旋转位置编码，cos/sin (seq, 32)</text>
+  <line x1="180" y1="214" x2="180" y2="226" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- Causal Attention -->
+  <rect x="100" y="228" width="160" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="180" y="246" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">Causal Attention</text>
+  <text x="180" y="258" text-anchor="middle" font-size="8" fill="#888">scores=QKᵀ/√64, mask, softmax, PV</text>
+  <line x1="180" y1="260" x2="180" y2="272" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- Output Projection -->
+  <rect x="100" y="274" width="160" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="180" y="292" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">Output Projection</text>
+  <text x="180" y="304" text-anchor="middle" font-size="8" fill="#888">W_O: 512×512</text>
+  <line x1="180" y1="306" x2="180" y2="328" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- Add 1 -->
+  <circle cx="180" cy="340" r="12" fill="#fafafa" stroke="#b85450" stroke-width="2" filter="url(#rough2)"/>
+  <text x="180" y="345" text-anchor="middle" font-size="14" fill="#b85450" font-weight="bold">+</text>
+  <text x="200" y="345" font-size="9" fill="#b85450">x' = x + Attn</text>
+  <line x1="180" y1="352" x2="180" y2="364" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- Residual 2 line -->
+  <path d="M 180 358 L 420 358 L 420 588 L 200 588" stroke="#b85450" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="435" y="475" font-size="9" fill="#b85450" transform="rotate(90 435 475)">residual 2</text>
+
+  <!-- RMSNorm 2 -->
+  <rect x="100" y="366" width="160" height="28" fill="#f0f0f0" stroke="#888" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="180" y="384" text-anchor="middle" font-size="11" fill="#555" font-weight="bold">RMSNorm 2</text>
+  <line x1="180" y1="396" x2="180" y2="408" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- Gate + Up Proj -->
+  <rect x="100" y="410" width="160" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="180" y="428" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">Gate &amp; Up Proj</text>
+  <text x="180" y="440" text-anchor="middle" font-size="8" fill="#888">512→1408 (×2, gate + up)</text>
+  <line x1="180" y1="442" x2="180" y2="454" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- SiLU + multiply -->
+  <rect x="100" y="456" width="160" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="180" y="474" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">SiLU(gate) ⊙ up</text>
+  <text x="180" y="486" text-anchor="middle" font-size="8" fill="#888">SwiGLU 激活融合</text>
+  <line x1="180" y1="488" x2="180" y2="500" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- Down Proj -->
+  <rect x="100" y="502" width="160" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="180" y="520" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">Down Proj</text>
+  <text x="180" y="532" text-anchor="middle" font-size="8" fill="#888">1408→512</text>
+  <line x1="180" y1="534" x2="180" y2="576" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- Add 2 -->
+  <circle cx="180" cy="588" r="12" fill="#fafafa" stroke="#b85450" stroke-width="2" filter="url(#rough2)"/>
+  <text x="180" y="593" text-anchor="middle" font-size="14" fill="#b85450" font-weight="bold">+</text>
+  <text x="200" y="593" font-size="9" fill="#b85450">out = x' + FFN</text>
+  <line x1="180" y1="600" x2="180" y2="612" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- Output -->
+  <text x="180" y="628" text-anchor="middle" font-size="11" fill="#4a7a3a" font-family="monospace">output (seq_len, 512)</text>
+
+  <!-- Right side: Llama vs GPT-2 comparison -->
+  <rect x="300" y="92" width="240" height="210" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="420" y="112" text-anchor="middle" font-size="11" fill="#444" font-weight="bold">Llama vs GPT-2 关键差异</text>
+  <g font-size="9" fill="#555">
+    <circle cx="316" cy="130" r="3" fill="#7755aa" filter="url(#rough2)"/>
+    <text x="326" y="133" fill="#7755aa" font-weight="bold">RoPE</text>
+    <text x="370" y="133">旋转位置编码替代绝对位置编码</text>
+    <circle cx="316" cy="148" r="3" fill="#555" filter="url(#rough2)"/>
+    <text x="326" y="151" fill="#555" font-weight="bold">RMSNorm</text>
+    <text x="392" y="151">无 mean/bias，比 LayerNorm 省</text>
+    <circle cx="316" cy="166" r="3" fill="#446688" filter="url(#rough2)"/>
+    <text x="326" y="169" fill="#446688" font-weight="bold">GQA</text>
+    <text x="356" y="169">8Q/2KV heads，KV head 复用</text>
+    <circle cx="316" cy="184" r="3" fill="#4a7a3a" filter="url(#rough2)"/>
+    <text x="326" y="187" fill="#4a7a3a" font-weight="bold">SwiGLU</text>
+    <text x="372" y="187">替代 GELU FFN</text>
+    <circle cx="316" cy="202" r="3" fill="#b85450" filter="url(#rough2)"/>
+    <text x="326" y="205" fill="#b85450" font-weight="bold">无 bias</text>
+    <text x="370" y="205">所有 Linear 层无偏置项</text>
+    <circle cx="316" cy="220" r="3" fill="#888" filter="url(#rough2)"/>
+    <text x="326" y="223" fill="#888" font-weight="bold">Pre-norm</text>
+    <text x="380" y="223">两者都用 pre-norm</text>
+  </g>
+  <text x="420" y="252" text-anchor="middle" font-size="8" fill="#888">d=512, 8 heads, hd=64, ffn=1408</text>
+  <text x="420" y="266" text-anchor="middle" font-size="8" fill="#888">vs GPT-2: d=768, 12 heads, ffn=3072</text>
+  <text x="420" y="284" text-anchor="middle" font-size="8" fill="#888">Llama 参数量更少，GQA 进一步省 KV</text>
+</svg>

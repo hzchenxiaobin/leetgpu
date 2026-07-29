@@ -436,6 +436,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | 题解 (slug) | 推荐练习（编号 · 关联） | 选材主线 |
 |-------------|------------------------|----------|
 | `gpt-2-transformer-block` | #12 Multi-Head Attention（block 的核心组件）· #50 RMS Norm（归一化组件）· #54 SwiGLU（激活/MLP 组件）· #85 LoRA Linear（低秩线性层变体） | LN + Attention + MLP 综合模块，练习多 kernel 流水线与模块融合 |
+| `llama-transformer-block` | #74 GPT-2 Transformer Block（GPT-2 block，LayerNorm+MHA+GELU 对比 Llama 的 RMSNorm+GQA+SwiGLU）· #80 Grouped Query Attention (GQA)（GQA 独立实现，本题 attention 子模块的组件）· #61 Rotary Positional Embedding（RoPE 独立实现，本题位置编码组件）· #50 RMS Normalization（RMSNorm 独立实现，本题归一化组件） | RMSNorm + RoPE + GQA + SwiGLU 综合模块，练习 multi-kernel pipeline 编排与算子融合策略 |
 | `swiglu` | #52 SiLU（SwiGLU 的激活组件）· #21 ReLU（最简激活对比）· #65 GeGLU（GELU 门控变体）· #84 SwiGLU MLP Block（SwiGLU 的完整 MLP 应用） | 融合激活 + 门控乘法，练习 fused MLP 组件 kernel |
 | `swiglu-mlp-block` | #54 SwiGLU（SwiGLU 激活组件，本 block 的核心 elementwise）· #22 GEMM（GEMM tiling，3 个 matmul 的基础组件）· #74 GPT-2 Transformer Block（更大的 transformer block 综合）· #52 SiLU（SiLU 激活，SwiGLU 的子组件） | 融合 MLP block，SwiGLU 的完整应用 |
 | `silu` | #21 ReLU（最简激活函数对比）· #68 Sigmoid（silu 的组件）· #54 SwiGLU（融合激活 + 门控进阶）· #23 Leaky ReLU（分支激活对比） | 融合 sigmoid + mul 逐元素，练习 fused activation kernel |

@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 520" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="660" height="520" fill="#fafafa"/>
+
+  <text x="330" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Kernel Pipeline：10 次内核启动与 HBM IO</text>
+  <text x="330" y="44" text-anchor="middle" font-size="11" fill="#888">每步中间结果经 HBM 往返，优化方向是算子融合减少 IO</text>
+
+  <!-- ===== Pipeline table ===== -->
+  <!-- Header row -->
+  <g font-size="9" fill="#444" font-weight="bold">
+    <text x="30" y="70">#</text>
+    <text x="60" y="70">Kernel</text>
+    <text x="240" y="70">输入</text>
+    <text x="340" y="70">输出</text>
+    <text x="430" y="70">HBM 读/写</text>
+    <text x="560" y="70">优化机会</text>
+  </g>
+  <line x1="20" y1="78" x2="640" y2="78" stroke="#ddd" stroke-width="1" filter="url(#rough2)"/>
+
+  <!-- Row 1: RMSNorm1 -->
+  <g font-size="8" fill="#555">
+    <text x="30" y="94" fill="#555" font-weight="bold">1</text>
+    <text x="60" y="94" fill="#888" font-weight="bold">RMSNorm1</text>
+    <text x="240" y="94" fill="#446688">x (Nd)</text>
+    <text x="340" y="94" fill="#4a7a3a">x_norm (Nd)</text>
+    <text x="430" y="94">读 Nd / 写 Nd</text>
+    <text x="560" y="94" fill="#d6a040">与 QKV 融合</text>
+  </g>
+
+  <!-- Row 2: QKV Proj -->
+  <g font-size="8" fill="#555">
+    <text x="30" y="110" fill="#555" font-weight="bold">2</text>
+    <text x="60" y="110" fill="#446688" font-weight="bold">QKV Proj</text>
+    <text x="240" y="110" fill="#446688">x_norm (Nd)</text>
+    <text x="340" y="110" fill="#4a7a3a">Q,K,V (Nd+2·Nd_KV)</text>
+    <text x="430" y="110">读 Nd / 写 Nd+256N</text>
+    <text x="560" y="110" fill="#d6a040">tiled GEMM</text>
+  </g>
+
+  <!-- Row 3: RoPE -->
+  <g font-size="8" fill="#555">
+    <text x="30" y="126" fill="#555" font-weight="bold">3</text>
+    <text x="60" y="126" fill="#7755aa" font-weight="bold">RoPE</text>
+    <text x="240" y="126" fill="#446688">Q, K, cos, sin</text>
+    <text x="340" y="126" fill="#4a7a3a">Q_rot, K_rot (in-place)</text>
+    <text x="430" y="126">读 2·(Nd+32T) / 写 0</text>
+    <text x="560" y="126" fill="#d6a040">与 QKV 融合</text>
+  </g>
+
+  <!-- Row 4: Attention -->
+  <g font-size="8" fill="#555">
+    <text x="30" y="142" fill="#555" font-weight="bold">4</text>
+    <text x="60" y="142" fill="#446688" font-weight="bold">Causal Attn</text>
+    <text x="240" y="142" fill="#446688">Q, K, V (多次读)</text>
+    <text x="340" y="142" fill="#4a7a3a">attn_out (Nd)</text>
+    <text x="430" y="142">读 ~3Nd / 写 Nd</text>
+    <text x="560" y="142" fill="#d6a040">FlashAttention</text>
+  </g>
+
+  <!-- Row 5: Output Proj -->
+  <g font-size="8" fill="#555">
+    <text x="30" y="158" fill="#555" font-weight="bold">5</text>
+    <text x="60" y="158" fill="#446688" font-weight="bold">Out Proj</text>
+    <text x="240" y="158" fill="#446688">attn_out (Nd)</text>
+    <text x="340" y="158" fill="#4a7a3a">attn_proj (Nd)</text>
+    <text x="430" y="158">读 Nd / 写 Nd</text>
+    <text x="560" y="158" fill="#d6a040">与 Attn 融合</text>
+  </g>
+
+  <!-- Row 6: Residual 1 -->
+  <g font-size="8" fill="#555">
+    <text x="30" y="174" fill="#555" font-weight="bold">6</text>
+    <text x="60" y="174" fill="#b85450" font-weight="bold">+ Residual 1</text>
+    <text x="240" y="174" fill="#446688">x, attn_proj (2Nd)</text>
+    <text x="340" y="174" fill="#4a7a3a">hidden (Nd)</text>
+    <text x="430" y="174">读 2Nd / 写 Nd</text>
+    <text x="560" y="174" fill="#d6a040">与 Out Proj 融合</text>
+  </g>
+
+  <!-- Row 7: RMSNorm2 -->
+  <g font-size="8" fill="#555">
+    <text x="30" y="190" fill="#555" font-weight="bold">7</text>
+    <text x="60" y="190" fill="#888" font-weight="bold">RMSNorm2</text>
+    <text x="240" y="190" fill="#446688">hidden (Nd)</text>
+    <text x="340" y="190" fill="#4a7a3a">h_norm (Nd)</text>
+    <text x="430" y="190">读 Nd / 写 Nd</text>
+    <text x="560" y="190" fill="#d6a040">与 FFN 融合</text>
+  </g>
+
+  <!-- Row 8: Gate+Up -->
+  <g font-size="8" fill="#555">
+    <text x="30" y="206" fill="#555" font-weight="bold">8</text>
+    <text x="60" y="206" fill="#4a7a3a" font-weight="bold">Gate+Up Proj</text>
+    <text x="240" y="206" fill="#446688">h_norm (Nd)</text>
+    <text x="340" y="206" fill="#4a7a3a">gate, up (2·Nf)</text>
+    <text x="430" y="206">读 Nd / 写 2Nf</text>
+    <text x="560" y="206" fill="#d6a040">融合 SiLU+mul</text>
+  </g>
+
+  <!-- Row 9: SiLU+mul+Down -->
+  <g font-size="8" fill="#555">
+    <text x="30" y="222" fill="#555" font-weight="bold">9</text>
+    <text x="60" y="222" fill="#4a7a3a" font-weight="bold">SiLU+mul+Down</text>
+    <text x="240" y="222" fill="#446688">gate, up (2Nf)</text>
+    <text x="340" y="222" fill="#4a7a3a">ffn_out (Nd)</text>
+    <text x="430" y="222">读 2Nf / 写 Nd</text>
+    <text x="560" y="222" fill="#d6a040">shared mem 复用</text>
+  </g>
+
+  <!-- Row 10: Residual 2 -->
+  <g font-size="8" fill="#555">
+    <text x="30" y="238" fill="#555" font-weight="bold">10</text>
+    <text x="60" y="238" fill="#b85450" font-weight="bold">+ Residual 2</text>
+    <text x="240" y="238" fill="#446688">hidden, ffn_out (2Nd)</text>
+    <text x="340" y="238" fill="#4a7a3a">output (Nd)</text>
+    <text x="430" y="238">读 2Nd / 写 Nd</text>
+    <text x="560" y="238" fill="#d6a040">与 Down 融合</text>
+  </g>
+
+  <line x1="20" y1="250" x2="640" y2="250" stroke="#ddd" stroke-width="1" filter="url(#rough2)"/>
+
+  <!-- ===== Summary ===== -->
+  <rect x="20" y="260" width="620" height="56" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="34" y="280" font-size="11" fill="#444" font-weight="bold">HBM IO 汇总（seq_len=T, d=512, ffn=1408, N=T·d, F=T·ffn）：</text>
+  <text x="60" y="298" font-family="monospace" font-size="10" fill="#446688">朴素版：读 ~15N + 4F / 写 ~5N + 2F ≈ 20N + 6F 字节（×4B）</text>
+  <text x="60" y="312" font-family="monospace" font-size="10" fill="#4a7a3a">融合后：读 ~3N / 写 ~N（RMSNorm+QKV 融合，Attn+Proj 融合，FFN 内部 shared mem）</text>
+
+  <!-- ===== GQA detail ===== -->
+  <line x1="20" y1="332" x2="640" y2="332" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <text x="330" y="356" text-anchor="middle" font-size="12" fill="#444" font-weight="bold">GQA：2 个 KV head → 8 个 Q head</text>
+
+  <!-- Q heads -->
+  <g font-size="8" fill="#333">
+    <text x="40" y="380" font-size="9" fill="#446688" font-weight="bold">Q heads (8)</text>
+    <rect x="40" y="386" width="40" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="60" y="400" text-anchor="middle" font-size="7" fill="#446688">Q0</text>
+    <rect x="85" y="386" width="40" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="105" y="400" text-anchor="middle" font-size="7" fill="#446688">Q1</text>
+    <rect x="130" y="386" width="40" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="150" y="400" text-anchor="middle" font-size="7" fill="#446688">Q2</text>
+    <rect x="175" y="386" width="40" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="195" y="400" text-anchor="middle" font-size="7" fill="#446688">Q3</text>
+    <rect x="220" y="386" width="40" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="240" y="400" text-anchor="middle" font-size="7" fill="#446688">Q4</text>
+    <rect x="265" y="386" width="40" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="285" y="400" text-anchor="middle" font-size="7" fill="#446688">Q5</text>
+    <rect x="310" y="386" width="40" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="330" y="400" text-anchor="middle" font-size="7" fill="#446688">Q6</text>
+    <rect x="355" y="386" width="40" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2" filter="url(#rough2)"/>
+    <text x="375" y="400" text-anchor="middle" font-size="7" fill="#446688">Q7</text>
+  </g>
+
+  <!-- KV heads with grouping colors -->
+  <g font-size="8" fill="#333">
+    <text x="40" y="424" font-size="9" fill="#d6a040" font-weight="bold">KV heads (2)</text>
+    <!-- KV0 group (Q0-Q3) -->
+    <rect x="40" y="430" width="175" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="127" y="444" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold">KV0 (Q0,Q1,Q2,Q3 共享)</text>
+    <!-- KV1 group (Q4-Q7) -->
+    <rect x="220" y="430" width="175" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="307" y="444" text-anchor="middle" font-size="8" fill="#b85450" font-weight="bold">KV1 (Q4,Q5,Q6,Q7 共享)</text>
+  </g>
+
+  <!-- Group brackets -->
+  <g font-size="8" fill="#888">
+    <path d="M 40 410 L 40 416 L 212 416 L 212 410" stroke="#d6a040" stroke-width="1" fill="none" filter="url(#rough2)"/>
+    <path d="M 220 410 L 220 416 L 392 416 L 392 410" stroke="#b85450" stroke-width="1" fill="none" filter="url(#rough2)"/>
+  </g>
+
+  <!-- Benefits -->
+  <rect x="440" y="380" width="200" height="80" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="540" y="398" text-anchor="middle" font-size="9" fill="#444" font-weight="bold">GQA 收益</text>
+  <g font-size="8" fill="#555">
+    <text x="454" y="414">KV cache: 8→2 heads</text>
+    <text x="454" y="428">省 4× KV 内存带宽</text>
+    <text x="454" y="442">W_K,W_V: 512→128 行</text>
+    <text x="454" y="456">省 75% 投影计算</text>
+  </g>
+
+  <!-- ===== Bottom: fusion strategy ===== -->
+  <rect x="20" y="472" width="620" height="36" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="34" y="492" font-size="10" fill="#d6a040" font-weight="bold">💡 优化核心：RMSNorm+QKV+RoPE 融合 → Attn+Proj+Residual 融合 → FFN 内 shared mem 复用 → 全层 HBM IO 从 ~20Nd+6Ff 降至 ~3Nd</text>
+</svg>
