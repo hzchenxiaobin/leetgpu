@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 560" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="660" height="560" fill="#fafafa"/>
+
+  <text x="330" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Worked Example：d=0 通道逐步演算</text>
+  <text x="330" y="44" text-anchor="middle" font-size="11" fill="#888">batch=1, seq_len=4, d_model=2, d_state=2, delta=1, A=[-0.5,-1.0], skip=0</text>
+
+  <!-- ===== Input data table ===== -->
+  <rect x="20" y="56" width="620" height="56" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="34" y="74" font-size="9" fill="#888">t</text>
+  <text x="70" y="74" text-anchor="middle" font-size="9" fill="#446688" font-weight="bold">u[b,t,0]</text>
+  <text x="140" y="74" text-anchor="middle" font-size="9" fill="#d6a040" font-weight="bold">B[b,t,0]</text>
+  <text x="210" y="74" text-anchor="middle" font-size="9" fill="#d6a040" font-weight="bold">B[b,t,1]</text>
+  <text x="280" y="74" text-anchor="middle" font-size="9" fill="#b85450" font-weight="bold">C[b,t,0]</text>
+  <text x="350" y="74" text-anchor="middle" font-size="9" fill="#b85450" font-weight="bold">C[b,t,1]</text>
+  <text x="420" y="74" text-anchor="middle" font-size="9" fill="#4a7a3a" font-weight="bold">Ā[0]=exp(-.5)</text>
+  <text x="510" y="74" text-anchor="middle" font-size="9" fill="#4a7a3a" font-weight="bold">Ā[1]=exp(-1)</text>
+  <text x="600" y="74" text-anchor="middle" font-size="9" fill="#888" font-weight="bold">y[b,t,0]</text>
+
+  <g font-size="9" fill="#333">
+    <text x="34" y="92">0</text>
+    <text x="70" y="92" text-anchor="middle" fill="#446688">1.0</text>
+    <text x="140" y="92" text-anchor="middle" fill="#d6a040">1.0</text>
+    <text x="210" y="92" text-anchor="middle" fill="#d6a040">0.0</text>
+    <text x="280" y="92" text-anchor="middle" fill="#b85450">1.0</text>
+    <text x="350" y="92" text-anchor="middle" fill="#b85450">0.0</text>
+    <text x="420" y="92" text-anchor="middle" fill="#4a7a3a">0.607</text>
+    <text x="510" y="92" text-anchor="middle" fill="#4a7a3a">0.368</text>
+    <text x="600" y="92" text-anchor="middle" fill="#888" font-weight="bold">1.000</text>
+
+    <text x="34" y="106">1</text>
+    <text x="70" y="106" text-anchor="middle" fill="#446688">0.0</text>
+    <text x="140" y="106" text-anchor="middle" fill="#d6a040">0.0</text>
+    <text x="210" y="106" text-anchor="middle" fill="#d6a040">1.0</text>
+    <text x="280" y="106" text-anchor="middle" fill="#b85450">0.0</text>
+    <text x="350" y="106" text-anchor="middle" fill="#b85450">1.0</text>
+    <text x="600" y="106" text-anchor="middle" fill="#888" font-weight="bold">0.000</text>
+  </g>
+
+  <!-- ===== Step-by-step computation for d=0 ===== -->
+  <!-- t=0 -->
+  <rect x="20" y="128" width="620" height="72" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="34" y="148" font-size="11" fill="#446688" font-weight="bold">t=0 (u=1.0, delta=1):</text>
+  <text x="44" y="166" font-family="monospace" font-size="9" fill="#d6a040">B̄ = delta*B = [1·1.0, 1·0.0] = [1.0, 0.0]</text>
+  <text x="44" y="180" font-family="monospace" font-size="9" fill="#446688">h[0] = Ā[0]·0 + B̄[0]·u = 0.607·0 + 1.0·1.0 = 1.000</text>
+  <text x="44" y="194" font-family="monospace" font-size="9" fill="#446688">h[1] = Ā[1]·0 + B̄[1]·u = 0.368·0 + 0.0·1.0 = 0.000</text>
+  <text x="440" y="166" font-family="monospace" font-size="9" fill="#b85450">y = C·h + skip·u</text>
+  <text x="440" y="180" font-family="monospace" font-size="9" fill="#b85450">  = 1.0·1.0 + 0.0·0.0</text>
+  <text x="440" y="194" font-family="monospace" font-size="9" fill="#b85450" font-weight="bold">  = 1.000 ✓</text>
+
+  <!-- t=1 -->
+  <rect x="20" y="212" width="620" height="72" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="34" y="232" font-size="11" fill="#446688" font-weight="bold">t=1 (u=0.0, delta=1):  ← h_prev = [1.000, 0.000]</text>
+  <text x="44" y="250" font-family="monospace" font-size="9" fill="#d6a040">B̄ = [1·0.0, 1·1.0] = [0.0, 1.0]</text>
+  <text x="44" y="264" font-family="monospace" font-size="9" fill="#446688">h[0] = 0.607·1.000 + 0.0·0.0 = 0.607</text>
+  <text x="44" y="278" font-family="monospace" font-size="9" fill="#446688">h[1] = 0.368·0.000 + 1.0·0.0 = 0.000</text>
+  <text x="440" y="250" font-family="monospace" font-size="9" fill="#b85450">y = 0.0·0.607 + 1.0·0.000</text>
+  <text x="440" y="264" font-family="monospace" font-size="9" fill="#b85450">  + 0.0·0.0 = 0</text>
+  <text x="440" y="278" font-family="monospace" font-size="9" fill="#b85450" font-weight="bold">  = 0.000 ✓</text>
+
+  <!-- t=2 -->
+  <rect x="20" y="296" width="620" height="72" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="34" y="316" font-size="11" fill="#446688" font-weight="bold">t=2 (u=1.0, delta=1):  ← h_prev = [0.607, 0.000]</text>
+  <text x="44" y="334" font-family="monospace" font-size="9" fill="#d6a040">B̄ = [1·1.0, 1·1.0] = [1.0, 1.0]</text>
+  <text x="44" y="348" font-family="monospace" font-size="9" fill="#446688">h[0] = 0.607·0.607 + 1.0·1.0 = 0.368 + 1.0 = 1.368</text>
+  <text x="44" y="362" font-family="monospace" font-size="9" fill="#446688">h[1] = 0.368·0.000 + 1.0·1.0 = 1.000</text>
+  <text x="440" y="334" font-family="monospace" font-size="9" fill="#b85450">y = 1.0·1.368 + 1.0·1.000</text>
+  <text x="440" y="348" font-family="monospace" font-size="9" fill="#b85450">  + 0.0·1.0</text>
+  <text x="440" y="362" font-family="monospace" font-size="9" fill="#b85450" font-weight="bold">  = 2.368 ✓</text>
+
+  <!-- t=3 -->
+  <rect x="20" y="380" width="620" height="72" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="34" y="400" font-size="11" fill="#446688" font-weight="bold">t=3 (u=0.0, delta=1):  ← h_prev = [1.368, 1.000]</text>
+  <text x="44" y="418" font-family="monospace" font-size="9" fill="#d6a040">B̄ = [1·0.5, 1·0.5] = [0.5, 0.5]</text>
+  <text x="44" y="432" font-family="monospace" font-size="9" fill="#446688">h[0] = 0.607·1.368 + 0.5·0.0 = 0.830</text>
+  <text x="44" y="446" font-family="monospace" font-size="9" fill="#446688">h[1] = 0.368·1.000 + 0.5·0.0 = 0.368</text>
+  <text x="440" y="418" font-family="monospace" font-size="9" fill="#b85450">y = 0.5·0.830 + 0.5·0.368</text>
+  <text x="440" y="432" font-family="monospace" font-size="9" fill="#b85450">  + 0.0·0.0</text>
+  <text x="440" y="446" font-family="monospace" font-size="9" fill="#b85450" font-weight="bold">  = 0.599 ✓</text>
+
+  <!-- ===== Summary ===== -->
+  <rect x="20" y="468" width="620" height="72" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="34" y="488" font-size="11" fill="#4a7a3a" font-weight="bold">通道 d=0 最终输出：y = [1.000, 0.000, 2.368, 0.599]</text>
+  <text x="34" y="506" font-size="10" fill="#555">验证：与题目期望 output[0][*][0] = [1.000, 0.000, 2.368, 0.599] 完全一致 ✓</text>
+  <text x="34" y="524" font-size="10" fill="#555">观察：h[0] 在 t=2 达到峰值 1.368（累积了 t=0 的输入），t=3 衰减到 0.830（A_bar=0.607 的衰减作用）。</text>
+  <text x="34" y="538" font-size="10" fill="#555">这就是 SSM 的"选择性记忆"：A_bar∈(0,1) 使旧状态指数衰减，新输入通过 B_bar 注入。</text>
+</svg>

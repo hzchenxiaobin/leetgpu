@@ -19,7 +19,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## 题解列表
 
-共 **63 道**（简单 18 / 中等 40 / 困难 5），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
+共 **64 道**（简单 18 / 中等 41 / 困难 5），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
 
 ### Easy · 简单（18 道）
 
@@ -44,7 +44,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 110 | [Scalar Multiply](easy/110_scalar_multiply/leetgpu-scalar-multiply-solution.md) | element-wise、attention scaling |
 | 111 | [Element Reversal](easy/111_element_reversal/leetgpu-element-reversal-solution.md) | element-wise、结果验证 |
 
-### Medium · 中等（40 道）
+### Medium · 中等（41 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
@@ -84,6 +84,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 87 | [Speculative Decoding Verification](medium/87_speculative_decoding_verification/leetgpu-speculative-decoding-verification-solution.md) | 投机解码、accept/reject 采样、CDF 查找 |
 | 90 | [Causal Depthwise Conv1d](medium/90_causal_depthwise_conv1d/leetgpu-causal-depthwise-conv1d-solution.md) | causal、depthwise、边界处理 |
 | 92 | [Decaying Causal Attention](medium/92_decaying_causal_attention/leetgpu-decaying-causal-attention-solution.md) | causal mask、exponential decay、增量计算 |
+| 94 | [SSM Selective Scan](medium/94_ssm_selective_scan/leetgpu-ssm-selective-scan-solution.md) | Mamba、sequential recurrence、register state、thread-per-channel |
 | 96 | [INT8 KV-Cache Attention](medium/96_int8_kv_cache_attention/leetgpu-int8-kv-cache-attention-solution.md) | decode-phase、KV Cache、INT8 量化、per-token scale |
 | 105 | [Group Normalization](medium/105_group_normalization/leetgpu-group-normalization-solution.md) | normalization、reduction、GroupNorm |
 | 106 | [Token Embedding Layer](medium/106_token_embedding_layer/leetgpu-token-embedding-layer-solution.md) | embedding、gather、LayerNorm、融合 kernel |
@@ -130,7 +131,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 66 | RGB to Grayscale | ⬜ | [题目](https://leetgpu.com/challenges/rgb-to-grayscale) |
 | 68 | Sigmoid Activation | ✅ | [题解](easy/68_sigmoid/leetgpu-sigmoid-solution.md) |
 
-### Medium · 中等（45/59）
+### Medium · 中等（46/59）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -187,7 +188,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 87 | Speculative Decoding Verification | ✅ | [题解](medium/87_speculative_decoding_verification/leetgpu-speculative-decoding-verification-solution.md) |
 | 90 | Causal Depthwise Conv1d | ✅ | [题解](medium/90_causal_depthwise_conv1d/leetgpu-causal-depthwise-conv1d-solution.md) |
 | 92 | Decaying Causal Attention | ✅ | [题解](medium/92_decaying_causal_attention/leetgpu-decaying-causal-attention-solution.md) |
-| 94 | SSM Selective Scan | ⬜ | [题目](https://leetgpu.com/challenges/ssm-selective-scan) |
+| 94 | SSM Selective Scan | ✅ | [题解](medium/94_ssm_selective_scan/leetgpu-ssm-selective-scan-solution.md) |
 | 96 | INT8 KV-Cache Attention | ✅ | [题解](medium/96_int8_kv_cache_attention/leetgpu-int8-kv-cache-attention-solution.md) |
 | 105 | Group Normalization | ✅ | [题解](medium/105_group_normalization/leetgpu-group-normalization-solution.md) |
 | 106 | Token Embedding Layer | ✅ | [题解](medium/106_token_embedding_layer/leetgpu-token-embedding-layer-solution.md) |
