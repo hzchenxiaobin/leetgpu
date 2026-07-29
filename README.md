@@ -19,7 +19,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## 题解列表
 
-共 **66 道**（简单 18 / 中等 42 / 困难 6），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
+共 **67 道**（简单 18 / 中等 43 / 困难 6），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
 
 ### Easy · 简单（18 道）
 
@@ -44,7 +44,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 110 | [Scalar Multiply](easy/110_scalar_multiply/leetgpu-scalar-multiply-solution.md) | element-wise、attention scaling |
 | 111 | [Element Reversal](easy/111_element_reversal/leetgpu-element-reversal-solution.md) | element-wise、结果验证 |
 
-### Medium · 中等（42 道）
+### Medium · 中等（43 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
@@ -71,6 +71,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 50 | [RMS Normalization](medium/50_rms_normalization/leetgpu-rms-normalization-solution.md) | RMSNorm、warp shuffle、Llama |
 | 51 | [Max Subarray Sum](medium/51_max_subarray_sum/leetgpu-max-subarray-sum-solution.md) | 滑动窗口、prefix sum、reduction |
 | 55 | [Attention with Linear Biases (ALiBi)](medium/55_attn_w_linear_bias/leetgpu-attn-w-linear-bias-solution.md) | ALiBi、positional bias、online softmax |
+| 57 | [FP16 Batched Matrix Multiplication](medium/57_fp16_batched_matmul/leetgpu-fp16-batched-matmul-solution.md) | FP16 存储、FP32 累加、batched GEMM、Tensor Core |
 | 58 | [FP16 Dot Product](medium/58_fp16_dot_product/leetgpu-fp16-dot-product-solution.md) | half 精度、warp shuffle、FP32 累加 |
 | 61 | [Rotary Positional Embedding](medium/61_rope_embedding/leetgpu-rope-embedding-solution.md) | elementwise、rotate_half、位置编码 |
 | 64 | [Weight Dequantization](medium/64_weight_dequantization/leetgpu-weight-dequantization-solution.md) | element-wise、分块 scale、量化推理 |
@@ -133,7 +134,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 66 | RGB to Grayscale | ⬜ | [题目](https://leetgpu.com/challenges/rgb-to-grayscale) |
 | 68 | Sigmoid Activation | ✅ | [题解](easy/68_sigmoid/leetgpu-sigmoid-solution.md) |
 
-### Medium · 中等（47/59）
+### Medium · 中等（48/59）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -169,7 +170,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 50 | RMS Normalization | ✅ | [题解](medium/50_rms_normalization/leetgpu-rms-normalization-solution.md) |
 | 51 | Max Subarray Sum | ✅ | [题解](medium/51_max_subarray_sum/leetgpu-max-subarray-sum-solution.md) |
 | 55 | Attention with Linear Biases | ✅ | [题解](medium/55_attn_w_linear_bias/leetgpu-attn-w-linear-bias-solution.md) |
-| 57 | FP16 Batched Matrix Multiplication | ⬜ | [题目](https://leetgpu.com/challenges/fp16-batched-matmul) |
+| 57 | FP16 Batched Matrix Multiplication | ✅ | [题解](medium/57_fp16_batched_matmul/leetgpu-fp16-batched-matmul-solution.md) |
 | 58 | FP16 Dot Product | ✅ | [题解](medium/58_fp16_dot_product/leetgpu-fp16-dot-product-solution.md) |
 | 60 | Top-p Sampling | ✅ | [题解](medium/60_top_p_sampling/leetgpu-top-p-sampling-solution.md) |
 | 61 | Rotary Positional Embedding | ✅ | [题解](medium/61_rope_embedding/leetgpu-rope-embedding-solution.md) |

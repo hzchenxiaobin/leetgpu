@@ -452,6 +452,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | 题解 (slug) | 推荐练习（编号 · 关联） | 选材主线 |
 |-------------|------------------------|----------|
 | `weight-dequantization` | #32 INT8 Quantized MatMul（量化计算的应用）· #81 INT4 Weight-Only（4-bit 打包反量化）· #96 INT8 KV-Cache（量化 attention 应用）· #85 LoRA Linear（低秩 + 量化推理） | 量化反量化到 fp16/fp32，练习低精度推理的基础操作 |
+| `fp16-batched-matmul` | #30 Batched Matrix Multiplication（FP32 batched GEMM，本题的 FP32 基础版对比）· #58 FP16 Dot Product（FP16 dot product + FP32 累加，同精度策略的向量版）· #22 General Matrix Multiplication (GEMM)（GEMM tiling + register blocking，本题的 tiling 优化方向）· #32 INT8 Quantized MatMul（INT8 量化 GEMM，更低精度的量化计算对比） | FP16 存储 + FP32 累加 + batched GEMM，练习半精度计算的精度保证与 Tensor Core 优化 |
 
 #### J. 高级算法与数学（Advanced Algorithms & Math）
 

@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 500" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="500" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Batched GEMM：Thread-to-Element 映射</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">每线程负责 C[b,m,n] 的一个元素，内层循环 K 累加</text>
+
+  <!-- ===== Left: 3D batch view ===== -->
+  <text x="150" y="76" font-size="12" fill="#446688" font-weight="bold">C[BATCH][M][N]</text>
+  <g font-size="9" fill="#333">
+    <!-- batch stack (isometric) -->
+    <!-- batch 0 (back) -->
+    <rect x="60" y="90" width="180" height="120" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="68" y="104" font-size="8" fill="#888">b=0</text>
+
+    <!-- batch 1 (middle, offset) -->
+    <rect x="80" y="80" width="180" height="120" fill="#d0d8e8" stroke="#446688" stroke-width="1.2" rx="3" opacity="0.7" filter="url(#rough2)"/>
+    <text x="88" y="94" font-size="8" fill="#888">b=1</text>
+
+    <!-- batch 2 (front, more offset) -->
+    <rect x="100" y="70" width="180" height="120" fill="#c0c8d8" stroke="#446688" stroke-width="1.2" rx="3" opacity="0.5" filter="url(#rough2)"/>
+    <text x="108" y="84" font-size="8" fill="#888">b=B-1</text>
+
+    <!-- highlight one output element -->
+    <rect x="140" y="130" width="30" height="20" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="155" y="144" text-anchor="middle" font-size="7" fill="#4a7a3a" font-weight="bold">C[b,m,n]</text>
+
+    <!-- grid on front batch -->
+    <g stroke="#99a" stroke-width="0.3" filter="url(#rough2)">
+      <line x1="145" y1="70" x2="145" y2="190"/>
+      <line x1="190" y1="70" x2="190" y2="190"/>
+      <line x1="235" y1="70" x2="235" y2="190"/>
+      <line x1="100" y1="110" x2="280" y2="110"/>
+      <line x1="100" y1="150" x2="280" y2="150"/>
+      <line x1="100" y1="190" x2="280" y2="190"/>
+    </g>
+  </g>
+  <text x="150" y="228" text-anchor="middle" font-size="8" fill="#888">B 个独立的 M×N 矩阵</text>
+
+  <!-- arrow -->
+  <path d="M 270 150 L 310 150" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="290" y="140" text-anchor="middle" font-size="8" fill="#666">映射</text>
+
+  <!-- ===== Right: thread mapping ===== -->
+  <text x="480" y="76" font-size="12" fill="#4a7a3a" font-weight="bold">Thread Grid</text>
+  <g font-size="9" fill="#333">
+    <rect x="320" y="84" width="280" height="120" fill="#f6f6f6" stroke="#999" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="332" y="100" font-size="8" fill="#888">block 0 (256 threads)</text>
+
+    <!-- thread cells -->
+    <g filter="url(#rough2)">
+      <rect x="330" y="110" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2"/>
+      <text x="345" y="124" text-anchor="middle" font-size="6" fill="#446688">(0,0,0)</text>
+      <rect x="365" y="110" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2"/>
+      <text x="380" y="124" text-anchor="middle" font-size="6" fill="#446688">(0,0,1)</text>
+      <rect x="400" y="110" width="30" height="20" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="2"/>
+      <text x="415" y="124" text-anchor="middle" font-size="6" fill="#4a7a3a" font-weight="bold">(0,0,2)</text>
+      <rect x="435" y="110" width="30" height="20" fill="#eee" stroke="#ccc" stroke-width="0.8" rx="2"/>
+      <text x="450" y="124" text-anchor="middle" font-size="6" fill="#999">...</text>
+      <rect x="470" y="110" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2"/>
+      <text x="485" y="124" text-anchor="middle" font-size="6" fill="#446688">(0,0,N)</text>
+      <rect x="505" y="110" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2"/>
+      <text x="520" y="124" text-anchor="middle" font-size="6" fill="#446688">(0,1,0)</text>
+      <rect x="540" y="110" width="30" height="20" fill="#eee" stroke="#ccc" stroke-width="0.8" rx="2"/>
+      <text x="555" y="124" text-anchor="middle" font-size="6" fill="#999">...</text>
+
+      <!-- row 2 -->
+      <rect x="330" y="135" width="30" height="20" fill="#eee" stroke="#ccc" stroke-width="0.8" rx="2"/>
+      <text x="345" y="149" text-anchor="middle" font-size="6" fill="#999">...</text>
+      <rect x="365" y="135" width="30" height="20" fill="#eee" stroke="#ccc" stroke-width="0.8" rx="2"/>
+      <text x="380" y="149" text-anchor="middle" font-size="6" fill="#999">...</text>
+      <rect x="400" y="135" width="30" height="20" fill="#eee" stroke="#ccc" stroke-width="0.8" rx="2"/>
+      <text x="415" y="149" text-anchor="middle" font-size="6" fill="#999">...</text>
+      <rect x="435" y="135" width="30" height="20" fill="#eee" stroke="#ccc" stroke-width="0.8" rx="2"/>
+      <text x="450" y="149" text-anchor="middle" font-size="6" fill="#999">...</text>
+      <rect x="470" y="135" width="30" height="20" fill="#eee" stroke="#ccc" stroke-width="0.8" rx="2"/>
+      <text x="485" y="149" text-anchor="middle" font-size="6" fill="#999">...</text>
+      <rect x="505" y="135" width="30" height="20" fill="#eee" stroke="#ccc" stroke-width="0.8" rx="2"/>
+      <text x="520" y="149" text-anchor="middle" font-size="6" fill="#999">...</text>
+      <rect x="540" y="135" width="30" height="20" fill="#eee" stroke="#ccc" stroke-width="0.8" rx="2"/>
+      <text x="555" y="149" text-anchor="middle" font-size="6" fill="#999">...</text>
+
+      <!-- row 3 (batch dim) -->
+      <rect x="330" y="160" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2"/>
+      <text x="345" y="174" text-anchor="middle" font-size="6" fill="#446688">(1,0,0)</text>
+      <rect x="365" y="160" width="30" height="20" fill="#eee" stroke="#ccc" stroke-width="0.8" rx="2"/>
+      <text x="380" y="174" text-anchor="middle" font-size="6" fill="#999">...</text>
+    </g>
+
+    <text x="460" y="200" text-anchor="middle" font-size="8" fill="#888">tid → (b, m, n)</text>
+  </g>
+
+  <!-- ===== Bottom: computation per thread ===== -->
+  <line x1="20" y1="240" x2="620" y2="240" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <text x="320" y="264" text-anchor="middle" font-size="12" fill="#444" font-weight="bold">单线程计算流程</text>
+
+  <rect x="30" y="280" width="580" height="92" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="44" y="300" font-size="10" fill="#446688" font-weight="bold">for k = 0 .. K-1（顺序累加）：</text>
+  <text x="60" y="318" font-family="monospace" font-size="9" fill="#4a7a3a">① 读 A[b,m,k] (half) → __half2float → float</text>
+  <text x="60" y="332" font-family="monospace" font-size="9" fill="#4a7a3a">② 读 B[b,k,n] (half) → __half2float → float</text>
+  <text x="60" y="346" font-family="monospace" font-size="9" fill="#d6a040">③ acc += a_f * b_f   ← FP32 累加（无精度损失）</text>
+  <text x="60" y="360" font-family="monospace" font-size="9" fill="#446688">④ C[b,m,n] = __float2half(acc)   ← 最终转回 half</text>
+
+  <!-- ===== Key insight ===== -->
+  <rect x="30" y="384" width="580" height="96" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="404" font-size="11" fill="#d6a040" font-weight="bold">💡 FP16 精度保证的核心：read-half → cast-float → FMA-float → cast-half</text>
+  <text x="60" y="422" font-size="10" fill="#555">FP16 只有 10 bit 尾数（~3.3 位十进制），直接 half 累加 256 次后误差可达 ~5%。</text>
+  <text x="60" y="438" font-size="10" fill="#555">转成 FP32（23 bit 尾数，~7 位）后累加，误差 < 0.01%，满足 atol=0.05。</text>
+  <text x="60" y="458" font-size="10" fill="#555">WMMA Tensor Core 天然支持 FP16 输入 + FP32 累加（fragment 累加器），是硬件级实现此流程。</text>
+  <text x="60" y="474" font-size="10" fill="#555">本题朴素版用软件实现相同流程，保证任意 M/N/K 维度的正确性。</text>
+</svg>

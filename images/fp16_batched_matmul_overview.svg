@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="480" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">FP16 Batched MatMul：半精度存储 + FP32 累加</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">A/B/C 用 half 存储（省 2× 带宽），乘加用 FP32 保精度，结果转回 half</text>
+
+  <!-- ===== Left: FP16 vs FP32 precision ===== -->
+  <text x="160" y="76" font-size="12" fill="#446688" font-weight="bold">FP16 精度特征</text>
+  <g font-size="9" fill="#333">
+    <rect x="40" y="84" width="240" height="120" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+    <text x="52" y="102" font-size="9" fill="#446688" font-weight="bold">FP16 (half)</text>
+    <text x="52" y="118" font-size="8" fill="#555">1 sign + 5 exp + 10 mantissa</text>
+    <text x="52" y="132" font-size="8" fill="#555">范围: ±65504, 精度: ~3.3 位十进制</text>
+    <text x="52" y="146" font-size="8" fill="#b85450">⚠ 累加大数组 → 精度灾难</text>
+    <text x="52" y="160" font-size="8" fill="#555">例: Σ 256 个 half → 误差 ~5%</text>
+    <text x="52" y="176" font-size="8" fill="#555">存储: 2B/元素 (省 2× 带宽)</text>
+    <text x="52" y="192" font-size="8" fill="#4a7a3a">✓ 适合存储/传输</text>
+  </g>
+
+  <!-- arrow -->
+  <path d="M 160 212 L 160 232" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="175" y="226" font-size="8" fill="#666">转换</text>
+
+  <rect x="40" y="236" width="240" height="60" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="52" y="254" font-size="9" fill="#4a7a3a" font-weight="bold">FP32 (float) 累加</text>
+  <text x="52" y="270" font-size="8" fill="#555">23 bit mantissa, ~7 位十进制</text>
+  <text x="52" y="284" font-size="8" fill="#4a7a3a">✓ 累加 256+ 次无精度损失</text>
+
+  <!-- ===== Right: data flow ===== -->
+  <text x="480" y="76" font-size="12" fill="#d6a040" font-weight="bold">计算数据流</text>
+  <g font-size="9" fill="#333">
+    <!-- A (half) -->
+    <rect x="340" y="84" width="100" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="390" y="102" text-anchor="middle" font-size="9" fill="#446688" font-weight="bold">A (half)</text>
+    <text x="450" y="102" font-size="7" fill="#888">[B,M,K]</text>
+
+    <!-- B (half) -->
+    <rect x="340" y="120" width="100" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="390" y="138" text-anchor="middle" font-size="9" fill="#446688" font-weight="bold">B (half)</text>
+    <text x="450" y="138" font-size="7" fill="#888">[B,K,N]</text>
+
+    <!-- arrows down -->
+    <path d="M 390 150 L 390 168" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+    <text x="430" y="162" font-size="7" fill="#d6a040">__half2float</text>
+
+    <!-- convert to float -->
+    <rect x="340" y="170" width="100" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="390" y="188" text-anchor="middle" font-size="9" fill="#4a7a3a" font-weight="bold">A_f, B_f (float)</text>
+
+    <!-- arrow to accumulate -->
+    <path d="M 390 200 L 390 218" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+    <text x="445" y="212" font-size="7" fill="#4a7a3a">FP32 MAC</text>
+
+    <!-- accumulator -->
+    <rect x="340" y="220" width="100" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="390" y="238" text-anchor="middle" font-size="9" fill="#d6a040" font-weight="bold">acc (float)</text>
+    <text x="445" y="238" font-size="7" fill="#888">Σ K 次</text>
+
+    <!-- arrow to output -->
+    <path d="M 390 250 L 390 268" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+    <text x="445" y="262" font-size="7" fill="#d6a040">__float2half</text>
+
+    <!-- C (half) -->
+    <rect x="340" y="270" width="100" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="390" y="288" text-anchor="middle" font-size="9" fill="#446688" font-weight="bold">C (half)</text>
+    <text x="450" y="288" font-size="7" fill="#888">[B,M,N]</text>
+  </g>
+
+  <!-- ===== Bottom: comparison ===== -->
+  <line x1="20" y1="316" x2="620" y2="316" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <rect x="30" y="332" width="580" height="132" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="352" font-size="11" fill="#444" font-weight="bold">朴素 FP32 累加 vs WMMA Tensor Core：</text>
+
+  <g font-size="9" fill="#555">
+    <circle cx="54" cy="370" r="3" fill="#446688" filter="url(#rough2)"/>
+    <text x="64" y="373" fill="#446688" font-weight="bold">朴素 FP32 累加</text>
+    <text x="180" y="373">每元素 __half2float → float 乘加 → __float2half。正确但慢，无 Tensor Core 加速</text>
+
+    <circle cx="54" cy="390" r="3" fill="#d6a040" filter="url(#rough2)"/>
+    <text x="64" y="393" fill="#d6a040" font-weight="bold">WMMA Tensor Core</text>
+    <text x="180" y="393">硬件级 16×16×16 矩阵乘加，FP16 输入 + FP32 累加，吞吐量 ~8× 于 CUDA Core</text>
+
+    <circle cx="54" cy="410" r="3" fill="#4a7a3a" filter="url(#rough2)"/>
+    <text x="64" y="413" fill="#4a7a3a" font-weight="bold">精度保证</text>
+    <text x="180" y="413">两种方式都用 FP32 累加（WMMA 内置 fragment 累加器），atol=0.05 满足</text>
+
+    <circle cx="54" cy="430" r="3" fill="#b85450" filter="url(#rough2)"/>
+    <text x="64" y="433" fill="#b85450" font-weight="bold">⚠ WMMA 限制</text>
+    <text x="180" y="433">输入必须是 16 对齐的维度（16×16 tile），小矩阵需 padding；本题 K 可能非 16 倍数</text>
+
+    <circle cx="54" cy="450" r="3" fill="#888" filter="url(#rough2)"/>
+    <text x="64" y="453" fill="#888" font-weight="bold">本题策略</text>
+    <text x="180" y="453">朴素 FP32 累加保底（支持任意 M/N/K），WMMA 仅在维度对齐时可用</text>
+  </g>
+</svg>
