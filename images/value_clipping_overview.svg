@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 460" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="460" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Value Clipping：逐元素 clamp 到 [lo, hi]</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">分支版 vs 无分支版：fminf/fmaxf 消除 warp divergence</text>
+
+  <!-- ===== Left: clamp visualization ===== -->
+  <text x="160" y="76" font-size="12" fill="#446688" font-weight="bold">Clamp 几何意义</text>
+  <g font-size="9" fill="#333">
+    <!-- axes -->
+    <line x1="60" y1="200" x2="280" y2="200" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+    <line x1="60" y1="200" x2="60" y2="80" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+    <text x="285" y="204" font-size="8" fill="#666">input</text>
+    <text x="50" y="76" font-size="8" fill="#666">output</text>
+
+    <!-- y=x diagonal (dashed) -->
+    <line x1="60" y1="200" x2="200" y2="60" stroke="#ccc" stroke-width="1" stroke-dasharray="3 3" filter="url(#rough2)"/>
+
+    <!-- clamp region: flat below lo, diagonal in [lo,hi], flat above hi -->
+    <!-- lo = 0.0 at x=120, hi = 3.5 at x=260 -->
+    <line x1="60" y1="180" x2="120" y2="180" stroke="#b85450" stroke-width="2.5" filter="url(#rough2)"/>
+    <line x1="120" y1="180" x2="260" y2="40" stroke="#4a7a3a" stroke-width="2.5" filter="url(#rough2)"/>
+    <line x1="260" y1="40" x2="280" y2="40" stroke="#b85450" stroke-width="2.5" filter="url(#rough2)"/>
+
+    <!-- lo and hi markers -->
+    <line x1="120" y1="200" x2="120" y2="210" stroke="#446688" stroke-width="1.5" filter="url(#rough2)"/>
+    <text x="120" y="222" text-anchor="middle" font-size="8" fill="#446688" font-weight="bold">lo</text>
+    <line x1="260" y1="200" x2="260" y2="210" stroke="#446688" stroke-width="1.5" filter="url(#rough2)"/>
+    <text x="260" y="222" text-anchor="middle" font-size="8" fill="#446688" font-weight="bold">hi</text>
+
+    <!-- region labels -->
+    <text x="90" y="170" text-anchor="middle" font-size="8" fill="#b85450">clamp to lo</text>
+    <text x="190" y="120" text-anchor="middle" font-size="8" fill="#4a7a3a">y = x</text>
+    <text x="270" y="55" text-anchor="middle" font-size="8" fill="#b85450">clamp to hi</text>
+
+    <!-- example points -->
+    <circle cx="90" cy="180" r="3" fill="#b85450" filter="url(#rough2)"/>
+    <text x="80" y="195" font-size="7" fill="#b85450">-2→0</text>
+    <circle cx="180" cy="120" r="3" fill="#4a7a3a" filter="url(#rough2)"/>
+    <text x="170" y="135" font-size="7" fill="#4a7a3a">3→3</text>
+    <circle cx="270" cy="40" r="3" fill="#b85450" filter="url(#rough2)"/>
+    <text x="255" y="55" font-size="7" fill="#b85450">4.5→3.5</text>
+  </g>
+
+  <!-- ===== Right: branch vs branchless ===== -->
+  <text x="480" y="76" font-size="12" fill="#d6a040" font-weight="bold">分支 vs 无分支</text>
+
+  <!-- Branch version -->
+  <rect x="340" y="84" width="260" height="76" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="354" y="102" font-size="9" fill="#b85450" font-weight="bold">分支版（if-else）</text>
+  <text x="354" y="118" font-family="monospace" font-size="8" fill="#555">if (x < lo) y = lo;</text>
+  <text x="354" y="130" font-family="monospace" font-size="8" fill="#555">else if (x > hi) y = hi;</text>
+  <text x="354" y="142" font-family="monospace" font-size="8" fill="#555">else y = x;</text>
+  <text x="354" y="156" font-size="8" fill="#b85450">⚠ warp 内分支发散 → 串行执行</text>
+
+  <!-- Branchless version -->
+  <rect x="340" y="170" width="260" height="66" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="354" y="188" font-size="9" fill="#4a7a3a" font-weight="bold">无分支版（fminf/fmaxf）</text>
+  <text x="354" y="204" font-family="monospace" font-size="8" fill="#555">y = fmaxf(x, lo);  // 下界</text>
+  <text x="354" y="216" font-family="monospace" font-size="8" fill="#555">y = fminf(y, hi);  // 上界</text>
+  <text x="354" y="230" font-size="8" fill="#4a7a3a">✓ 全 warp 统一执行，无发散</text>
+
+  <!-- ===== Bottom: worked example ===== -->
+  <line x1="20" y1="256" x2="620" y2="256" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <rect x="30" y="272" width="580" height="68" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="292" font-size="11" fill="#446688" font-weight="bold">Worked Example（lo=0.0, hi=3.5）：</text>
+  <g font-family="monospace" font-size="9" fill="#555">
+    <text x="60" y="310">input  = [1.5, -2.0, 3.0, 4.5]</text>
+    <text x="60" y="324">output = [1.5,  0.0, 3.0, 3.5]   ← 1.5 在范围内, -2.0→lo, 3.0 在范围内, 4.5→hi</text>
+  </g>
+
+  <!-- ===== Key insight ===== -->
+  <rect x="30" y="356" width="580" height="84" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="376" font-size="11" fill="#d6a040" font-weight="bold">💡 关键洞察</text>
+  <text x="60" y="394" font-size="10" fill="#555">Clamp 是最简带条件的 elementwise kernel。分支版（if-else）在 warp 边界数据处产生 divergence——</text>
+  <text x="60" y="410" font-size="10" fill="#555">同一 warp 内部分线程走 lo 分支、部分走 hi 分支、部分走直通，GPU 串行执行各分支路径。</text>
+  <text x="60" y="426" font-size="10" fill="#555">无分支版用 fminf/fmaxf（硬件指令）替代条件判断，全 warp 统一执行，消除 divergence 开销。</text>
+</svg>

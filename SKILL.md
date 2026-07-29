@@ -359,6 +359,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | `matrix-addition` | #31 Matrix Copy（纯矩阵拷贝，专注 coalesced 带宽优化）· #1 Vector Addition（1D 向量加法，grid-stride 基础）· #8 Matrix Addition（同题，可对比不同 tile 写法）· #62 Value Clipping（逐元素 clamp，练习 2D 索引） | 2D grid 映射 + 合并访存，练习矩阵级 elementwise kernel |
 | `matrix-copy` | #1 Vector Addition（grid-stride + coalesced 基础）· #8 Matrix Addition（2D coalesced）· #3 Matrix Transpose（非连续访存对比）· #63 Interleave（写索引映射练习） | 纯带宽优化 + coalesced 拷贝，练习 memory-bound kernel 的极限优化 |
 | `scalar-multiply` | #1 Vector Addition（grid-stride + coalesced 基础）· #21 ReLU（逐元素 + 分支）· #8 Matrix Addition（2D 逐元素）· #62 Value Clipping（逐元素 clamp） | 标量 × 向量逐元素，练习最简 elementwise kernel |
+| `value-clipping` | #21 ReLU（单边界 clamp（max(x,0)），本题的单边界前驱）· #23 Leaky ReLU（带斜率的条件激活，分支 vs 无分支的进阶）· #1 Vector Addition（grid-stride + coalesced 基础，本题的最简前驱）· #66 RGB to Grayscale（多通道加权求和，无条件的 elementwise 对比） | 逐元素 clamp + 无分支优化，练习用 fminf/fmaxf 消除 warp divergence |
 | `reverse-array` | #63 Interleave（写索引映射 + coalesced）· #1 Vector Addition（1D grid-stride 基础）· #31 Matrix Copy（coalesced 带宽优化）· #62 Value Clipping（逐元素 + 索引） | 1D 并行 in-place swap + coalesced，练习数据重排类 kernel |
 | `vector-reversal` | #19 Reverse Array（同类型基础题）· #63 Interleave（索引重排练习）· #62 Value Clipping（逐元素索引）· #31 Matrix Copy（coalesced 带宽优化） | 1D 向量反转 + coalesced，练习 in-place swap 与索引映射 |
 | `element-reversal` | #19 Reverse Array（同类型基础题）· #63 Interleave（索引重排练习）· #62 Value Clipping（逐元素索引）· #31 Matrix Copy（coalesced 带宽优化） | 逐元素反转 + 索引映射，练习 elementwise 重排 |
