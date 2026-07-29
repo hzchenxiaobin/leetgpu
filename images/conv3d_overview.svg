@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="480" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">3D Convolution：体数据 Halo Tiling</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">输出 OT³ 的 tile 需读 (OT+K-1)³ 个体素，halo 在三个维度同时扩展</text>
+
+  <!-- ===== Left: 3D input volume with tile + halo ===== -->
+  <text x="170" y="76" font-size="12" fill="#446688" font-weight="bold">input[D][H][W]</text>
+  <g font-size="9" fill="#333">
+    <!-- Outer volume (isometric cube) -->
+    <!-- back face -->
+    <polygon points="80,110 240,110 270,90 110,90" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" filter="url(#rough2)"/>
+    <!-- top face -->
+    <polygon points="80,110 240,110 240,270 80,270" fill="#d0d8e8" stroke="#446688" stroke-width="1.2" filter="url(#rough2)"/>
+    <!-- right face -->
+    <polygon points="240,110 270,90 270,250 240,270" fill="#c0c8d8" stroke="#446688" stroke-width="1.2" filter="url(#rough2)"/>
+
+    <!-- halo region (orange, larger cube) -->
+    <polygon points="95,125 225,125 248,102 118,102" fill="none" stroke="#d6a040" stroke-width="1.5" stroke-dasharray="4 3" filter="url(#rough2)"/>
+    <polygon points="95,125 225,125 225,255 95,255" fill="#fff8e1" stroke="#d6a040" stroke-width="1" stroke-dasharray="3 2" opacity="0.6" filter="url(#rough2)"/>
+    <polygon points="225,125 248,102 248,232 225,255" fill="#fff0d0" stroke="#d6a040" stroke-width="1" stroke-dasharray="3 2" opacity="0.6" filter="url(#rough2)"/>
+
+    <!-- core output tile (green) -->
+    <polygon points="110,140 210,140 228,122 128,122" fill="none" stroke="#4a7a3a" stroke-width="2" filter="url(#rough2)"/>
+    <polygon points="110,140 210,140 210,240 110,240" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" opacity="0.8" filter="url(#rough2)"/>
+    <polygon points="210,140 228,122 228,222 210,240" fill="#d0e8d0" stroke="#4a7a3a" stroke-width="1.5" opacity="0.8" filter="url(#rough2)"/>
+
+    <text x="160" y="195" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">输出 tile</text>
+    <text x="160" y="209" text-anchor="middle" font-size="8" fill="#4a7a3a">OT³</text>
+  </g>
+
+  <!-- halo labels -->
+  <text x="160" y="115" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold">halo (K-1 圈)</text>
+  <text x="160" y="265" text-anchor="middle" font-size="8" fill="#d6a040">三个维度同时扩展</text>
+  <text x="55" y="180" font-size="8" fill="#d6a040" transform="rotate(-90 55 180)">halo</text>
+
+  <!-- Dimensions annotation -->
+  <text x="170" y="292" text-anchor="middle" font-size="8" fill="#888">输入 tile = (OT+K-1)³</text>
+  <text x="170" y="306" text-anchor="middle" font-size="8" fill="#888">OT=8, K=5 → 12³ = 1728 体素</text>
+
+  <!-- arrow -->
+  <path d="M 290 170 L 330 170" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="310" y="160" text-anchor="middle" font-size="9" fill="#666">load</text>
+
+  <!-- ===== Right: shared memory 3D tile ===== -->
+  <text x="480" y="76" font-size="12" fill="#d6a040" font-weight="bold">shared memory smem</text>
+  <g font-size="9" fill="#333">
+    <!-- shared mem cube -->
+    <polygon points="360,110 540,110 565,90 385,90" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" filter="url(#rough2)"/>
+    <polygon points="360,110 540,110 540,280 360,280" fill="#fff0d0" stroke="#d6a040" stroke-width="1.5" filter="url(#rough2)"/>
+    <polygon points="540,110 565,90 565,260 540,280" fill="#ffe8c0" stroke="#d6a040" stroke-width="1.5" filter="url(#rough2)"/>
+
+    <!-- core in shared -->
+    <polygon points="385,135 515,135 535,118 405,118" fill="none" stroke="#4a7a3a" stroke-width="1.5" filter="url(#rough2)"/>
+    <polygon points="385,135 515,135 515,255 385,255" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" opacity="0.7" filter="url(#rough2)"/>
+    <polygon points="515,135 535,118 535,238 515,255" fill="#d0e8d0" stroke="#4a7a3a" stroke-width="1.2" opacity="0.7" filter="url(#rough2)"/>
+
+    <text x="450" y="195" text-anchor="middle" font-size="9" fill="#4a7a3a" font-weight="bold">输出 tile</text>
+    <text x="450" y="209" text-anchor="middle" font-size="8" fill="#4a7a3a">smem[R..R+OT]</text>
+    <text x="450" y="221" text-anchor="middle" font-size="7" fill="#4a7a3a">[R..R+OT][R..R+OT]</text>
+
+    <text x="475" y="104" text-anchor="middle" font-size="8" fill="#d6a040" font-weight="bold">halo 圈</text>
+  </g>
+  <text x="475" y="300" text-anchor="middle" font-size="8" fill="#888">(OT+K-1)³ × 4B = 6.9 KB</text>
+  <text x="475" y="314" text-anchor="middle" font-size="8" fill="#888">每 block 一份</text>
+
+  <!-- ===== Bottom: 3D vs 2D comparison ===== -->
+  <line x1="20" y1="336" x2="620" y2="336" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <rect x="30" y="352" width="580" height="112" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="372" font-size="11" fill="#444" font-weight="bold">3D vs 2D Convolution 关键差异：</text>
+
+  <g font-size="9" fill="#555">
+    <circle cx="54" cy="390" r="3" fill="#b85450" filter="url(#rough2)"/>
+    <text x="64" y="393" fill="#b85450" font-weight="bold">shared mem</text>
+    <text x="140" y="393">2D: (OT+K-1)² = 20² = 400 → 1.6KB | 3D: (OT+K-1)³ = 12³ = 1728 → 6.9KB</text>
+
+    <circle cx="54" cy="408" r="3" fill="#446688" filter="url(#rough2)"/>
+    <text x="64" y="411" fill="#446688" font-weight="bold">thread/block</text>
+    <text x="155" y="411">2D: OT² = 16² = 256 | 3D: OT³ = 8³ = 512 (OT=16 → 4096 超限!)</text>
+
+    <circle cx="54" cy="426" r="3" fill="#d6a040" filter="url(#rough2)"/>
+    <text x="64" y="429" fill="#d6a040" font-weight="bold">OT 选择</text>
+    <text x="120" y="429">2D: OT=16 (256线程, 8 warps) | 3D: OT=8 (512线程, 16 warps, 受 shared mem 限制)</text>
+
+    <circle cx="54" cy="444" r="3" fill="#4a7a3a" filter="url(#rough2)"/>
+    <text x="64" y="447" fill="#4a7a3a" font-weight="bold">halo 冗余</text>
+    <text x="130" y="447">2D: (20/16)²=1.56× | 3D: (12/8)³=3.375× (halo 占比随维度增长!)</text>
+  </g>
+</svg>

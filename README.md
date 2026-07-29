@@ -19,7 +19,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## 题解列表
 
-共 **65 道**（简单 18 / 中等 41 / 困难 6），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
+共 **66 道**（简单 18 / 中等 42 / 困难 6），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention 等。
 
 ### Easy · 简单（18 道）
 
@@ -44,7 +44,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 110 | [Scalar Multiply](easy/110_scalar_multiply/leetgpu-scalar-multiply-solution.md) | element-wise、attention scaling |
 | 111 | [Element Reversal](easy/111_element_reversal/leetgpu-element-reversal-solution.md) | element-wise、结果验证 |
 
-### Medium · 中等（41 道）
+### Medium · 中等（42 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
@@ -52,6 +52,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 5 | [Softmax](medium/5_softmax/leetgpu-softmax-solution.md) | safe softmax、三遍扫描、数值稳定性 |
 | 6 | [Softmax Attention](medium/6_softmax_attention/leetgpu-softmax-attention-solution.md) | fused softmax+matmul、online softmax |
 | 10 | [2D Convolution](medium/10_2d_convolution/leetgpu-2d-convolution-solution.md) | shared memory halo、常量内存 |
+| 11 | [3D Convolution](medium/11_3d_convolution/leetgpu-3d-convolution-solution.md) | 3D halo tiling、立方级 shared memory、`__constant__` |
 | 13 | [Histogramming](medium/13_histogramming/leetgpu-histogramming-solution.md) | shared memory 直方图、`atomicAdd`、privatization |
 | 16 | [Prefix Sum](medium/16_prefix_sum/leetgpu-prefix-sum-solution.md) | scan、warp shuffle `__shfl_up_sync`、三阶段分块 |
 | 17 | [Dot Product](medium/17_dot_product/leetgpu-dot-product-solution.md) | reduction、warp shuffle、kernel 融合 |
@@ -132,7 +133,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 66 | RGB to Grayscale | ⬜ | [题目](https://leetgpu.com/challenges/rgb-to-grayscale) |
 | 68 | Sigmoid Activation | ✅ | [题解](easy/68_sigmoid/leetgpu-sigmoid-solution.md) |
 
-### Medium · 中等（46/59）
+### Medium · 中等（47/59）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -140,7 +141,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 5 | Softmax | ✅ | [题解](medium/5_softmax/leetgpu-softmax-solution.md) |
 | 6 | Softmax Attention | ✅ | [题解](medium/6_softmax_attention/leetgpu-softmax-attention-solution.md) |
 | 10 | 2D Convolution | ✅ | [题解](medium/10_2d_convolution/leetgpu-2d-convolution-solution.md) |
-| 11 | 3D Convolution | ⬜ | [题目](https://leetgpu.com/challenges/3d-convolution) |
+| 11 | 3D Convolution | ✅ | [题解](medium/11_3d_convolution/leetgpu-3d-convolution-solution.md) |
 | 13 | Histogramming | ✅ | [题解](medium/13_histogramming/leetgpu-histogramming-solution.md) |
 | 16 | Prefix Sum | ✅ | [题解](medium/16_prefix_sum/leetgpu-prefix-sum-solution.md) |
 | 17 | Dot Product | ✅ | [题解](medium/17_dot_product/leetgpu-dot-product-solution.md) |

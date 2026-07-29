@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 460" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="460" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">3D Thread-to-Voxel 映射与索引计算</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">线程 (tx,ty,tz) → 输出体素 (ox,oy,oz) → shared mem (sx,sy,sz) → global (gx,gy,gz)</text>
+
+  <!-- ===== Left: 3D thread block ===== -->
+  <text x="150" y="76" font-size="12" fill="#4a7a3a" font-weight="bold">Thread Block (8×8×8)</text>
+  <g font-size="9" fill="#333">
+    <!-- isometric cube of threads -->
+    <polygon points="80,100 220,100 240,85 100,85" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" filter="url(#rough2)"/>
+    <polygon points="80,100 220,100 220,240 80,240" fill="#d0e8d0" stroke="#4a7a3a" stroke-width="1.2" filter="url(#rough2)"/>
+    <polygon points="220,100 240,85 240,225 220,240" fill="#c0d8c0" stroke="#4a7a3a" stroke-width="1.2" filter="url(#rough2)"/>
+
+    <!-- grid lines on front face -->
+    <g stroke="#9c9" stroke-width="0.3" filter="url(#rough2)">
+      <line x1="115" y1="100" x2="115" y2="240"/>
+      <line x1="150" y1="100" x2="150" y2="240"/>
+      <line x1="185" y1="100" x2="185" y2="240"/>
+      <line x1="80" y1="135" x2="220" y2="135"/>
+      <line x1="80" y1="170" x2="220" y2="170"/>
+      <line x1="80" y1="205" x2="220" y2="205"/>
+    </g>
+
+    <!-- highlight one thread -->
+    <rect x="150" y="170" width="35" height="35" fill="#e8f0fe" stroke="#446688" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="167" y="192" text-anchor="middle" font-size="8" fill="#446688" font-weight="bold">t</text>
+
+    <!-- axes -->
+    <line x1="80" y1="240" x2="80" y2="260" stroke="#b85450" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+    <text x="70" y="270" font-size="8" fill="#b85450" font-weight="bold">tz (depth)</text>
+
+    <line x1="80" y1="240" x2="100" y2="240" stroke="#446688" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+    <text x="110" y="244" font-size="8" fill="#446688" font-weight="bold">tx (col)</text>
+
+    <line x1="220" y1="100" x2="240" y2="85" stroke="#4a7a3a" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+    <text x="250" y="82" font-size="8" fill="#4a7a3a" font-weight="bold">ty (row)</text>
+
+    <!-- thread label -->
+    <text x="167" y="155" text-anchor="middle" font-size="8" fill="#446688">thread</text>
+    <text x="167" y="167" text-anchor="middle" font-size="7" fill="#446688">(tx,ty,tz)</text>
+  </g>
+  <text x="150" y="280" text-anchor="middle" font-size="8" fill="#888">512 threads = 16 warps</text>
+  <text x="150" y="294" text-anchor="middle" font-size="8" fill="#888">dim3 threads(8,8,8)</text>
+
+  <!-- arrow -->
+  <path d="M 270 170 L 310 170" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="290" y="160" text-anchor="middle" font-size="8" fill="#666">映射</text>
+
+  <!-- ===== Middle: shared mem tile ===== -->
+  <text x="430" y="76" font-size="12" fill="#d6a040" font-weight="bold">Shared Mem Tile (12×12×12)</text>
+  <g font-size="9" fill="#333">
+    <!-- shared mem cube -->
+    <polygon points="340,100 520,100 540,85 360,85" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" filter="url(#rough2)"/>
+    <polygon points="340,100 520,100 520,240 340,240" fill="#fff0d0" stroke="#d6a040" stroke-width="1.2" filter="url(#rough2)"/>
+    <polygon points="520,100 540,85 540,225 520,240" fill="#ffe8c0" stroke="#d6a040" stroke-width="1.2" filter="url(#rough2)"/>
+
+    <!-- core output region -->
+    <polygon points="370,130 490,130 505,115 385,115" fill="none" stroke="#4a7a3a" stroke-width="1.5" filter="url(#rough2)"/>
+    <polygon points="370,130 490,130 490,220 370,220" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" opacity="0.5" filter="url(#rough2)"/>
+
+    <!-- K×K×K window for one thread -->
+    <rect x="400" y="160" width="30" height="30" fill="none" stroke="#b85450" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <text x="415" y="178" text-anchor="middle" font-size="7" fill="#b85450">K³</text>
+    <text x="415" y="190" text-anchor="middle" font-size="6" fill="#b85450">窗口</text>
+
+    <text x="430" y="265" text-anchor="middle" font-size="8" fill="#d6a040">halo = 橙色外圈</text>
+    <text x="430" y="278" text-anchor="middle" font-size="8" fill="#4a7a3a">绿色 = 输出 tile (OT³=512)</text>
+    <text x="430" y="291" text-anchor="middle" font-size="8" fill="#b85450">红框 = thread 的 K³ 窗口</text>
+  </g>
+
+  <!-- ===== Bottom: index formulas ===== -->
+  <line x1="20" y1="316" x2="620" y2="316" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+
+  <rect x="30" y="332" width="580" height="112" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="352" font-size="11" fill="#444" font-weight="bold">索引计算公式（3D valid 卷积）：</text>
+
+  <g font-family="monospace" font-size="9" fill="#555">
+    <text x="60" y="372" fill="#4a7a3a">ox0 = blockIdx.x * OT,  oy0 = blockIdx.y * OT,  oz0 = blockIdx.z * OT</text>
+    <text x="60" y="386" fill="#446688">tileD = OT + KD - 1,  tileH = OT + KH - 1,  tileW = OT + KW - 1</text>
+    <text x="60" y="400" fill="#d6a040">sx = tid % tileW,  sy = (tid / tileW) % tileH,  sz = tid / (tileW * tileH)</text>
+    <text x="60" y="414" fill="#b85450">gx = ox0 + sx,  gy = oy0 + sy,  gz = oz0 + sz   (valid: 越界不读，只载合法范围)</text>
+    <text x="60" y="428" fill="#4a7a3a">窗口: smem[(tz+kd)*tileH*tileW + (ty+kh)*tileW + (tx+kw)] × c_kernel[kd*KH*KW + kh*KW + kw]</text>
+  </g>
+</svg>
