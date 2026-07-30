@@ -13,7 +13,47 @@
 
 > 💡 与 [Week3 Day3 优化对比实验](../../../aiinfra/daily/week3/day3/README.md) 的关联：Argmax 是"带状态追踪的归约"——不仅要找最大值，还要记录其下标。正是 warp 级 vs block 级 reduce 的直接实战。
 
-## 2. GPU 设计
+## 2. CPU 基线 / 朴素 GPU 方法
+
+### CPU 串行
+
+```cpp
+// 顺序扫描，O(N)：维护当前最优 (val, idx)，遇到更大值就更新
+int argmax_cpu(const float* input, int N) {
+    int best_idx = 0;
+    float best_val = input[0];
+    for (int i = 1; i < N; i++) {
+        if (input[i] > best_val) {   // 严格大于才更新 → 平局自动取较小 idx
+            best_val = input[i];
+            best_idx = i;
+        }
+    }
+    return best_idx;
+}
+```
+
+平局处理藏在 `>` 的严格性里：只有"严格更大"才更新下标，所以遇到相等值时保留先出现的（较小）下标。
+
+### 朴素 GPU（单 thread 串行）
+
+```cuda
+// 一个 thread 扫完全部——无并行，比 CPU 还慢（有 launch 开销）
+__global__ void naive_argmax(const float* input, int* output, int N) {
+    int best_idx = 0;
+    float best_val = input[0];
+    for (int i = 1; i < N; i++) {
+        if (input[i] > best_val) {
+            best_val = input[i];
+            best_idx = i;
+        }
+    }
+    *output = best_idx;
+}
+```
+
+**瓶颈**：单 thread 串行扫描，GPU 完全闲置。另一个常见错误是试图用 `atomicMax(output, idx)` 跨 block 归约——但 `atomicMax` 只比较下标不比较值，无法保证"最大值对应的下标"胜出，平局与跨 block 竞争都会出错。
+
+## 3. GPU 设计
 
 三阶段归约：线程级（grid-stride 扫描）→ warp 级（`__shfl_down_sync`）→ block 级（shared memory）→ 跨 block（atomic 或第二次 kernel）。
 
@@ -21,7 +61,9 @@
 
 ![Argmax 两级归约：值+索引同时跟踪](../../images/argmax_overview.svg)
 
-## 3. Kernel 实现
+## 4. Kernel 实现
+
+先给出教学版（展示 warp shuffle + block 归约骨架），再给出适配 LeetGPU 官方 starter 签名的提交版本。
 
 ```cuda
 // argmax.cu —— Argmax with warp shuffle
@@ -88,7 +130,7 @@ extern "C" void solve(const float* input, int* output, int N) {
 }
 ```
 
-### 3.1 LeetGPU 提交版本
+### 4.1 LeetGPU 提交版本
 
 下面给出适配 LeetGPU 官方 starter 签名的提交版本。与上方教学版不同，这里使用两次 kernel（block 内 warp reduce 出局部最优，再一个 block 归约出全局下标）来正确处理平局与跨 block 竞争。
 
@@ -188,9 +230,9 @@ extern "C" void solve(const float* input, int* output, int N) {
 }
 ```
 
-### 3.2 代码详解
+### 4.2 代码详解
 
-下面以 3.1 节 LeetGPU 提交版本为例，逐段拆解两阶段 argmax。核心思路：argmax = 归约 + 下标追踪——把 `(val, idx)` 打包成 `ValIdx` 一起归约，归约时同时比较值与下标，平局取较小 idx。Stage 1 每个 block 算出局部最优写入 `block_results[blockIdx.x]`；Stage 2 单 block 把所有 `block_results` 归约出全局下标。
+下面以 4.1 节 LeetGPU 提交版本为例，逐段拆解两阶段 argmax。核心思路：argmax = 归约 + 下标追踪——把 `(val, idx)` 打包成 `ValIdx` 一起归约，归约时同时比较值与下标，平局取较小 idx。Stage 1 每个 block 算出局部最优写入 `block_results[blockIdx.x]`；Stage 2 单 block 把所有 `block_results` 归约出全局下标。
 
 #### `warp_reduce_argmax`：warp 内 32 lane 归约 `(val, idx)`
 
@@ -231,13 +273,52 @@ for (int offset = 16; offset > 0; offset >>= 1) {
 
 > 💡 **关键洞察**：argmax 与普通 reduce 的唯一区别是"状态带下标"——把 `idx` 和 `val` 绑在一起 shuffle、一起比较，平局用 `other_idx < v.idx` 破解。教学版用 `atomicMax(output, local.idx)` 无法正确处理平局（`atomicMax` 只比下标不比值），故提交版改用两阶段 kernel：Stage 1 落盘 `ValIdx`，Stage 2 单 block 终约，彻底绕开 atomic 的平局缺陷。哨兵 `{-inf, INT_MAX}` 是双保险——值端保证不误选空哨兵，下标端保证平局时哨兵必输。
 
-## 4. 复杂度分析
+## 5. 性能分析与优化
 
-| 维度 | 分析 |
-|------|------|
-| 时间复杂度 | `O(N)` + `O(log 32)` warp reduce |
-| 瓶颈类型 | memory-bound（读 N 个 float，计算极轻） |
-| 关键技巧 | `__shfl_down_sync` 同时 shuffle val 和 idx，平局取较小 idx |
+### 5.1 编译与运行
+
+```bash
+nvcc -O3 -arch=sm_120 argmax.cu -o argmax
+./argmax
+```
+
+### 5.2 用 ncu 分析 bound 类型
+
+```bash
+ncu --set full ./argmax | rg -i "Memory Throughput|Occupancy| DRAM"
+```
+
+**关键指标**：
+
+| 指标 | 朴素（单 thread） | 两阶段归约 |
+|------|-----------------|-----------|
+| 并行度 | 1 thread | N threads |
+| 归约步数 | N（串行扫描） | `O(log 32)` warp + `O(log blocks)` |
+| 带宽利用 | 极低 | 高（合并读 N 个 float） |
+| 平局正确性 | `atomicMax` 错误 | `(val, idx)` 成对比较，正确 |
+
+### 5.3 算术强度与瓶颈定位
+
+argmax 每读 4B（一个 `float`）只做 1 次比较（约 0.25 FLOP/B），算术强度远低于 GPU roofline 拐点，是典型的 **memory-bound** kernel。`ncu` 报告的 `Memory Throughput` 应接近 DRAM 峰值带宽，计算管线大量空闲。
+
+### 5.4 优化方向
+
+1. **vectorized load**：用 `float4` 一次读 4 个 float，每 thread 处理 4 个元素再归约，提升有效带宽
+2. **两遍 kernel 替代 atomic**：教学版用 `atomicMax(output, idx)` 无法正确处理平局，提交版改用 Stage 1 落盘 `ValIdx` + Stage 2 单 block 终约，彻底绕开 atomic 缺陷
+3. **grid-stride 多元素/thread**：每 thread 跨步处理多个元素，减少 block 数与 launch 开销
+4. **block 粒度调优**：`BLOCK=256`（8 warps）在多数 GPU 上带宽最优；`gridSize` 上限 1024 防止 Stage 2 输入过大
+
+## 6. 复杂度分析
+
+| 维度 | 朴素（单 thread） | 两阶段归约 |
+|------|------------------|-----------|
+| 时间 | `O(N)`（串行扫描） | `O(N)`（并行，常数小） |
+| 空间 | `O(1)` | `O(numBlocks)` 中间 + `O(WARP)` shared/block |
+| 算术强度 | 极低 | `0.25 FLOP/B`（1 次比较 / 4B 读取） |
+| 瓶颈类型 | 无并行 | **memory-bound**（读 N 个 float，计算极轻） |
+| kernel 启动数 | 1 | 2（Stage 1 block 归约 + Stage 2 终约） |
+
+> 💡 **一句话总结**：Argmax 是"带状态追踪的归约"——把 `idx` 和 `val` 绑在一起 shuffle、一起比较，平局用 `other_idx < v.idx` 破解。`atomicMax` 只比下标不比值无法处理平局，故用两阶段 kernel：Stage 1 落盘 `ValIdx`，Stage 2 单 block 终约。哨兵 `{-inf, INT_MAX}` 是双保险，保证空哨兵永不胜出。
 
 ## 同类练习题
 
@@ -246,8 +327,8 @@ for (int offset = 16; offset > 0; offset >>= 1) {
 | # | 题目 | 难度 | 核心概念 | 与本题的关联 |
 |---|------|------|----------|-------------|
 | 4 | [Reduction](https://leetgpu.com/challenges/reduction) | 中等 | — | 树形归约，argmax 的基础组件 |
-| 29 | [Top K Selection](https://leetgpu.com/challenges/top-k-selection) | 中等 | — | Top-K Selection，排序归约进阶 |
-| 5 | [Softmax](https://leetgpu.com/challenges/softmax) | 中等 | — | Softmax，先求 max 再归一化 |
-| 17 | [Dot Product](https://leetgpu.com/challenges/dot-product) | 中等 | — | Dot Product，block 归约练习 |
+| 29 | [Top K Selection](https://leetgpu.com/challenges/top-k-selection) | 中等 | — | 排序归约进阶 |
+| 5 | [Softmax](https://leetgpu.com/challenges/softmax) | 中等 | — | 先求 max 再归一化 |
+| 17 | [Dot Product](https://leetgpu.com/challenges/dot-product) | 中等 | — | block 归约练习 |
 
 > 💡 **选题思路**：归约变体（求最大值索引），练习比较归约与 warp shuffle。做完这组练习，即可掌握该 CUDA 模板在不同场景下的迁移应用。

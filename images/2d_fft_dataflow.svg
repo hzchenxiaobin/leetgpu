@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 440"
+     font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#446688"/>
+    </marker>
+  </defs>
+
+  <rect width="720" height="440" fill="#fafafa"/>
+
+  <!-- Title -->
+  <text x="360" y="28" text-anchor="middle" font-size="16" font-weight="bold"
+        fill="#333" filter="url(#rough2)">两轮 Pass 数据流与访存模式</text>
+
+  <!-- ===== Pass 1: Row DFT ===== -->
+  <g filter="url(#rough2)">
+    <rect x="20" y="50" width="680" height="140" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="6"/>
+    <text x="40" y="72" font-size="13" font-weight="bold" fill="#446688">Pass 1: 行 DFT  —  合并访存 ✓</text>
+
+    <!-- signal buffer -->
+    <rect x="40" y="85" width="120" height="90" fill="#c8daf5" stroke="#446688" stroke-width="1.5" rx="3"/>
+    <text x="100" y="102" text-anchor="middle" font-size="11" font-weight="bold" fill="#446688">signal</text>
+    <text x="100" y="118" text-anchor="middle" font-size="9" fill="#666">M×N×2 floats</text>
+    <!-- coalesced read arrows -->
+    <text x="100" y="140" text-anchor="middle" font-size="9" fill="#4a7a3a">elem_stride = 1</text>
+    <text x="100" y="155" text-anchor="middle" font-size="9" fill="#4a7a3a">连续读 ✓ 合并</text>
+
+    <!-- kernel box -->
+    <rect x="200" y="85" width="130" height="90" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3"/>
+    <text x="265" y="105" text-anchor="middle" font-size="10" font-weight="bold" fill="#d6a040">dft_1d_kernel</text>
+    <text x="265" y="122" text-anchor="middle" font-size="9" fill="#666">grid = (M,)</text>
+    <text x="265" y="137" text-anchor="middle" font-size="9" fill="#666">block = (256,)</text>
+    <text x="265" y="152" text-anchor="middle" font-size="9" fill="#666">len = N</text>
+    <text x="265" y="167" text-anchor="middle" font-size="9" fill="#d6a040">每 block 一行</text>
+
+    <!-- arrows -->
+    <line x1="160" y1="130" x2="200" y2="130" stroke="#446688" stroke-width="1.5" marker-end="url(#arr3)"/>
+
+    <!-- temp buffer -->
+    <rect x="370" y="85" width="120" height="90" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3"/>
+    <text x="430" y="102" text-anchor="middle" font-size="11" font-weight="bold" fill="#d6a040">temp</text>
+    <text x="430" y="118" text-anchor="middle" font-size="9" fill="#666">M×N×2 floats</text>
+    <text x="430" y="140" text-anchor="middle" font-size="9" fill="#4a7a3a">写回也合并 ✓</text>
+    <line x1="330" y1="130" x2="370" y2="130" stroke="#446688" stroke-width="1.5" marker-end="url(#arr3)"/>
+
+    <!-- shared mem annotation -->
+    <rect x="530" y="85" width="150" height="90" fill="#f5f5f5" stroke="#999" stroke-width="1" rx="3" stroke-dasharray="4,2"/>
+    <text x="605" y="105" text-anchor="middle" font-size="10" font-weight="bold" fill="#666">shared memory</text>
+    <text x="605" y="122" text-anchor="middle" font-size="9" fill="#666">s_data: 2N floats</text>
+    <text x="605" y="137" text-anchor="middle" font-size="9" fill="#666">s_twiddle: 2N floats</text>
+    <text x="605" y="155" text-anchor="middle" font-size="9" fill="#4a7a3a">协作加载 → 复用</text>
+  </g>
+
+  <!-- ===== Pass 2: Column DFT ===== -->
+  <g filter="url(#rough2)">
+    <rect x="20" y="210" width="680" height="140" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="6"/>
+    <text x="40" y="232" font-size="13" font-weight="bold" fill="#b85450">Pass 2: 列 DFT  —  跨步访存 ⚠ (优化: 插入转置)</text>
+
+    <!-- temp buffer -->
+    <rect x="40" y="245" width="120" height="90" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3"/>
+    <text x="100" y="262" text-anchor="middle" font-size="11" font-weight="bold" fill="#d6a040">temp</text>
+    <text x="100" y="278" text-anchor="middle" font-size="9" fill="#666">M×N×2 floats</text>
+    <text x="100" y="300" text-anchor="middle" font-size="9" fill="#b85450">elem_stride = N</text>
+    <text x="100" y="315" text-anchor="middle" font-size="9" fill="#b85450">跨 2N floats 读 ⚠</text>
+
+    <!-- kernel box -->
+    <rect x="200" y="245" width="130" height="90" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="3"/>
+    <text x="265" y="265" text-anchor="middle" font-size="10" font-weight="bold" fill="#d6a040">dft_1d_kernel</text>
+    <text x="265" y="282" text-anchor="middle" font-size="9" fill="#666">grid = (N,)</text>
+    <text x="265" y="297" text-anchor="middle" font-size="9" fill="#666">block = (256,)</text>
+    <text x="265" y="312" text-anchor="middle" font-size="9" fill="#666">len = M</text>
+    <text x="265" y="327" text-anchor="middle" font-size="9" fill="#d6a040">每 block 一列</text>
+
+    <line x1="160" y1="290" x2="200" y2="290" stroke="#446688" stroke-width="1.5" marker-end="url(#arr3)"/>
+
+    <!-- spectrum buffer -->
+    <rect x="370" y="245" width="120" height="90" fill="#c8e6c9" stroke="#4a7a3a" stroke-width="1.5" rx="3"/>
+    <text x="430" y="262" text-anchor="middle" font-size="11" font-weight="bold" fill="#4a7a3a">spectrum</text>
+    <text x="430" y="278" text-anchor="middle" font-size="9" fill="#666">M×N×2 floats</text>
+    <text x="430" y="300" text-anchor="middle" font-size="9" fill="#4a7a3a">写回也跨步 ⚠</text>
+    <line x1="330" y1="290" x2="370" y2="290" stroke="#446688" stroke-width="1.5" marker-end="url(#arr3)"/>
+
+    <!-- optimization note -->
+    <rect x="530" y="245" width="150" height="90" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="3" stroke-dasharray="4,2"/>
+    <text x="605" y="265" text-anchor="middle" font-size="10" font-weight="bold" fill="#4a7a3a">优化: 转置</text>
+    <text x="605" y="282" text-anchor="middle" font-size="9" fill="#666">temp → transpose</text>
+    <text x="605" y="297" text-anchor="middle" font-size="9" fill="#666">→ temp_T</text>
+    <text x="605" y="312" text-anchor="middle" font-size="9" fill="#4a7a3a">再做行 DFT</text>
+    <text x="605" y="327" text-anchor="middle" font-size="9" fill="#4a7a3a">→ 合并访存 ✓</text>
+  </g>
+
+  <!-- ===== Summary table ===== -->
+  <g filter="url(#rough2)">
+    <rect x="20" y="365" width="680" height="65" fill="#fafafa" stroke="#999" stroke-width="1" rx="4"/>
+
+    <text x="40" y="385" font-size="11" font-weight="bold" fill="#333">访存模式对比</text>
+
+    <rect x="40" y="392" width="150" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="2"/>
+    <text x="115" y="410" text-anchor="middle" font-size="10" fill="#446688">Pass 1 行 DFT: 合并 ✓</text>
+
+    <rect x="210" y="392" width="170" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" rx="2"/>
+    <text x="295" y="410" text-anchor="middle" font-size="10" fill="#b85450">Pass 2 列 DFT: 跨步 ⚠</text>
+
+    <rect x="400" y="392" width="170" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.8" rx="2"/>
+    <text x="485" y="410" text-anchor="middle" font-size="10" fill="#4a7a3a">+转置优化: 全合并 ✓✓</text>
+
+    <text x="590" y="410" font-size="10" fill="#666">3× kernel launch</text>
+  </g>
+</svg>

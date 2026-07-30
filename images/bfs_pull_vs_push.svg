@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+    <marker id="arrR" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#b85450"/>
+    </marker>
+    <marker id="arrG" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#4a7a3a"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="420" fill="#fafafa"/>
+
+  <text x="320" y="24" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Pull-based vs Push-based BFS 扩展策略</text>
+  <text x="320" y="42" text-anchor="middle" font-size="11" fill="#888">pull：未访问格子主动拉邻居状态（零写竞争） vs push：frontier 格子主动写邻居（atomicCAS 消竞争）</text>
+
+  <!-- ===== 左侧：Pull-based ===== -->
+  <text x="30" y="72" font-size="12" fill="#4a7a3a" font-weight="bold">Pull-based（推荐）</text>
+  <rect x="20" y="80" width="290" height="280" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
+
+  <!-- 3x3 grid: center unvisited, neighbors at level d -->
+  <g font-size="11" fill="#333">
+    <!-- top-left: level d -->
+    <rect x="55" y="105" width="44" height="40" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="77" y="129" text-anchor="middle" fill="#d6a040" font-weight="bold">d</text>
+    <!-- top-center: level d -->
+    <rect x="103" y="105" width="44" height="40" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="125" y="129" text-anchor="middle" fill="#d6a040" font-weight="bold">d</text>
+    <!-- top-right: obstacle -->
+    <rect x="151" y="105" width="44" height="40" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="173" y="129" text-anchor="middle" fill="#b85450" font-size="9">#</text>
+
+    <!-- mid-left: level d -->
+    <rect x="55" y="149" width="44" height="40" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+    <text x="77" y="173" text-anchor="middle" fill="#d6a040" font-weight="bold">d</text>
+    <!-- mid-center: -1 (unvisited, being pulled) -->
+    <rect x="103" y="149" width="44" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="2" rx="3" filter="url(#rough2)"/>
+    <text x="125" y="173" text-anchor="middle" fill="#446688" font-weight="bold">-1</text>
+    <!-- mid-right: -1 (unvisited, no level d neighbor) -->
+    <rect x="151" y="149" width="44" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="173" y="173" text-anchor="middle" fill="#446688">-1</text>
+
+    <!-- bottom row: -1 -->
+    <rect x="55" y="193" width="44" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="77" y="217" text-anchor="middle" fill="#446688">-1</text>
+    <rect x="103" y="193" width="44" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="125" y="217" text-anchor="middle" fill="#446688">-1</text>
+    <rect x="151" y="193" width="44" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="173" y="217" text-anchor="middle" fill="#446688">-1</text>
+  </g>
+
+  <!-- pull arrows: center cell reads neighbors -->
+  <g stroke="#4a7a3a" stroke-width="1.5" fill="none" filter="url(#rough2)">
+    <path d="M 100 135 L 115 152" marker-end="url(#arrG)"/>
+    <path d="M 77 148 L 100 165" marker-end="url(#arrG)"/>
+  </g>
+  <text x="40" y="255" font-size="9" fill="#4a7a3a">中心格子检查 4 邻居</text>
+  <text x="40" y="269" font-size="9" fill="#4a7a3a">发现 dist == d → 自己设为 d+1</text>
+
+  <!-- write arrow: only writes own dist -->
+  <rect x="40" y="285" width="250" height="30" fill="#fff" stroke="#4a7a3a" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="165" y="304" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">只写 dist[自己] → 零写竞争</text>
+
+  <text x="165" y="335" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">优势：无 atomicCAS</text>
+  <text x="165" y="349" text-anchor="middle" font-size="9" fill="#888">代价：每未访问格子读 4 邻居</text>
+
+  <!-- ===== 右侧：Push-based ===== -->
+  <text x="350" y="72" font-size="12" fill="#b85450" font-weight="bold">Push-based（对比）</text>
+  <rect x="340" y="80" width="290" height="280" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
+
+  <!-- 3x3 grid: center is frontier (level d), neighbors unvisited -->
+  <g font-size="11" fill="#333">
+    <!-- top-left: -1 -->
+    <rect x="375" y="105" width="44" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="397" y="129" text-anchor="middle" fill="#446688">-1</text>
+    <!-- top-center: -1 (being pushed) -->
+    <rect x="423" y="105" width="44" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="2" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="129" text-anchor="middle" fill="#446688" font-weight="bold">-1</text>
+    <!-- top-right: obstacle -->
+    <rect x="471" y="105" width="44" height="40" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="493" y="129" text-anchor="middle" fill="#b85450" font-size="9">#</text>
+
+    <!-- mid-left: -1 (being pushed) -->
+    <rect x="375" y="149" width="44" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="2" rx="3" filter="url(#rough2)"/>
+    <text x="397" y="173" text-anchor="middle" fill="#446688" font-weight="bold">-1</text>
+    <!-- mid-center: frontier (level d, pushing) -->
+    <rect x="423" y="149" width="44" height="40" fill="#fff8e1" stroke="#d6a040" stroke-width="2" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="173" text-anchor="middle" fill="#d6a040" font-weight="bold">d</text>
+    <!-- mid-right: -1 (being pushed) -->
+    <rect x="471" y="149" width="44" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="2" rx="3" filter="url(#rough2)"/>
+    <text x="493" y="173" text-anchor="middle" fill="#446688" font-weight="bold">-1</text>
+
+    <!-- bottom row: -1 -->
+    <rect x="375" y="193" width="44" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="397" y="217" text-anchor="middle" fill="#446688">-1</text>
+    <rect x="423" y="193" width="44" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="2" rx="3" filter="url(#rough2)"/>
+    <text x="445" y="217" text-anchor="middle" fill="#446688" font-weight="bold">-1</text>
+    <rect x="471" y="193" width="44" height="40" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="493" y="217" text-anchor="middle" fill="#446688">-1</text>
+  </g>
+
+  <!-- push arrows: center frontier writes to neighbors -->
+  <g stroke="#b85450" stroke-width="1.5" fill="none" filter="url(#rough2)">
+    <path d="M 440 148 L 440 135" marker-end="url(#arrR)"/>
+    <path d="M 420 165 L 405 165" marker-end="url(#arrR)"/>
+    <path d="M 465 165 L 450 165" marker-end="url(#arrR)"/>
+    <path d="M 440 192 L 440 205" marker-end="url(#arrR)"/>
+  </g>
+  <text x="360" y="255" font-size="9" fill="#b85450">frontier 格子主动写 4 邻居</text>
+  <text x="360" y="269" font-size="9" fill="#b85450">邻居可能被多个 frontier 同时写</text>
+
+  <!-- write conflict box -->
+  <rect x="360" y="285" width="250" height="30" fill="#fff" stroke="#b85450" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="485" y="304" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">写邻居 dist → 需 atomicCAS 消竞争</text>
+
+  <text x="485" y="335" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">劣势：atomicCAS 序列化</text>
+  <text x="485" y="349" text-anchor="middle" font-size="9" fill="#888">代价：frontier 密集时 warp 串行等待</text>
+
+  <!-- bottom comparison -->
+  <rect x="20" y="376" width="600" height="34" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="8" filter="url(#rough2)"/>
+  <text x="320" y="394" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">对偶关系：push「有 d 的格子推给邻居」 ↔ pull「-1 的格子从邻居拉」</text>
+  <text x="320" y="406" text-anchor="middle" font-size="9" fill="#888">pull 把写目标从「邻居的 dist」换成「自己的 dist」，把多对一竞争变成一对一无竞争</text>
+</svg>

@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 460" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="460" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Shared Memory Tiling：缓存第 k 行 / 列，消除冗余全局读</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">朴素版第 k 行被 N² 个线程各读一次；tiling 版第 k 行只从 global 读一次，进 shared 后广播</text>
+
+  <!-- ===== 左侧：朴素版 ===== -->
+  <text x="30" y="74" font-size="12" fill="#b85450" font-weight="bold">朴素：每 thread 直接读 global</text>
+  <rect x="20" y="82" width="270" height="290" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
+
+  <!-- mini matrix -->
+  <g font-size="8" fill="#888" font-family="monospace">
+    <text x="35" y="104">d[i*N+j]   列 k      行 k</text>
+  </g>
+  <g stroke="#b85450" stroke-width="1" fill="#fff">
+    <rect x="50" y="112" width="120" height="90" rx="2" filter="url(#rough2)"/>
+  </g>
+  <g font-size="8" fill="#333" font-family="monospace">
+    <text x="110" y="128" text-anchor="middle">⋯ ⋯ ⋯ ⋯ ⋯</text>
+    <text x="110" y="146" text-anchor="middle">⋯ ⋯ ⋯ ⋯ ⋯</text>
+    <text x="110" y="164" text-anchor="middle">⋯ ⋯ ⋯ ⋯ ⋯</text>
+    <text x="110" y="182" text-anchor="middle">⋯ ⋯ ⋯ ⋯ ⋯</text>
+    <text x="110" y="200" text-anchor="middle">⋯ ⋯ ⋯ ⋯ ⋯</text>
+  </g>
+  <!-- column k highlight -->
+  <rect x="95" y="112" width="18" height="90" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="1" filter="url(#rough2)"/>
+  <text x="104" y="124" text-anchor="middle" font-size="7" fill="#d6a040">k</text>
+  <!-- row k highlight -->
+  <rect x="50" y="156" width="120" height="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="1" filter="url(#rough2)"/>
+  <text x="180" y="166" font-size="7" fill="#d6a040">k</text>
+
+  <text x="155" y="226" text-anchor="middle" font-size="9" fill="#b85450">每 thread 读 d[i][k] + d[k][j]</text>
+  <text x="155" y="240" text-anchor="middle" font-size="9" fill="#b85450">全 N² 个线程 → 第 k 行读 N² 次</text>
+
+  <rect x="40" y="256" width="230" height="40" fill="#fff" stroke="#b85450" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="155" y="274" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">global 读流量 = O(N²) / 每 k</text>
+  <text x="155" y="288" text-anchor="middle" font-size="9" fill="#888">行 k 成为带宽瓶颈，memory-bound</text>
+
+  <text x="155" y="322" text-anchor="middle" font-size="9" fill="#888">→ 优化：把第 k 行/列缓存进 shared</text>
+  <text x="155" y="336" text-anchor="middle" font-size="9" fill="#888">  让 tile 内所有线程共享</text>
+
+  <!-- arrow -->
+  <path d="M 290 200 L 325 200" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr2)" filter="url(#rough2)"/>
+
+  <!-- ===== 右侧：tiling 版 ===== -->
+  <text x="340" y="74" font-size="12" fill="#4a7a3a" font-weight="bold">Tiling：第 k 行/列进 shared，广播</text>
+  <rect x="330" y="82" width="290" height="290" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
+
+  <!-- tile grid 4x4 -->
+  <g font-size="8" fill="#4a7a3a">
+    <g stroke="#4a7a3a" stroke-width="1" fill="#fff">
+      <rect x="345" y="100" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="381" y="100" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="417" y="100" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="453" y="100" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="345" y="128" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="381" y="128" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="417" y="128" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="453" y="128" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="345" y="156" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="381" y="156" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="417" y="156" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="453" y="156" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="345" y="184" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="381" y="184" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="417" y="184" width="34" height="26" rx="2" filter="url(#rough2)"/>
+      <rect x="453" y="184" width="34" height="26" rx="2" filter="url(#rough2)"/>
+    </g>
+    <!-- one tile highlighted -->
+    <rect x="381" y="128" width="34" height="26" fill="none" stroke="#b85450" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="398" y="144" text-anchor="middle" fill="#b85450" font-weight="bold">tile</text>
+  </g>
+
+  <!-- shared memory boxes -->
+  <text x="345" y="232" font-size="9" fill="#d6a040" font-weight="bold">shared memory（协作载入 1 次）</text>
+  <rect x="345" y="238" width="135" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+  <text x="412" y="254" text-anchor="middle" font-size="9" fill="#d6a040" font-family="monospace">dik_s[BM]  ← d[*][k]（列 k 切片）</text>
+  <rect x="345" y="266" width="135" height="24" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="3" filter="url(#rough2)"/>
+  <text x="412" y="282" text-anchor="middle" font-size="9" fill="#d6a040" font-family="monospace">dkj_s[BN]  ← d[k][*]（行 k 切片）</text>
+
+  <text x="495" y="254" font-size="9" fill="#888">每 tile</text>
+  <text x="495" y="268" font-size="9" fill="#888">只读 1 次</text>
+
+  <rect x="345" y="300" width="260" height="44" fill="#fff" stroke="#4a7a3a" stroke-width="1.3" rx="6" filter="url(#rough2)"/>
+  <text x="475" y="318" text-anchor="middle" font-size="10" fill="#4a7a3a" font-family="monospace">nd = dik_s[ty] + dkj_s[tx]</text>
+  <text x="475" y="334" text-anchor="middle" font-size="10" fill="#4a7a3a" font-family="monospace">if (nd &lt; d[i][j]) d[i][j] = nd</text>
+
+  <!-- bottom note -->
+  <rect x="20" y="394" width="600" height="52" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="8" filter="url(#rough2)"/>
+  <text x="320" y="412" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">本质：min-plus 半环的矩阵乘 tiling</text>
+  <text x="320" y="426" text-anchor="middle" font-size="9" fill="#888">第 k 行/列 = GEMM 中 A 的一行 / B 的一列；缓存到 shared 后由 tile 内 BM×BN 个线程广播复用</text>
+  <text x="320" y="438" text-anchor="middle" font-size="9" fill="#888">读流量从 O(N²)/k 降到 O(N²/BN + N²/BM)/k，向 compute-bound 靠拢</text>
+</svg>

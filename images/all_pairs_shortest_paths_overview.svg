@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 440" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="440" fill="#fafafa"/>
+
+  <text x="320" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Floyd-Warshall 全源最短路：外层 k 串行 / 内层 (i,j) 并行</text>
+  <text x="320" y="44" text-anchor="middle" font-size="11" fill="#888">k 循环在 host 端跑 N 次，每次启动一个 kernel；kernel 内 (i,j) 全并行</text>
+
+  <!-- ===== 左侧：host k 循环 ===== -->
+  <text x="30" y="74" font-size="12" fill="#d6a040" font-weight="bold">host 端 k 循环（串行）</text>
+  <rect x="20" y="82" width="230" height="300" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
+
+  <g font-family="monospace" font-size="10" fill="#333">
+    <text x="35" y="104">for k in 0..N-1:</text>
+    <text x="55" y="122">launch fw_kernel&lt;&lt;&lt;grid&gt;&gt;&gt;</text>
+  </g>
+
+  <!-- k steps -->
+  <g font-size="9" fill="#d6a040">
+    <rect x="45" y="134" width="60" height="22" fill="#fff" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="75" y="149" text-anchor="middle">k = 0</text>
+    <path d="M 75 158 L 75 172" stroke="#d6a040" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+    <rect x="45" y="174" width="60" height="22" fill="#fff" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="75" y="189" text-anchor="middle">k = 1</text>
+    <path d="M 75 198 L 75 212" stroke="#d6a040" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+    <rect x="45" y="214" width="60" height="22" fill="#fff" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="75" y="229" text-anchor="middle">k = 2</text>
+    <text x="120" y="229" font-size="14" fill="#888">⋯</text>
+
+    <rect x="45" y="254" width="60" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <text x="75" y="269" text-anchor="middle">k = N-1</text>
+  </g>
+
+  <rect x="35" y="296" width="200" height="40" fill="#fff" stroke="#b85450" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="135" y="314" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">每次 launch = 全局同步</text>
+  <text x="135" y="328" text-anchor="middle" font-size="9" fill="#888">天然充当 k 之间的屏障</text>
+
+  <text x="135" y="362" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">N 次串行 launch</text>
+  <text x="135" y="376" text-anchor="middle" font-size="9" fill="#888">轮间依赖无法并行</text>
+
+  <!-- arrow to right -->
+  <path d="M 250 200 L 285 200" stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="267" y="192" text-anchor="middle" font-size="8" fill="#888">每次</text>
+
+  <!-- ===== 右侧：kernel 内 (i,j) 并行 ===== -->
+  <text x="300" y="74" font-size="12" fill="#446688" font-weight="bold">kernel 内 (i,j) 全并行（2D grid）</text>
+  <rect x="290" y="82" width="320" height="300" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
+
+  <!-- 2D tile grid -->
+  <g font-size="8" fill="#446688">
+    <!-- 5x5 tiles -->
+    <g stroke="#446688" stroke-width="1" fill="#e8f0fe">
+      <rect x="305" y="110" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="345" y="110" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="385" y="110" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="425" y="110" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="465" y="110" width="38" height="30" rx="2" filter="url(#rough2)"/>
+
+      <rect x="305" y="142" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="345" y="142" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="385" y="142" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="425" y="142" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="465" y="142" width="38" height="30" rx="2" filter="url(#rough2)"/>
+
+      <rect x="305" y="174" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="345" y="174" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="385" y="174" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="425" y="174" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="465" y="174" width="38" height="30" rx="2" filter="url(#rough2)"/>
+
+      <rect x="305" y="206" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="345" y="206" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="385" y="206" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="425" y="206" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="465" y="206" width="38" height="30" rx="2" filter="url(#rough2)"/>
+
+      <rect x="305" y="238" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="345" y="238" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="385" y="238" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="425" y="238" width="38" height="30" rx="2" filter="url(#rough2)"/>
+      <rect x="465" y="238" width="38" height="30" rx="2" filter="url(#rough2)"/>
+    </g>
+    <!-- highlight one tile -->
+    <rect x="345" y="174" width="38" height="30" fill="none" stroke="#b85450" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="364" y="192" text-anchor="middle" fill="#b85450" font-weight="bold">tile</text>
+  </g>
+
+  <text x="515" y="150" font-size="9" fill="#446688">block = (BN, BM)</text>
+  <text x="515" y="164" font-size="9" fill="#446688">每 thread 一个 (i,j)</text>
+
+  <!-- relaxation formula box -->
+  <rect x="305" y="285" width="290" height="50" fill="#fff" stroke="#4a7a3a" stroke-width="1.3" rx="6" filter="url(#rough2)"/>
+  <text x="450" y="305" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">松弛：d[i][j] = min( d[i][j],</text>
+  <text x="450" y="322" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">d[i][k] + d[k][j] )</text>
+
+  <text x="450" y="356" text-anchor="middle" font-size="10" fill="#446688" font-weight="bold">min-plus 半环 = 矩阵乘法的 min/+ 推广</text>
+  <text x="450" y="370" text-anchor="middle" font-size="9" fill="#888">d[i][k]、d[k][j] 在第 k 轮不变（d[k][k]=0）→ 可安全并行读</text>
+
+  <!-- bottom note -->
+  <rect x="20" y="396" width="600" height="34" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="8" filter="url(#rough2)"/>
+  <text x="320" y="414" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">核心洞察：k 必须串行（轮间依赖），但每个 k 内的 N² 个 (i,j) 互不冲突 → 外串内并</text>
+  <text x="320" y="426" text-anchor="middle" font-size="9" fill="#888">与 #37 Matrix Power、K-Means 同属「host 外层循环 + kernel 内并行」模板</text>
+</svg>

@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="500" viewBox="0 0 900 500" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="19" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8"/>
+    </filter>
+  </defs>
+  <rect width="900" height="500" fill="#fdfcf7"/>
+  <text x="450" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">复合掩码：causal ∧ (sink ∨ window)（M=6, num_sinks=2, window=2）</text>
+  <path d="M 260 42 Q 450 50 640 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+  <text x="450" y="70" text-anchor="middle" font-size="12" fill="#666">query i 只 attend 满足 j≤i 且（j&lt;num_sinks 或 j≥i-window+1）的 key — 中间出现"空洞"</text>
+
+  <!-- 6x6 mask grid -->
+  <g filter="url(#sk)">
+    <g stroke-width="0.9">
+      <!-- row q0: j=0 sink -->
+      <rect x="220" y="100" width="44" height="44" fill="#dbeafe" stroke="#4a8edb"/>
+      <rect x="264" y="100" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="308" y="100" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="352" y="100" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="396" y="100" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="440" y="100" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <!-- row q1: j=0,1 sink -->
+      <rect x="220" y="144" width="44" height="44" fill="#dbeafe" stroke="#4a8edb"/>
+      <rect x="264" y="144" width="44" height="44" fill="#dbeafe" stroke="#4a8edb"/>
+      <rect x="308" y="144" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="352" y="144" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="396" y="144" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="440" y="144" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <!-- row q2: j=0,1 sink; j=2 window -->
+      <rect x="220" y="188" width="44" height="44" fill="#dbeafe" stroke="#4a8edb"/>
+      <rect x="264" y="188" width="44" height="44" fill="#dbeafe" stroke="#4a8edb"/>
+      <rect x="308" y="188" width="44" height="44" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="352" y="188" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="396" y="188" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="440" y="188" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <!-- row q3: j=0,1 sink; j=2,3 window -->
+      <rect x="220" y="232" width="44" height="44" fill="#dbeafe" stroke="#4a8edb"/>
+      <rect x="264" y="232" width="44" height="44" fill="#dbeafe" stroke="#4a8edb"/>
+      <rect x="308" y="232" width="44" height="44" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="352" y="232" width="44" height="44" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="396" y="232" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <rect x="440" y="232" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <!-- row q4: j=0,1 sink; j=2 MASKED(gap); j=3,4 window -->
+      <rect x="220" y="276" width="44" height="44" fill="#dbeafe" stroke="#4a8edb"/>
+      <rect x="264" y="276" width="44" height="44" fill="#dbeafe" stroke="#4a8edb"/>
+      <rect x="308" y="276" width="44" height="44" fill="#fce4ec" stroke="#b85450" stroke-dasharray="3 2"/>
+      <rect x="352" y="276" width="44" height="44" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="396" y="276" width="44" height="44" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="440" y="276" width="44" height="44" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+      <!-- row q5: j=0,1 sink; j=2,3 MASKED(gap); j=4,5 window -->
+      <rect x="220" y="320" width="44" height="44" fill="#dbeafe" stroke="#4a8edb"/>
+      <rect x="264" y="320" width="44" height="44" fill="#dbeafe" stroke="#4a8edb"/>
+      <rect x="308" y="320" width="44" height="44" fill="#fce4ec" stroke="#b85450" stroke-dasharray="3 2"/>
+      <rect x="352" y="320" width="44" height="44" fill="#fce4ec" stroke="#b85450" stroke-dasharray="3 2"/>
+      <rect x="396" y="320" width="44" height="44" fill="#bfe0bf" stroke="#4a8e4a"/>
+      <rect x="440" y="320" width="44" height="44" fill="#bfe0bf" stroke="#4a8e4a"/>
+    </g>
+  </g>
+
+  <!-- column / row labels -->
+  <text x="242" y="94" text-anchor="middle" font-size="9" fill="#666">key 0</text>
+  <text x="286" y="94" text-anchor="middle" font-size="9" fill="#666">1</text>
+  <text x="330" y="94" text-anchor="middle" font-size="9" fill="#666">2</text>
+  <text x="374" y="94" text-anchor="middle" font-size="9" fill="#666">3</text>
+  <text x="418" y="94" text-anchor="middle" font-size="9" fill="#666">4</text>
+  <text x="462" y="94" text-anchor="middle" font-size="9" fill="#666">5</text>
+  <text x="210" y="127" text-anchor="end" font-size="9" fill="#666">q0</text>
+  <text x="210" y="171" text-anchor="end" font-size="9" fill="#666">q1</text>
+  <text x="210" y="215" text-anchor="end" font-size="9" fill="#666">q2</text>
+  <text x="210" y="259" text-anchor="end" font-size="9" fill="#666">q3</text>
+  <text x="210" y="303" text-anchor="end" font-size="9" fill="#666">q4</text>
+  <text x="210" y="347" text-anchor="end" font-size="9" fill="#666">q5</text>
+
+  <!-- sink / window bracket annotations on q5 -->
+  <path d="M 220 376 L 220 386 L 308 386 L 308 376" stroke="#4a8edb" stroke-width="1.4" fill="none" filter="url(#sk)"/>
+  <text x="264" y="402" text-anchor="middle" font-size="10" fill="#2b6e9e">sink 区 [0, num_sinks)</text>
+  <path d="M 396 376 L 396 386 L 484 386 L 484 376" stroke="#4a8e4a" stroke-width="1.4" fill="none" filter="url(#sk)"/>
+  <text x="440" y="402" text-anchor="middle" font-size="10" fill="#2e6e2e">window 区 [i-w+1, i]</text>
+  <text x="352" y="402" text-anchor="middle" font-size="10" fill="#b85450">空洞!</text>
+
+  <!-- legend -->
+  <g filter="url(#sk)">
+    <rect x="520" y="110" width="34" height="22" rx="3" fill="#dbeafe" stroke="#4a8edb"/>
+  </g>
+  <text x="562" y="126" font-size="11" fill="#2b6e9e">sink（前 num_sinks 个，永可见）</text>
+  <g filter="url(#sk)">
+    <rect x="520" y="140" width="34" height="22" rx="3" fill="#bfe0bf" stroke="#4a8e4a"/>
+  </g>
+  <text x="562" y="156" font-size="11" fill="#2e6e2e">window（滑动窗口内）</text>
+  <g filter="url(#sk)">
+    <rect x="520" y="170" width="34" height="22" rx="3" fill="#fce4ec" stroke="#b85450" stroke-dasharray="3 2"/>
+  </g>
+  <text x="562" y="186" font-size="11" fill="#b85450">空洞（既非 sink 也出窗口）</text>
+  <g filter="url(#sk)">
+    <rect x="520" y="200" width="34" height="22" rx="3" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+  </g>
+  <text x="562" y="216" font-size="11" fill="#999">future（j &gt; i，因果屏蔽）</text>
+
+  <!-- insight box -->
+  <g filter="url(#sk)">
+    <rect x="520" y="240" width="340" height="120" rx="8" fill="#fff8e1" stroke="#d6a040"/>
+  </g>
+  <text x="540" y="264" font-size="12" font-weight="bold" fill="#7a5415">关键观察：空洞是 StreamingLLM 的核心</text>
+  <text x="540" y="284" font-size="11" fill="#444">sink token 保留全局信息（attention sink）</text>
+  <text x="540" y="302" font-size="11" fill="#444">window token 保留近期上下文</text>
+  <text x="540" y="320" font-size="11" fill="#b03a3a">中间的"空洞"被丢弃 → 显存 O(M) → O(w+s)</text>
+  <text x="540" y="338" font-size="11" fill="#2e6e2e">使 LLM 能外推到极长序列不崩溃</text>
+  <text x="540" y="354" font-size="11" fill="#666">kernel 只需对允许的 j 做 softmax</text>
+</svg>

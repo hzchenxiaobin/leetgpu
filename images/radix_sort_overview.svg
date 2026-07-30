@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 470" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="6" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+    <marker id="arG" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#4a8e4a"/>
+    </marker>
+  </defs>
+  <rect width="900" height="470" fill="#fdfcf7"/>
+
+  <text x="450" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#2b2b2b">Radix-2 基数排序：从 LSB 到 MSB，每趟稳定二分划分（0→左 / 1→右）</text>
+  <path d="M 250 42 Q 450 50 650 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- input -->
+  <text x="40" y="80" font-size="13" font-weight="bold" fill="#2b6e9e">输入 uint32 数组（按位看待）</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="90" width="50" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="90" y="90" width="50" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="140" y="90" width="50" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="190" y="90" width="50" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="245" y="90" width="40" height="30" rx="4" fill="#eef2f7" stroke="#9bb6d6" stroke-width="1.1" stroke-dasharray="4 3"/>
+  </g>
+  <text x="65" y="110" text-anchor="middle" font-size="11" fill="#2b6e9e">3</text>
+  <text x="115" y="110" text-anchor="middle" font-size="11" fill="#2b6e9e">1</text>
+  <text x="165" y="110" text-anchor="middle" font-size="11" fill="#2b6e9e">2</text>
+  <text x="215" y="110" text-anchor="middle" font-size="11" fill="#2b6e9e">0</text>
+  <text x="265" y="110" text-anchor="middle" font-size="11" fill="#8aa0bb">…</text>
+  <text x="310" y="110" font-size="11" fill="#888">看第 b 位：pred0 = (bit==0)</text>
+
+  <path d="M 130 126 L 130 150" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- pass bit 0 -->
+  <text x="40" y="166" font-size="13" font-weight="bold" fill="#7a5415">趟 b=0（LSB）：稳定划分 —— bit0=0 沉左，bit0=1 沉右</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="176" width="50" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="90" y="176" width="50" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="150" y="176" width="2" height="30" fill="#b85450"/>
+    <rect x="160" y="176" width="50" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="210" y="176" width="50" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="65" y="196" text-anchor="middle" font-size="11" fill="#2e6e2e">2</text>
+  <text x="115" y="196" text-anchor="middle" font-size="11" fill="#2e6e2e">0</text>
+  <text x="185" y="196" text-anchor="middle" font-size="11" fill="#7a5415">3</text>
+  <text x="235" y="196" text-anchor="middle" font-size="11" fill="#7a5415">1</text>
+  <text x="280" y="196" font-size="11" fill="#888">0 段保持原相对序，1 段亦然 → 稳定</text>
+
+  <path d="M 130 212 L 130 236" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- pass bit 1 -->
+  <text x="40" y="252" font-size="13" font-weight="bold" fill="#7a5415">趟 b=1：在上一趟基础上再按 bit1 稳定划分</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="262" width="50" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="90" y="262" width="50" height="30" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+    <rect x="150" y="262" width="2" height="30" fill="#b85450"/>
+    <rect x="160" y="262" width="50" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="210" y="262" width="50" height="30" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="65" y="282" text-anchor="middle" font-size="11" fill="#2e6e2e">0</text>
+  <text x="115" y="282" text-anchor="middle" font-size="11" fill="#2e6e2e">1</text>
+  <text x="185" y="282" text-anchor="middle" font-size="11" fill="#7a5415">2</text>
+  <text x="235" y="282" text-anchor="middle" font-size="11" fill="#7a5415">3</text>
+  <text x="280" y="282" font-size="11" fill="#888">低位已排好的顺序被稳定性保留</text>
+
+  <path d="M 130 298 L 130 320" stroke="#9bb6d6" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)" stroke-dasharray="4 3"/>
+  <text x="146" y="314" font-size="11" fill="#8aa0bb">重复 b = 2 … 31（共 32 趟）</text>
+
+  <!-- result -->
+  <text x="40" y="344" font-size="13" font-weight="bold" fill="#2b6e9e">趟 b=31（MSB）后：全局升序</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="354" width="50" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="90" y="354" width="50" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="140" y="354" width="50" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+    <rect x="190" y="354" width="50" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+  </g>
+  <text x="65" y="374" text-anchor="middle" font-size="11" fill="#2b6e9e">0</text>
+  <text x="115" y="374" text-anchor="middle" font-size="11" fill="#2b6e9e">1</text>
+  <text x="165" y="374" text-anchor="middle" font-size="11" fill="#2b6e9e">2</text>
+  <text x="215" y="374" text-anchor="middle" font-size="11" fill="#2b6e9e">3</text>
+
+  <!-- right info box: 3-kernel pipeline -->
+  <g filter="url(#sk)">
+    <rect x="540" y="78" width="330" height="200" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-width="1.2" stroke-dasharray="5 3"/>
+  </g>
+  <text x="556" y="100" font-size="13" font-weight="bold" fill="#444">每趟 = 3 个 kernel（count → scan → scatter）</text>
+  <g filter="url(#sk)">
+    <rect x="556" y="112" width="298" height="34" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/>
+  </g>
+  <text x="566" y="133" font-size="11" fill="#2e6e2e">① count：每 block 对 pred0 做 scan → 得本 block 的 0 计数</text>
+  <g filter="url(#sk)">
+    <rect x="556" y="152" width="298" height="34" rx="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="566" y="173" font-size="11" fill="#7a5415">② scan：对各 block 的 0 计数做全局 excl scan → 基地址</text>
+  <g filter="url(#sk)">
+    <rect x="556" y="192" width="298" height="34" rx="5" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/>
+  </g>
+  <text x="566" y="213" font-size="11" fill="#2b6e9e">③ scatter：重算 rank0，按位写到 d_out 的新位置</text>
+  <text x="556" y="240" font-size="11" fill="#b85450">block scan 复用 #16 Prefix Sum 的 warp shuffle 模板</text>
+  <text x="556" y="258" font-size="11" fill="#888">双缓冲 ping-pong：src ⇄ out 每趟互换</text>
+
+  <!-- insight box -->
+  <g filter="url(#sk)">
+    <rect x="540" y="300" width="330" height="146" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-width="1.2" stroke-dasharray="5 3"/>
+  </g>
+  <text x="556" y="322" font-size="13" font-weight="bold" fill="#444">💡 为什么选 radix-2（二分划分）？</text>
+  <text x="556" y="344" font-size="11" fill="#444">只需 1 个 predicate scan（pred0 = bit==0）。</text>
+  <text x="556" y="362" font-size="11" fill="#444">1 的排名无需另扫：rank1 = tid − rank0</text>
+  <text x="556" y="380" font-size="11" fill="#7a5415">→ scan 按索引序累加 → 天然稳定（保序）</text>
+  <text x="556" y="398" font-size="11" fill="#444">无 atomic、无 256 桶争用，结构最简。</text>
+  <text x="556" y="416" font-size="11" fill="#b85450">代价：32 趟；可扩到 radix-8（4 趟）提吞吐。</text>
+  <text x="556" y="436" font-size="11" fill="#888">对比 #15 bitonic：网络式 vs 分布式排序</text>
+</svg>

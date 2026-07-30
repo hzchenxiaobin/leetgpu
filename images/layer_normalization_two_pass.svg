@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="11" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="880" height="470" fill="#fdfcf7"/>
+
+  <text x="440" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#2b2b2b">两级块归约 ×2：variance 依赖 mean 的串行依赖</text>
+  <path d="M 240 38 Q 440 46 640 38" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- ===== 256 threads ===== -->
+  <text x="70" y="78" text-anchor="middle" font-size="11" fill="#7a5415" font-weight="bold">block r 的 256 threads</text>
+  <g filter="url(#sk)">
+    <rect x="22" y="88" width="96" height="40" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <circle cx="40" cy="108" r="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1"/>
+    <circle cx="56" cy="108" r="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1"/>
+    <circle cx="72" cy="108" r="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1"/>
+    <circle cx="88" cy="108" r="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1"/>
+    <text x="104" y="111" font-size="9" fill="#7a5415">...</text>
+  </g>
+
+  <!-- ===== Pass 1 reduce: mean ===== -->
+  <g filter="url(#sk)"><rect x="180" y="76" width="170" height="64" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/></g>
+  <text x="265" y="96" text-anchor="middle" font-size="11" fill="#2e6e2e" font-weight="bold">Pass 1：block_reduce_sum</text>
+  <text x="265" y="114" text-anchor="middle" font-size="9.5" fill="#444">各 thread 累加 xr[i] → μ</text>
+  <text x="265" y="130" text-anchor="middle" font-size="9" fill="#7a5415">warp shuffle + shared 汇总</text>
+  <path d="M 120 108 L 178 108" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- syncthreads 1 -->
+  <g filter="url(#sk)"><rect x="386" y="92" width="86" height="32" rx="5" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/></g>
+  <text x="429" y="113" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">__syncthreads</text>
+  <path d="M 352 108 L 384 108" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="429" y="86" text-anchor="middle" font-size="8.5" fill="#b85450">广播 μ 到全 block</text>
+
+  <!-- ===== Pass 2 reduce: variance (needs mean) ===== -->
+  <g filter="url(#sk)"><rect x="508" y="76" width="180" height="64" rx="6" fill="#fce4ec" stroke="#b85450" stroke-width="1.3"/></g>
+  <text x="598" y="96" text-anchor="middle" font-size="11" fill="#b85450" font-weight="bold">Pass 2：block_reduce_sum</text>
+  <text x="598" y="114" text-anchor="middle" font-size="9.5" fill="#444">各 thread 累加 (xr[i]-μ)² → σ²</text>
+  <text x="598" y="130" text-anchor="middle" font-size="9" fill="#7a5415">第二次归约（μ 已就绪）</text>
+  <path d="M 474 108 L 506 108" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- syncthreads 2 -->
+  <g filter="url(#sk)"><rect x="724" y="92" width="86" height="32" rx="5" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/></g>
+  <text x="767" y="113" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">__syncthreads</text>
+  <path d="M 690 108 L 722 108" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="767" y="86" text-anchor="middle" font-size="8.5" fill="#b85450">广播 rstd</text>
+
+  <!-- ===== bottom: warp shuffle detail for ONE reduce ===== -->
+  <text x="440" y="178" text-anchor="middle" font-size="13" font-weight="bold" fill="#444">单次 block_reduce_sum 内部（warp shuffle 两级）</text>
+
+  <!-- warp reduce -->
+  <g filter="url(#sk)"><rect x="60" y="198" width="250" height="70" rx="6" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.2"/></g>
+  <text x="185" y="220" text-anchor="middle" font-size="11" fill="#2b6e9e" font-weight="bold">阶段一：warp 内 __shfl_down_sync</text>
+  <text x="185" y="238" text-anchor="middle" font-size="9.5" fill="#444">off = 16 → 8 → 4 → 2 → 1 折半累加</text>
+  <text x="185" y="254" text-anchor="middle" font-size="9" fill="#7a5415">每 warp 的 lane 0 得到该 warp 的和</text>
+
+  <!-- shared -->
+  <g filter="url(#sk)"><rect x="345" y="210" width="120" height="46" rx="6" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/></g>
+  <text x="405" y="230" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">shared[32]</text>
+  <text x="405" y="246" text-anchor="middle" font-size="9" fill="#7a5415">每 warp 写 1 slot</text>
+  <path d="M 312 233 L 343 233" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="405" y="200" text-anchor="middle" font-size="8.5" fill="#b85450">__syncthreads</text>
+
+  <!-- warp0 final -->
+  <g filter="url(#sk)"><rect x="500" y="198" width="280" height="70" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/></g>
+  <text x="640" y="220" text-anchor="middle" font-size="11" fill="#2e6e2e" font-weight="bold">阶段二：warp 0 再 __shfl_down_sync</text>
+  <text x="640" y="238" text-anchor="middle" font-size="9.5" fill="#444">把 8 个 warp 的部分和归约成 1 个</text>
+  <text x="640" y="254" text-anchor="middle" font-size="9" fill="#7a5415">写 shared[0] 广播给全 block</text>
+  <path d="M 467 233 L 498 233" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- dependency note -->
+  <g filter="url(#sk)"><rect x="60" y="300" width="720" height="66" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/></g>
+  <text x="440" y="324" text-anchor="middle" font-size="11" font-weight="bold" fill="#444">为什么是「串行两次」而非一次？</text>
+  <text x="80" y="344" font-size="10" fill="#444">σ² = mean((x-μ)²) 中的 μ 来自 Pass 1 的归约结果——<tspan font-weight="bold" fill="#b85450">归约结果必须先广播到所有 thread，Pass 2 才能开始</tspan>。</text>
+  <text x="80" y="360" font-size="10" fill="#444">单次 __syncthreads 切开两阶段；RMSNorm 无此依赖，故只归约一次。</text>
+
+  <!-- global read count -->
+  <g filter="url(#sk)"><rect x="60" y="386" width="720" height="60" rx="8" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/></g>
+  <text x="440" y="408" text-anchor="middle" font-size="11" font-weight="bold" fill="#b85450">x 的 global 读取次数：Pass1 读 1 遍 + Pass2 读 1 遍 + Pass3 读 1 遍 = 3 遍</text>
+  <text x="440" y="428" text-anchor="middle" font-size="10" fill="#444">优化：把整行缓存进 shared memory（D ≤ 8192 可放下）→ global 读降到 1 遍，带宽利用率 ~3×</text>
+</svg>

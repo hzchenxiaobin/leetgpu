@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="9" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="880" height="460" fill="#fdfcf7"/>
+
+  <text x="440" y="28" text-anchor="middle" font-size="17" font-weight="bold" fill="#2b2b2b">融合 kernel 内部数据流：add 与 sum_sq 在同一 pass 完成，h 不落地 HBM</text>
+  <path d="M 180 36 Q 440 44 700 36" stroke="#2b2b2b" stroke-width="1.4" fill="none" filter="url(#sk)"/>
+
+  <!-- 输入 x + residual -->
+  <g filter="url(#sk)">
+    <rect x="40" y="130" width="55" height="90" rx="4" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.3"/>
+    <text x="67" y="178" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">x[r,:]</text>
+    <text x="67" y="193" text-anchor="middle" font-size="8.5" fill="#2b6e9e">第 r 行</text>
+    <rect x="105" y="130" width="55" height="90" rx="4" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.3"/>
+    <text x="132" y="178" text-anchor="middle" font-size="9" fill="#2b6e9e" font-weight="bold">res[r,:]</text>
+    <text x="132" y="193" text-anchor="middle" font-size="8.5" fill="#2b6e9e">第 r 行</text>
+  </g>
+  <text x="100" y="120" text-anchor="middle" font-size="9" fill="#7a5415">global mem 读</text>
+
+  <!-- block of threads -->
+  <g filter="url(#sk)">
+    <circle cx="180" cy="150" r="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <circle cx="196" cy="150" r="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <circle cx="212" cy="150" r="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <circle cx="228" cy="150" r="5" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="248" y="154" font-size="9.5" fill="#7a5415" font-weight="bold">...256</text>
+    <text x="206" y="140" text-anchor="middle" font-size="9" fill="#7a5415">block r</text>
+  </g>
+  <path d="M 162 175 L 176 160" stroke="#5a5a5a" stroke-width="1.1" fill="none" marker-end="url(#ar2)" filter="url(#sk)"/>
+
+  <!-- Pass 1 box -->
+  <g filter="url(#sk)"><rect x="290" y="95" width="200" height="120" rx="8" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.5"/></g>
+  <text x="390" y="117" text-anchor="middle" font-size="11.5" fill="#2e6e2e" font-weight="bold">Pass 1：add + sum_sq 融合</text>
+  <line x1="300" y1="125" x2="480" y2="125" stroke="#4a8e4a" stroke-width="0.7" filter="url(#sk)"/>
+  <text x="300" y="142" font-size="9.5" fill="#444">for i = tid; i &lt; D; i += 256:</text>
+  <text x="312" y="158" font-size="9.5" fill="#b85450" font-weight="bold">h = x[i] + res[i]</text>
+  <text x="318" y="172" font-size="8.5" fill="#b85450">↑ register，不写 HBM</text>
+  <text x="312" y="190" font-size="9.5" fill="#2b6e9e" font-weight="bold">local_sq += h * h</text>
+  <text x="318" y="204" font-size="8.5" fill="#2b6e9e">↑ 累加平方</text>
+  <path d="M 258 150 L 288 150" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar2)" filter="url(#sk)"/>
+
+  <!-- block reduce -->
+  <g filter="url(#sk)"><rect x="520" y="100" width="150" height="55" rx="6" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/></g>
+  <text x="595" y="120" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">block_reduce_sum</text>
+  <text x="595" y="135" text-anchor="middle" font-size="9" fill="#444">warp shuffle + shared</text>
+  <text x="595" y="148" text-anchor="middle" font-size="8.5" fill="#7a5415">Σ h² → mean_sq</text>
+  <path d="M 492 130 L 518 125" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar2)" filter="url(#sk)"/>
+
+  <!-- rrms -->
+  <g filter="url(#sk)"><rect x="520" y="170" width="150" height="42" rx="6" fill="#fce4ec" stroke="#b85450" stroke-width="1.3"/></g>
+  <text x="595" y="188" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">rrms = rsqrt(mean_sq+ε)</text>
+  <text x="595" y="203" text-anchor="middle" font-size="8.5" fill="#7a5415">广播到全 block</text>
+  <path d="M 595 157 L 595 168" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar2)" filter="url(#sk)"/>
+
+  <!-- Pass 2 box -->
+  <g filter="url(#sk)"><rect x="290" y="245" width="200" height="95" rx="8" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5"/></g>
+  <text x="390" y="265" text-anchor="middle" font-size="11.5" fill="#2e6e2e" font-weight="bold">Pass 2：归一化写回</text>
+  <line x1="300" y1="273" x2="480" y2="273" stroke="#4a7a3a" stroke-width="0.7" filter="url(#sk)"/>
+  <text x="300" y="290" font-size="9.5" fill="#444">for i = tid; i &lt; D; i += 256:</text>
+  <text x="312" y="306" font-size="9.5" fill="#b85450" font-weight="bold">h = x[i] + res[i]</text>
+  <text x="318" y="318" font-size="8.5" fill="#7a5415">↑ 重算（命中 cache）</text>
+  <text x="312" y="332" font-size="9.5" fill="#2e6e2e" font-weight="bold">y[i] = h·rrms·γ[i]</text>
+  <path d="M 595 214 Q 560 230 492 268" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar2)" filter="url(#sk)"/>
+  <text x="540" y="232" font-size="8.5" fill="#b85450" font-weight="bold">rrms</text>
+
+  <!-- y output -->
+  <g filter="url(#sk)">
+    <rect x="40" y="270" width="55" height="90" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <text x="67" y="318" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">y[r,:]</text>
+    <text x="67" y="333" text-anchor="middle" font-size="8.5" fill="#2e6e2e">第 r 行</text>
+  </g>
+  <text x="67" y="378" text-anchor="middle" font-size="9" fill="#2e6e2e" font-weight="bold">global mem 写</text>
+  <path d="M 288 295 Q 200 300 98 310" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar2)" filter="url(#sk)"/>
+
+  <!-- HBM 流量对比条形图 -->
+  <g filter="url(#sk)"><rect x="690" y="245" width="170" height="170" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/></g>
+  <text x="775" y="265" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#444">HBM 流量对比</text>
+  <!-- 朴素版 bar -->
+  <text x="700" y="285" font-size="9" fill="#b85450" font-weight="bold">朴素</text>
+  <g filter="url(#sk)"><rect x="730" y="276" width="100" height="14" rx="2" fill="#fce4ec" stroke="#b85450" stroke-width="1"/></g>
+  <text x="838" y="287" font-size="8.5" fill="#b85450">5·MD</text>
+  <!-- 融合版 bar -->
+  <text x="700" y="310" font-size="9" fill="#2e6e2e" font-weight="bold">融合</text>
+  <g filter="url(#sk)"><rect x="730" y="301" width="60" height="14" rx="2" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1"/></g>
+  <text x="798" y="312" font-size="8.5" fill="#2e6e2e">3·MD</text>
+  <!-- 节省 -->
+  <g filter="url(#sk)"><rect x="730" y="321" width="40" height="10" rx="2" fill="#fff8e1" stroke="#d6a040" stroke-width="1" stroke-dasharray="3 2"/></g>
+  <text x="775" y="338" text-anchor="middle" font-size="8.5" fill="#d6a040" font-weight="bold">省 2·MD (40%)</text>
+  <text x="775" y="355" text-anchor="middle" font-size="8" fill="#7a5415">temp 写+读</text>
+  <text x="775" y="372" text-anchor="middle" font-size="8" fill="#7a5415">被完全消除</text>
+  <text x="775" y="395" text-anchor="middle" font-size="8.5" fill="#444">AI: 0.33→0.55</text>
+  <text x="775" y="408" text-anchor="middle" font-size="8.5" fill="#444">FLOP/byte</text>
+
+  <!-- 底部洞察 -->
+  <g filter="url(#sk)"><rect x="40" y="430" width="800" height="18" rx="4" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.1"/></g>
+  <text x="440" y="443" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">Pass 2 重算 h（命中 cache）远比缓存整行到 shared 划算——重计算换访存：数据已在 cache 层时，重算 ≈ 免费</text>
+</svg>

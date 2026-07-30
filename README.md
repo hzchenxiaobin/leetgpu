@@ -1,6 +1,6 @@
 # LeetGPU 题解
 
-> 80 道 [LeetGPU](https://leetgpu.com/) CUDA 挑战题解 —— 每道含完整可编译 kernel + ncu profiling + 手绘 sketch 风 SVG 图解，按 CUDA 概念覆盖选题、按难度归档。
+> 90 道 [LeetGPU](https://leetgpu.com/) CUDA 挑战题解 —— 每道含完整可编译 kernel + ncu profiling + 手绘 sketch 风 SVG 图解，按 CUDA 概念覆盖选题、按难度归档。
 
 📚 **在线网站**：https://hzchenxiaobin.github.io/leetgpu/
 
@@ -19,7 +19,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## 题解列表
 
-共 **81 道**（简单 22 / 中等 49 / 困难 10），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention、Linear Attention、K-Means、Bitonic Sort、Multi-Agent Simulation 等。
+共 **90 道**（简单 22 / 中等 55 / 困难 13），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention、Linear Attention、K-Means、Bitonic Sort、Radix Sort、Multi-Agent Simulation、BFS、Floyd-Warshall、GRPO、StreamingLLM 等。
 
 ### Easy · 简单（22 道）
 
@@ -48,7 +48,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 110 | [Scalar Multiply](easy/110_scalar_multiply/leetgpu-scalar-multiply-solution.md) | element-wise、attention scaling |
 | 111 | [Element Reversal](easy/111_element_reversal/leetgpu-element-reversal-solution.md) | element-wise、结果验证 |
 
-### Medium · 中等（49 道）
+### Medium · 中等（55 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
@@ -101,8 +101,14 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 105 | [Group Normalization](medium/105_group_normalization/leetgpu-group-normalization-solution.md) | normalization、reduction、GroupNorm |
 | 106 | [Token Embedding Layer](medium/106_token_embedding_layer/leetgpu-token-embedding-layer-solution.md) | embedding、gather、LayerNorm、融合 kernel |
 | 107 | [Argmax](medium/107_argmax/leetgpu-argmax-solution.md) | 归约、argmax、`__shfl_down_sync` |
+| 109 | [GRPO Surrogate Loss](medium/109_grpo_surrogate_loss/leetgpu-grpo-surrogate-loss-solution.md) | GRPO、kernel fusion、两级归约、PPO clip、KL 惩罚 |
+| 112 | [Attention with Sinks](medium/112_attention_with_sinks/leetgpu-attention-with-sinks-solution.md) | StreamingLLM、sink token、sliding window、复合掩码、online softmax |
+| 113 | [Fused QKV Projection](medium/113_fused_qkv_projection/leetgpu-fused-qkv-projection-solution.md) | kernel fusion、GEMM epilogue、reshape 融合 |
+| 114 | [GEMV](medium/114_gemv/leetgpu-gemv-solution.md) | memory-bound、合并访存、block 归约、float4 |
+| 115 | [Layer Normalization](medium/115_layer_normalization/leetgpu-layer-normalization-solution.md) | 两次串行归约、mean-centering、数值稳定 |
+| 116 | [Fused Add and RMSNorm](medium/116_fused_add_rmsnorm/leetgpu-fused-add-rmsnorm-solution.md) | kernel fusion、RMSNorm、residual、memory-bound |
 
-### Hard · 困难（10 道）
+### Hard · 困难（13 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
@@ -110,6 +116,9 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 14 | [Multi-Agent Simulation](hard/14_multi_agent_sim/leetgpu-multi-agent-simulation-solution.md) | O(N²) pairwise interaction、shared memory tiling、per-thread 串行归约、float4 向量化 |
 | 15 | [Sorting](hard/15_sorting/leetgpu-sorting-solution.md) | bitonic sort、排序网络、compare-swap、shared memory 局部排序 |
 | 20 | [K-Means Clustering](hard/20_kmeans_clustering/leetgpu-kmeans-clustering-solution.md) | 迭代算法、assign↔update 双 kernel、atomicAdd 归约、空簇处理 |
+| 36 | [Radix Sort](hard/36_radix_sort/leetgpu-radix-sort-solution.md) | 分布式排序、按位 histogram、exclusive prefix sum、stable scatter、warp shuffle scan |
+| 73 | [All-Pairs Shortest Paths](hard/73_all_pairs_shortest_paths/leetgpu-all-pairs-shortest-paths-solution.md) | Floyd-Warshall、min-plus 半环矩阵乘、外串内并、shared memory 缓存第 k 行/列 |
+| 46 | [BFS Shortest Path](hard/46_bfs_shortest_path/leetgpu-bfs-shortest-path-solution.md) | level-synchronous BFS、pull-based 扩散、frontier 并行、atomicCAS |
 | 53 | [Causal Self-Attention](hard/53_casual_attention/leetgpu-causal-self-attention-solution.md) | causal mask、online softmax、LLM prefill、PagedAttention 对偶 |
 | 56 | [Linear Self-Attention](hard/56_linear_attention/leetgpu-linear-self-attention-solution.md) | linear attention、kernel trick、ELU feature map、GEMM+reduction 流水线 |
 | 59 | [Sliding Window Self-Attention](hard/59_sliding_window_attn/leetgpu-sliding-window-self-attention-solution.md) | sliding window、kernel fusion |
@@ -121,7 +130,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## leetgpu-challenges 题目完成情况
 
-下表对照 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库 `challenges/<difficulty>/<编号>_<name>/` 的 **全部 91 道题**，标注本仓库题解完成情况：✅ 已完成 85 道 / ⬜ 未完成 6 道。已完成题目链接到本仓库题解，未完成题目链接到 LeetGPU 在线题目。
+下表对照 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库 `challenges/<difficulty>/<编号>_<name>/` 的 **全部 96 道题**，标注本仓库题解完成情况：✅ 已完成 96 道 / ⬜ 未完成 0 道。已完成题目链接到本仓库题解，未完成题目链接到 LeetGPU 在线题目。
 
 
 ### Easy · 简单（19/19）
@@ -148,7 +157,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 66 | RGB to Grayscale | ✅ | [题解](easy/66_rgb_to_grayscale/leetgpu-rgb-to-grayscale-solution.md) |
 | 68 | Sigmoid Activation | ✅ | [题解](easy/68_sigmoid/leetgpu-sigmoid-solution.md) |
 
-### Medium · 中等（57/59）
+### Medium · 中等（64/64）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -196,7 +205,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 72 | Stream Compaction | ✅ | [题解](medium/72_stream_compaction/leetgpu-stream-compaction-solution.md) |
 | 75 | Sparse Matrix-Dense Matrix Multiplication | ✅ | [题解](medium/75_sparse_matrix_dense_matrix_multiplication/leetgpu-sparse-matrix-dense-matrix-multiplication-solution.md) |
 | 76 | Adder Transformer Inference | ✅ | [题解](medium/76_adder_transformer/leetgpu-adder-transformer-solution.md) |
-| 78 | 2D FFT | ⬜ | [题目](https://leetgpu.com/challenges/2d-fft) |
+| 78 | 2D FFT | ✅ | [题解](medium/78_2d_fft/leetgpu-2d-fft-solution.md) |
 | 80 | Grouped Query Attention | ✅ | [题解](medium/80_grouped_query_attention/leetgpu-grouped-query-attention-solution.md) |
 | 81 | INT4 Weight-Only Quantized MatMul | ✅ | [题解](medium/81_int4_matmul/leetgpu-int4-matmul-solution.md) |
 | 82 | Linear Recurrence | ✅ | [题解](medium/82_linear_recurrence/leetgpu-linear-recurrence-solution.md) |
@@ -209,10 +218,15 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 96 | INT8 KV-Cache Attention | ✅ | [题解](medium/96_int8_kv_cache_attention/leetgpu-int8-kv-cache-attention-solution.md) |
 | 105 | Group Normalization | ✅ | [题解](medium/105_group_normalization/leetgpu-group-normalization-solution.md) |
 | 106 | Token Embedding Layer | ✅ | [题解](medium/106_token_embedding_layer/leetgpu-token-embedding-layer-solution.md) |
-| 109 | GRPO Surrogate Loss | ⬜ | [题目](https://leetgpu.com/challenges/grpo-surrogate-loss) |
+| 109 | GRPO Surrogate Loss | ✅ | [题解](medium/109_grpo_surrogate_loss/leetgpu-grpo-surrogate-loss-solution.md) |
 | 110 | Parallel Reverse Scan (GAE) | ✅ | [题解](medium/110_gae_reverse_scan/leetgpu-gae-reverse-scan-solution.md) |
+| 112 | Attention with Sinks | ✅ | [题解](medium/112_attention_with_sinks/leetgpu-attention-with-sinks-solution.md) |
+| 113 | Fused QKV Projection | ✅ | [题解](medium/113_fused_qkv_projection/leetgpu-fused-qkv-projection-solution.md) |
+| 114 | GEMV | ✅ | [题解](medium/114_gemv/leetgpu-gemv-solution.md) |
+| 115 | Layer Normalization | ✅ | [题解](medium/115_layer_normalization/leetgpu-layer-normalization-solution.md) |
+| 116 | Fused Add and RMSNorm | ✅ | [题解](medium/116_fused_add_rmsnorm/leetgpu-fused-add-rmsnorm-solution.md) |
 
-### Hard · 困难（8/13）
+### Hard · 困难（13/13）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -220,13 +234,13 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 14 | Multi-Agent Simulation | ✅ | [题解](hard/14_multi_agent_sim/leetgpu-multi-agent-simulation-solution.md) |
 | 15 | Sorting | ✅ | [题解](hard/15_sorting/leetgpu-sorting-solution.md) |
 | 20 | K-Means Clustering | ✅ | [题解](hard/20_kmeans_clustering/leetgpu-kmeans-clustering-solution.md) |
-| 36 | Radix Sort | ⬜ | [题目](https://leetgpu.com/challenges/radix-sort) |
-| 39 | Fast Fourier Transform | ⬜ | [题目](https://leetgpu.com/challenges/fast-fourier-transform) |
-| 46 | BFS Shortest Path | ⬜ | [题目](https://leetgpu.com/challenges/bfs-shortest-path) |
+| 36 | Radix Sort | ✅ | [题解](hard/36_radix_sort/leetgpu-radix-sort-solution.md) |
+| 39 | Fast Fourier Transform | ✅ | [题解](hard/39_fast_fourier_transform/leetgpu-fast-fourier-transform-solution.md) |
+| 46 | BFS Shortest Path | ✅ | [题解](hard/46_bfs_shortest_path/leetgpu-bfs-shortest-path-solution.md) |
 | 53 | Causal Self-Attention | ✅ | [题解](hard/53_casual_attention/leetgpu-causal-self-attention-solution.md) |
 | 56 | Linear Self-Attention | ✅ | [题解](hard/56_linear_attention/leetgpu-linear-self-attention-solution.md) |
 | 59 | Sliding Window Self-Attention | ✅ | [题解](hard/59_sliding_window_attn/leetgpu-sliding-window-self-attention-solution.md) |
-| 73 | All-Pairs Shortest Paths | ⬜ | [题目](https://leetgpu.com/challenges/all-pairs-shortest-paths) |
+| 73 | All-Pairs Shortest Paths | ✅ | [题解](hard/73_all_pairs_shortest_paths/leetgpu-all-pairs-shortest-paths-solution.md) |
 | 74 | GPT-2 Transformer Block | ✅ | [题解](hard/74_gpt2_block/leetgpu-gpt-2-transformer-block-solution.md) |
 | 93 | Llama Transformer Block | ✅ | [题解](hard/93_llama_transformer_block/leetgpu-llama-transformer-block-solution.md) |
 
@@ -271,7 +285,7 @@ leetgpu/
 ├── hard/                # 困难题解
 │   └── 74_gpt2_block/
 │       └── leetgpu-gpt-2-transformer-block-solution.md
-├── images/             # 手绘 sketch 风 SVG 插图（156 张）
+├── images/             # 手绘 sketch 风 SVG 插图（226 张）
 ├── SKILL.md            # 写 LeetGPU 题解的 Skill 规范
 ├── build.py            # 网站构建入口
 ├── build/              # 构建系统（common.py + leetgpu.py）

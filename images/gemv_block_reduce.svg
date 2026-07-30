@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="13" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="880" height="440" fill="#fdfcf7"/>
+
+  <text x="440" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#2b2b2b">GEMV block 归约：1 block 算 y[n]</text>
+  <path d="M 260 38 Q 440 46 620 38" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- ===== 阶段 0：K 维切分 ===== -->
+  <text x="440" y="66" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">阶段 0：256 thread 沿 K grid-stride，各算一段点积</text>
+
+  <!-- W row strip -->
+  <g filter="url(#sk)">
+    <rect x="60" y="82" width="760" height="26" rx="4" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.3"/>
+  </g>
+  <text x="50" y="99" text-anchor="end" font-size="10" fill="#2b6e9e" font-weight="bold">W[n][·]</text>
+  <!-- segment divisions -->
+  <g filter="url(#sk)">
+    <line x1="200" y1="82" x2="200" y2="108" stroke="#4a8edb" stroke-width="1"/>
+    <line x1="340" y1="82" x2="340" y2="108" stroke="#4a8edb" stroke-width="1"/>
+    <line x1="480" y1="82" x2="480" y2="108" stroke="#4a8edb" stroke-width="1"/>
+    <line x1="620" y1="82" x2="620" y2="108" stroke="#4a8edb" stroke-width="1"/>
+    <line x1="760" y1="82" x2="760" y2="108" stroke="#4a8edb" stroke-width="1"/>
+  </g>
+  <text x="130" y="99" text-anchor="middle" font-size="9" fill="#2b6e9e">tid0</text>
+  <text x="270" y="99" text-anchor="middle" font-size="9" fill="#2b6e9e">tid1</text>
+  <text x="410" y="99" text-anchor="middle" font-size="9" fill="#2b6e9e">tid2</text>
+  <text x="550" y="99" text-anchor="middle" font-size="9" fill="#2b6e9e">...</text>
+  <text x="690" y="99" text-anchor="middle" font-size="9" fill="#2b6e9e">tid254</text>
+  <text x="800" y="99" text-anchor="middle" font-size="9" fill="#2b6e9e">tid255</text>
+
+  <!-- partial sums row -->
+  <g filter="url(#sk)">
+    <rect x="110" y="124" width="40" height="24" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="250" y="124" width="40" height="24" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="390" y="124" width="40" height="24" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="530" y="124" width="40" height="24" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <rect x="670" y="124" width="40" height="24" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+  </g>
+  <text x="130" y="140" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">p0</text>
+  <text x="270" y="140" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">p1</text>
+  <text x="410" y="140" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">p2</text>
+  <text x="550" y="140" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">...</text>
+  <text x="690" y="140" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">p255</text>
+  <text x="830" y="140" font-size="9" fill="#888">partial sums (register)</text>
+  <path d="M 130 110 L 130 122" stroke="#5a5a5a" stroke-width="1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 270 110 L 270 122" stroke="#5a5a5a" stroke-width="1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 690 110 L 690 122" stroke="#5a5a5a" stroke-width="1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- ===== 阶段一：warp shuffle 归约 ===== -->
+  <text x="440" y="172" text-anchor="middle" font-size="12" font-weight="bold" fill="#2e6e2e">阶段一：warp 内 __shfl_down_sync 蝶形归约（8 个 warp 并行）</text>
+
+  <!-- 8 warp boxes -->
+  <g filter="url(#sk)">
+    <rect x="90"  y="186" width="80" height="34" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="185" y="186" width="80" height="34" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="280" y="186" width="80" height="34" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="375" y="186" width="80" height="34" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="470" y="186" width="80" height="34" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="565" y="186" width="80" height="34" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="660" y="186" width="80" height="34" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="755" y="186" width="80" height="34" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="130" y="200" text-anchor="middle" font-size="9.5" fill="#2e6e2e" font-weight="bold">warp 0</text>
+  <text x="130" y="214" text-anchor="middle" font-size="9" fill="#2e6e2e">32→1</text>
+  <text x="225" y="200" text-anchor="middle" font-size="9.5" fill="#2e6e2e" font-weight="bold">warp 1</text>
+  <text x="225" y="214" text-anchor="middle" font-size="9" fill="#2e6e2e">32→1</text>
+  <text x="320" y="200" text-anchor="middle" font-size="9.5" fill="#2e6e2e" font-weight="bold">warp 2</text>
+  <text x="320" y="214" text-anchor="middle" font-size="9" fill="#2e6e2e">32→1</text>
+  <text x="415" y="200" text-anchor="middle" font-size="9.5" fill="#2e6e2e" font-weight="bold">warp 3</text>
+  <text x="415" y="214" text-anchor="middle" font-size="9" fill="#2e6e2e">32→1</text>
+  <text x="510" y="200" text-anchor="middle" font-size="9.5" fill="#2e6e2e" font-weight="bold">warp 4</text>
+  <text x="510" y="214" text-anchor="middle" font-size="9" fill="#2e6e2e">32→1</text>
+  <text x="605" y="200" text-anchor="middle" font-size="9.5" fill="#2e6e2e" font-weight="bold">warp 5</text>
+  <text x="605" y="214" text-anchor="middle" font-size="9" fill="#2e6e2e">32→1</text>
+  <text x="700" y="200" text-anchor="middle" font-size="9.5" fill="#2e6e2e" font-weight="bold">warp 6</text>
+  <text x="700" y="214" text-anchor="middle" font-size="9" fill="#2e6e2e">32→1</text>
+  <text x="795" y="200" text-anchor="middle" font-size="9.5" fill="#2e6e2e" font-weight="bold">warp 7</text>
+  <text x="795" y="214" text-anchor="middle" font-size="9" fill="#2e6e2e">32→1</text>
+
+  <!-- arrows down to shared -->
+  <path d="M 130 222 L 130 244" stroke="#5a5a5a" stroke-width="1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 225 222 L 225 244" stroke="#5a5a5a" stroke-width="1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 320 222 L 320 244" stroke="#5a5a5a" stroke-width="1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 415 222 L 415 244" stroke="#5a5a5a" stroke-width="1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 510 222 L 510 244" stroke="#5a5a5a" stroke-width="1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 605 222 L 605 244" stroke="#5a5a5a" stroke-width="1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 700 222 L 700 244" stroke="#5a5a5a" stroke-width="1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 795 222 L 795 244" stroke="#5a5a5a" stroke-width="1" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- ===== 阶段二：shared memory 跨 warp 汇总 ===== -->
+  <text x="440" y="262" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">阶段二：shared[8] 汇总 → warp 0 再归约</text>
+
+  <g filter="url(#sk)">
+    <rect x="320" y="276" width="240" height="40" rx="6" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/>
+  </g>
+  <text x="440" y="293" text-anchor="middle" font-size="10.5" fill="#7a5415" font-weight="bold">shared memory（8 个 warp 和）</text>
+  <text x="440" y="309" text-anchor="middle" font-size="9.5" fill="#7a5415">lane 0 写 shared[wid]，__syncthreads</text>
+
+  <path d="M 440 318 L 440 338" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- warp 0 final reduce -->
+  <g filter="url(#sk)">
+    <rect x="350" y="340" width="180" height="34" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="440" y="358" text-anchor="middle" font-size="10.5" fill="#2e6e2e" font-weight="bold">warp 0：8→1（shfl_down）</text>
+
+  <path d="M 440 376 L 440 396" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- output -->
+  <g filter="url(#sk)">
+    <rect x="370" y="398" width="140" height="30" rx="5" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.3"/>
+  </g>
+  <text x="440" y="418" text-anchor="middle" font-size="11" fill="#2b6e9e" font-weight="bold">y[n] = sum + bias[n]</text>
+
+  <!-- side note -->
+  <g filter="url(#sk)"><rect x="620" y="276" width="230" height="92" rx="6" fill="#fce4ec" stroke="#b85450" stroke-width="1.1" stroke-dasharray="4 2"/></g>
+  <text x="735" y="296" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">归约设计要点</text>
+  <text x="630" y="314" font-size="9" fill="#b85450">• warp shuffle：无 shared、无 bank conflict</text>
+  <text x="630" y="330" font-size="9" fill="#b85450">• shared[32] 容纳 ≤32 warp（block≤1024）</text>
+  <text x="630" y="346" font-size="9" fill="#b85450">• bias 最后加：避免每 thread 重复加再归约</text>
+  <text x="630" y="362" font-size="9" fill="#b85450">• 仅 tid 0 写回，单输出无竞争</text>
+</svg>

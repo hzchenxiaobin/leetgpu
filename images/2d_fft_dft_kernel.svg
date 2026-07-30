@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480"
+     font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#446688"/>
+    </marker>
+  </defs>
+
+  <rect width="720" height="480" fill="#fafafa"/>
+
+  <!-- Title -->
+  <text x="360" y="28" text-anchor="middle" font-size="16" font-weight="bold"
+        fill="#333" filter="url(#rough2)">DFT Kernel: shared memory + 旋转因子查表</text>
+
+  <!-- ===== Shared Memory block ===== -->
+  <g filter="url(#rough2)">
+    <rect x="20" y="50" width="340" height="400" fill="#fff8e1" stroke="#d6a040" stroke-width="2" rx="6"/>
+    <text x="190" y="70" text-anchor="middle" font-size="13" font-weight="bold" fill="#d6a040">Shared Memory (per block)</text>
+
+    <!-- s_data section -->
+    <rect x="40" y="85" width="300" height="120" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="4"/>
+    <text x="55" y="102" font-size="11" font-weight="bold" fill="#446688">s_data[0..2L-1]</text>
+    <text x="55" y="118" font-size="9" fill="#666">输入数据 (交错 real/imag)</text>
+    <!-- data cells -->
+    <rect x="55" y="128" width="40" height="30" fill="#c8daf5" stroke="#446688" stroke-width="1" rx="2"/>
+    <text x="75" y="147" text-anchor="middle" font-size="9" fill="#333">x[0].re</text>
+    <rect x="95" y="128" width="40" height="30" fill="#d5e8d4" stroke="#446688" stroke-width="1" rx="2"/>
+    <text x="115" y="147" text-anchor="middle" font-size="9" fill="#333">x[0].im</text>
+    <rect x="135" y="128" width="40" height="30" fill="#c8daf5" stroke="#446688" stroke-width="1" rx="2"/>
+    <text x="155" y="147" text-anchor="middle" font-size="9" fill="#333">x[1].re</text>
+    <rect x="175" y="128" width="40" height="30" fill="#d5e8d4" stroke="#446688" stroke-width="1" rx="2"/>
+    <text x="195" y="147" text-anchor="middle" font-size="9" fill="#333">x[1].im</text>
+    <text x="225" y="147" font-size="11" fill="#999">...</text>
+    <rect x="270" y="128" width="55" height="30" fill="#c8daf5" stroke="#446688" stroke-width="1" rx="2"/>
+    <text x="297" y="147" text-anchor="middle" font-size="9" fill="#333">x[L-1]</text>
+    <text x="55" y="180" font-size="9" fill="#666">→ 256 线程协作加载 (步骤 ①)</text>
+
+    <!-- s_twiddle section -->
+    <rect x="40" y="220" width="300" height="120" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="4"/>
+    <text x="55" y="237" font-size="11" font-weight="bold" fill="#b85450">s_twiddle[0..2L-1]</text>
+    <text x="55" y="253" font-size="9" fill="#666">旋转因子 W[m] = exp(-2πi·m/L)</text>
+    <!-- twiddle cells -->
+    <rect x="55" y="263" width="40" height="30" fill="#f5c8d1" stroke="#b85450" stroke-width="1" rx="2"/>
+    <text x="75" y="282" text-anchor="middle" font-size="9" fill="#333">cos(0)</text>
+    <rect x="95" y="263" width="40" height="30" fill="#e8c8f0" stroke="#b85450" stroke-width="1" rx="2"/>
+    <text x="115" y="282" text-anchor="middle" font-size="9" fill="#333">sin(0)</text>
+    <rect x="135" y="263" width="40" height="30" fill="#f5c8d1" stroke="#b85450" stroke-width="1" rx="2"/>
+    <text x="155" y="282" text-anchor="middle" font-size="9" fill="#333">cos(θ₁)</text>
+    <rect x="175" y="263" width="40" height="30" fill="#e8c8f0" stroke="#b85450" stroke-width="1" rx="2"/>
+    <text x="195" y="282" text-anchor="middle" font-size="9" fill="#333">sin(θ₁)</text>
+    <text x="225" y="282" font-size="11" fill="#999">...</text>
+    <rect x="270" y="263" width="55" height="30" fill="#f5c8d1" stroke="#b85450" stroke-width="1" rx="2"/>
+    <text x="297" y="282" text-anchor="middle" font-size="9" fill="#333">W[L-1]</text>
+    <text x="55" y="315" font-size="9" fill="#666">→ sincospif 预计算 L 个 (步骤 ②)</text>
+
+    <!-- __syncthreads -->
+    <rect x="120" y="355" width="140" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4"/>
+    <text x="190" y="373" text-anchor="middle" font-size="11" font-weight="bold" fill="#4a7a3a">__syncthreads()</text>
+
+    <text x="190" y="400" text-anchor="middle" font-size="9" fill="#666">总计 4L × 4B = 16L Bytes</text>
+    <text x="190" y="415" text-anchor="middle" font-size="9" fill="#666">L=4096 → 64KB (需 opt-in)</text>
+    <text x="190" y="438" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">L² 次 sincosf → 仅 L 次 ✓</text>
+  </g>
+
+  <!-- ===== Thread computation ===== -->
+  <g filter="url(#rough2)">
+    <rect x="390" y="50" width="310" height="400" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2" rx="6"/>
+    <text x="545" y="70" text-anchor="middle" font-size="13" font-weight="bold" fill="#4a7a3a">线程 tid 计算 X[k]</text>
+    <text x="545" y="88" text-anchor="middle" font-size="10" fill="#4a7a3a">(步骤 ③, k = tid + i·blockDim)</text>
+
+    <!-- Accumulator -->
+    <rect x="410" y="100" width="270" height="35" fill="#c8e6c9" stroke="#4a7a3a" stroke-width="1.5" rx="3"/>
+    <text x="545" y="122" text-anchor="middle" font-size="11" fill="#333">sum_re = 0, sum_im = 0  (寄存器)</text>
+
+    <!-- Inner loop -->
+    <rect x="410" y="150" width="270" height="180" fill="#f0f7f0" stroke="#4a7a3a" stroke-width="1" rx="4" stroke-dasharray="4,2"/>
+    <text x="545" y="168" text-anchor="middle" font-size="11" font-weight="bold" fill="#4a7a3a">for (n = 0; n &lt; L; n++)</text>
+
+    <!-- Step: read data -->
+    <text x="420" y="190" font-size="9" fill="#446688">① 读 s_data[2n]:</text>
+    <rect x="490" y="178" width="70" height="18" fill="#c8daf5" stroke="#446688" stroke-width="0.8" rx="2"/>
+    <text x="525" y="191" text-anchor="middle" font-size="8" fill="#333">x[n] (shared)</text>
+
+    <!-- Step: read twiddle -->
+    <text x="420" y="213" font-size="9" fill="#b85450">② 读 s_twiddle[2·w_idx]:</text>
+    <rect x="525" y="201" width="80" height="18" fill="#f5c8d1" stroke="#b85450" stroke-width="0.8" rx="2"/>
+    <text x="565" y="214" text-anchor="middle" font-size="8" fill="#333">W[w_idx] (shared)</text>
+
+    <!-- Step: FMA -->
+    <text x="420" y="238" font-size="9" fill="#333">③ 复数乘加:</text>
+    <text x="430" y="253" font-size="8" fill="#333">sum_re += x_re·w_re - x_im·w_im</text>
+    <text x="430" y="267" font-size="8" fill="#333">sum_im += x_re·w_im + x_im·w_re</text>
+
+    <!-- Step: update w_idx -->
+    <text x="420" y="290" font-size="9" fill="#d6a040">④ 加法递推 (替代取模):</text>
+    <text x="430" y="305" font-size="8" fill="#333">w_idx += k;</text>
+    <text x="430" y="318" font-size="8" fill="#333">if (w_idx ≥ L) w_idx -= L;</text>
+
+    <!-- Arrow from shared to thread -->
+    <line x1="360" y1="140" x2="410" y2="180" stroke="#446688" stroke-width="1.5"
+          stroke-dasharray="4,3" marker-end="url(#arr2)" filter="url(#rough2)"/>
+    <line x1="360" y1="275" x2="525" y2="210" stroke="#b85450" stroke-width="1.5"
+          stroke-dasharray="4,3" marker-end="url(#arr2)" filter="url(#rough2)"/>
+
+    <!-- Write back -->
+    <rect x="410" y="345" width="270" height="40" fill="#c8e6c9" stroke="#4a7a3a" stroke-width="1.5" rx="3"/>
+    <text x="545" y="362" text-anchor="middle" font-size="10" fill="#333">写回 global:</text>
+    <text x="545" y="378" text-anchor="middle" font-size="9" fill="#333">output[2·out_idx] = sum_re, sum_im</text>
+
+    <!-- Key insight -->
+    <rect x="410" y="400" width="270" height="38" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="3"/>
+    <text x="545" y="416" text-anchor="middle" font-size="9" fill="#d6a040">内层循环: 0 次 sincosf</text>
+    <text x="545" y="430" text-anchor="middle" font-size="9" fill="#d6a040">0 次 global read (全在 shared)</text>
+  </g>
+</svg>

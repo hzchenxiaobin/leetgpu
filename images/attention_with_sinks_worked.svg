@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="520" viewBox="0 0 960 520" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="23" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="a2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#2b2b2b"/>
+    </marker>
+  </defs>
+  <rect width="960" height="520" fill="#fdfcf7"/>
+  <text x="480" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">Worked Example：query i=3 的 online softmax 逐步演算</text>
+  <path d="M 280 42 Q 480 50 680 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+  <text x="480" y="68" text-anchor="middle" font-size="12" fill="#666">M=4, d=4, num_sinks=1, window=2, scale=1/√4=0.5；Q=K=I，V 为连续整数。允许 j = {0(sink), 2,3(window)}，j=1 被空洞屏蔽</text>
+
+  <!-- state table header -->
+  <g filter="url(#sk)">
+    <rect x="40" y="86" width="120" height="30" fill="#eee" stroke="#bbb"/>
+    <text x="100" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#444">状态变量</text>
+    <rect x="160" y="86" width="170" height="30" fill="#eee" stroke="#bbb"/>
+    <text x="245" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#444">init</text>
+    <rect x="330" y="86" width="170" height="30" fill="#fce4ec" stroke="#b85450"/>
+    <text x="415" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#b03a3a">j=1 (skip)</text>
+    <rect x="500" y="86" width="180" height="30" fill="#dbeafe" stroke="#4a8edb"/>
+    <text x="590" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#2b6e9e">j=0 (sink)</text>
+    <rect x="680" y="86" width="180" height="30" fill="#bfe0bf" stroke="#4a8e4a"/>
+    <text x="770" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#2e6e2e">j=2 (window)</text>
+    <rect x="860" y="86" width="90" height="30" fill="#bfe0bf" stroke="#4a8e4a"/>
+    <text x="905" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#2e6e2e">j=3</text>
+  </g>
+
+  <!-- rows: score, m, corr, p, l, acc -->
+  <g filter="url(#sk)">
+    <!-- score -->
+    <rect x="40" y="116" width="120" height="28" fill="#f6f6f6" stroke="#ccc"/>
+    <text x="50" y="135" font-size="11" fill="#444">s = dot·0.5</text>
+    <rect x="160" y="116" width="170" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="170" y="135" font-size="11" fill="#999">—</text>
+    <rect x="330" y="116" width="170" height="28" fill="#fce4ec" stroke="#b85450"/>
+    <text x="340" y="135" font-size="11" fill="#b85450">continue（空洞）</text>
+    <rect x="500" y="116" width="180" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="510" y="135" font-size="11" fill="#2b2b2b">Q[3]·K[0]·0.5 = 0</text>
+    <rect x="680" y="116" width="180" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="690" y="135" font-size="11" fill="#2b2b2b">Q[3]·K[2]·0.5 = 0</text>
+    <rect x="860" y="116" width="90" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="870" y="135" font-size="11" fill="#2b2b2b">0.5</text>
+
+    <!-- m (running max) -->
+    <rect x="40" y="144" width="120" height="28" fill="#f6f6f6" stroke="#ccc"/>
+    <text x="50" y="163" font-size="11" fill="#444">m (running max)</text>
+    <rect x="160" y="144" width="170" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="170" y="163" font-size="11" fill="#2b2b2b">-∞</text>
+    <rect x="330" y="144" width="170" height="28" fill="#fce4ec" stroke="#b85450"/>
+    <text x="340" y="163" font-size="11" fill="#999">—</text>
+    <rect x="500" y="144" width="180" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="510" y="163" font-size="11" fill="#2b2b2b">max(-∞,0)=0</text>
+    <rect x="680" y="144" width="180" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="690" y="163" font-size="11" fill="#2b2b2b">max(0,0)=0</text>
+    <rect x="860" y="144" width="90" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="870" y="163" font-size="11" fill="#2b2b2b">max(0,.5)=.5</text>
+
+    <!-- corr -->
+    <rect x="40" y="172" width="120" height="28" fill="#f6f6f6" stroke="#ccc"/>
+    <text x="50" y="191" font-size="11" fill="#444">corr=e^(m-m')</text>
+    <rect x="160" y="172" width="170" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="170" y="191" font-size="11" fill="#999">—</text>
+    <rect x="330" y="172" width="170" height="28" fill="#fce4ec" stroke="#b85450"/>
+    <text x="340" y="191" font-size="11" fill="#999">—</text>
+    <rect x="500" y="172" width="180" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="510" y="191" font-size="11" fill="#2b2b2b">e^(-∞)=0</text>
+    <rect x="680" y="172" width="180" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="690" y="191" font-size="11" fill="#2b2b2b">e^(0-0)=1</text>
+    <rect x="860" y="172" width="90" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="870" y="191" font-size="11" fill="#2b2b2b">e^(-.5)=.607</text>
+
+    <!-- p -->
+    <rect x="40" y="200" width="120" height="28" fill="#f6f6f6" stroke="#ccc"/>
+    <text x="50" y="219" font-size="11" fill="#444">p=e^(s-m')</text>
+    <rect x="160" y="200" width="170" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="170" y="219" font-size="11" fill="#999">—</text>
+    <rect x="330" y="200" width="170" height="28" fill="#fce4ec" stroke="#b85450"/>
+    <text x="340" y="219" font-size="11" fill="#999">—</text>
+    <rect x="500" y="200" width="180" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="510" y="219" font-size="11" fill="#2b2b2b">e^(0-0)=1</text>
+    <rect x="680" y="200" width="180" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="690" y="219" font-size="11" fill="#2b2b2b">e^(0-0)=1</text>
+    <rect x="860" y="200" width="90" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="870" y="219" font-size="11" fill="#2b2b2b">e^(0)=1</text>
+
+    <!-- l -->
+    <rect x="40" y="228" width="120" height="28" fill="#f6f6f6" stroke="#ccc"/>
+    <text x="50" y="247" font-size="11" fill="#444">l = l·corr+p</text>
+    <rect x="160" y="228" width="170" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="170" y="247" font-size="11" fill="#2b2b2b">0</text>
+    <rect x="330" y="228" width="170" height="28" fill="#fce4ec" stroke="#b85450"/>
+    <text x="340" y="247" font-size="11" fill="#999">0（不变）</text>
+    <rect x="500" y="228" width="180" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="510" y="247" font-size="11" fill="#2b2b2b">0·0+1 = 1</text>
+    <rect x="680" y="228" width="180" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="690" y="247" font-size="11" fill="#2b2b2b">1·1+1 = 2</text>
+    <rect x="860" y="228" width="90" height="28" fill="#fff" stroke="#ccc"/>
+    <text x="870" y="247" font-size="11" fill="#2b2b2b">2·.607+1=2.213</text>
+
+    <!-- acc -->
+    <rect x="40" y="256" width="120" height="44" fill="#f6f6f6" stroke="#ccc"/>
+    <text x="50" y="275" font-size="11" fill="#444">acc =</text>
+    <text x="50" y="290" font-size="11" fill="#444">acc·corr+p·V[j]</text>
+    <rect x="160" y="256" width="170" height="44" fill="#fff" stroke="#ccc"/>
+    <text x="170" y="282" font-size="11" fill="#2b2b2b">[0,0,0,0]</text>
+    <rect x="330" y="256" width="170" height="44" fill="#fce4ec" stroke="#b85450"/>
+    <text x="340" y="282" font-size="11" fill="#999">[0,0,0,0]（不变）</text>
+    <rect x="500" y="256" width="180" height="44" fill="#fff" stroke="#ccc"/>
+    <text x="510" y="275" font-size="10" fill="#666">0·0+1·V[0]</text>
+    <text x="510" y="291" font-size="11" fill="#2b2b2b">[1,2,3,4]</text>
+    <rect x="680" y="256" width="180" height="44" fill="#fff" stroke="#ccc"/>
+    <text x="690" y="275" font-size="10" fill="#666">[1,2,3,4]·1+1·V[2]</text>
+    <text x="690" y="291" font-size="11" fill="#2b2b2b">[10,12,14,16]</text>
+    <rect x="860" y="256" width="90" height="44" fill="#fff" stroke="#ccc"/>
+    <text x="870" y="275" font-size="9" fill="#666">·.607+V[3]</text>
+    <text x="870" y="291" font-size="10" fill="#2b2b2b">[19.1,21.3,</text>
+    <text x="870" y="303" font-size="10" fill="#2b2b2b">23.5,25.7]</text>
+  </g>
+
+  <!-- arrows between columns -->
+  <path d="M 330 130 L 330 116" stroke="#2b2b2b" stroke-width="0" fill="none"/>
+  <path d="M 470 200 L 500 200" stroke="#4a8edb" stroke-width="1.6" fill="none" marker-end="url(#a2)" filter="url(#sk)"/>
+  <path d="M 680 200 L 680 200" stroke="#2b2b2b" stroke-width="0" fill="none"/>
+
+  <!-- final normalization -->
+  <g filter="url(#sk)">
+    <rect x="40" y="320" width="910" height="56" rx="8" fill="#fff8e1" stroke="#d6a040"/>
+  </g>
+  <text x="60" y="344" font-size="13" font-weight="bold" fill="#7a5415">⑤ 循环结束，归一化：output[3] = acc / l</text>
+  <text x="60" y="366" font-size="12" fill="#444">= [19.065, 21.278, 23.491, 25.704] / 2.2131 = [8.614, 9.614, 10.614, 11.614]  ✓</text>
+
+  <!-- insight -->
+  <g filter="url(#sk)">
+    <rect x="40" y="392" width="910" height="108" rx="8" fill="#e6f4ea" stroke="#4a7a3a"/>
+  </g>
+  <text x="60" y="416" font-size="12" font-weight="bold" fill="#2e5a22">关键观察</text>
+  <text x="60" y="436" font-size="11" fill="#444">• j=1 被 continue 跳过 — 它既不是 sink（1≥num_sinks=1）也不在窗口（1 &lt; win_start=2），对 acc/l 毫无影响</text>
+  <text x="60" y="454" font-size="11" fill="#444">• j=3 时 m 从 0 升到 0.5，corr=0.607 把旧 acc 和 l 同步缩放，保证已累加的贡献不丢失</text>
+  <text x="60" y="472" font-size="11" fill="#b03a3a">• 全程只有标量 s 落过 HBM — M×M 的 score/softmax 矩阵从未物化</text>
+  <text x="60" y="490" font-size="11" fill="#2e6e2e">• j=i 永远允许（window_size≥1 保证 i≥win_start），故 l&gt;0 恒成立，无除零风险</text>
+</svg>

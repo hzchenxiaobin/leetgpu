@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="11" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.7"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="880" height="460" fill="#fdfcf7"/>
+
+  <text x="440" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#2b2b2b">Fused QKV Projection：朴素两步 vs 融合单步</text>
+  <path d="M 260 38 Q 440 46 620 38" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- ===== 朴素两步 ===== -->
+  <text x="210" y="72" text-anchor="middle" font-size="13" font-weight="bold" fill="#b85450">朴素两步（GEMM + Transpose）</text>
+
+  <!-- x -->
+  <g filter="url(#sk)"><rect x="30" y="86" width="50" height="36" rx="4" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.3"/></g>
+  <text x="55" y="108" text-anchor="middle" font-size="11" fill="#2b6e9e" font-weight="bold">x</text>
+  <text x="55" y="134" text-anchor="middle" font-size="9" fill="#888">[M, D]</text>
+
+  <!-- arrow -->
+  <path d="M 82 104 L 110 104" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- GEMM box -->
+  <g filter="url(#sk)"><rect x="112" y="84" width="62" height="40" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/></g>
+  <text x="143" y="101" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">GEMM</text>
+  <text x="143" y="115" text-anchor="middle" font-size="9" fill="#7a5415">x@W.T</text>
+
+  <!-- W_qkv -->
+  <g filter="url(#sk)"><rect x="112" y="130" width="50" height="30" rx="4" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.3"/></g>
+  <text x="137" y="149" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">W_qkv</text>
+
+  <!-- arrow to qkv -->
+  <path d="M 176 104 L 204 104" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- qkv intermediate (waste!) -->
+  <g filter="url(#sk)"><rect x="206" y="86" width="60" height="36" rx="4" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" stroke-dasharray="4 2"/></g>
+  <text x="236" y="103" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">qkv</text>
+  <text x="236" y="116" text-anchor="middle" font-size="9" fill="#b85450">[M, 3D]</text>
+  <text x="236" y="134" text-anchor="middle" font-size="9" fill="#b85450" font-weight="bold">中间张量!</text>
+
+  <!-- arrow to transpose -->
+  <path d="M 268 104 L 296 104" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- Transpose box -->
+  <g filter="url(#sk)"><rect x="298" y="84" width="62" height="40" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.3"/></g>
+  <text x="329" y="101" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">Layout</text>
+  <text x="329" y="115" text-anchor="middle" font-size="9" fill="#7a5415">Transform</text>
+
+  <!-- arrow to Q/K/V -->
+  <path d="M 362 104 L 390 104" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- Q/K/V outputs -->
+  <g filter="url(#sk)"><rect x="392" y="80" width="40" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/></g>
+  <text x="412" y="96" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">Q</text>
+  <g filter="url(#sk)"><rect x="392" y="108" width="40" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/></g>
+  <text x="412" y="124" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">K</text>
+  <g filter="url(#sk)"><rect x="392" y="136" width="40" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/></g>
+  <text x="412" y="152" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">V</text>
+
+  <!-- waste annotation -->
+  <text x="236" y="174" text-anchor="middle" font-size="9" fill="#b85450">写+读 = 48MB 浪费</text>
+  <text x="210" y="190" text-anchor="middle" font-size="9" fill="#b85450">2 次 kernel launch</text>
+
+  <!-- divider -->
+  <path d="M 460 60 L 460 200" stroke="#ccc" stroke-width="1" stroke-dasharray="3 3" filter="url(#sk)"/>
+
+  <!-- ===== 融合单步 ===== -->
+  <text x="660" y="72" text-anchor="middle" font-size="13" font-weight="bold" fill="#2e6e2e">融合单步（Fused GEMM + 写回映射）</text>
+
+  <!-- x -->
+  <g filter="url(#sk)"><rect x="480" y="86" width="50" height="36" rx="4" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.3"/></g>
+  <text x="505" y="108" text-anchor="middle" font-size="11" fill="#2b6e9e" font-weight="bold">x</text>
+  <text x="505" y="134" text-anchor="middle" font-size="9" fill="#888">[M, D]</text>
+
+  <!-- arrow -->
+  <path d="M 532 104 L 560 104" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- Fused GEMM box -->
+  <g filter="url(#sk)"><rect x="562" y="76" width="100" height="56" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.5"/></g>
+  <text x="612" y="94" text-anchor="middle" font-size="11" fill="#2e6e2e" font-weight="bold">Fused GEMM</text>
+  <text x="612" y="108" text-anchor="middle" font-size="9" fill="#2e6e2e">tiled + 写回映射</text>
+  <text x="612" y="122" text-anchor="middle" font-size="9" fill="#2e6e2e">out[part][idx]=sum</text>
+
+  <!-- W_qkv -->
+  <g filter="url(#sk)"><rect x="562" y="138" width="50" height="30" rx="4" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.3"/></g>
+  <text x="587" y="157" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">W_qkv</text>
+
+  <!-- arrow to Q/K/V (direct!) -->
+  <path d="M 664 104 L 692 104" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <text x="678" y="98" text-anchor="middle" font-size="8" fill="#2e6e2e" font-weight="bold">直接</text>
+
+  <!-- Q/K/V outputs -->
+  <g filter="url(#sk)"><rect x="694" y="80" width="44" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/></g>
+  <text x="716" y="96" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">Q</text>
+  <g filter="url(#sk)"><rect x="694" y="108" width="44" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/></g>
+  <text x="716" y="124" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">K</text>
+  <g filter="url(#sk)"><rect x="694" y="136" width="44" height="24" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/></g>
+  <text x="716" y="152" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">V</text>
+
+  <!-- savings annotation -->
+  <text x="660" y="174" text-anchor="middle" font-size="9" fill="#2e6e2e" font-weight="bold">无中间张量!</text>
+  <text x="660" y="190" text-anchor="middle" font-size="9" fill="#2e6e2e">1 次 kernel launch</text>
+
+  <!-- ===== 底部对比表 ===== -->
+  <g filter="url(#sk)"><rect x="40" y="210" width="800" height="230" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/></g>
+  <text x="440" y="234" text-anchor="middle" font-size="13" font-weight="bold" fill="#444">性能对比（M=512, D=4096, 性能测点）</text>
+
+  <!-- table header -->
+  <g filter="url(#sk)"><line x1="60" y1="248" x2="820" y2="248" stroke="#bbb" stroke-width="1"/></g>
+  <text x="180" y="244" text-anchor="middle" font-size="10" font-weight="bold" fill="#444">指标</text>
+  <text x="420" y="244" text-anchor="middle" font-size="10" font-weight="bold" fill="#b85450">朴素两步</text>
+  <text x="680" y="244" text-anchor="middle" font-size="10" font-weight="bold" fill="#2e6e2e">融合单步</text>
+  <g filter="url(#sk)"><line x1="60" y1="252" x2="820" y2="252" stroke="#bbb" stroke-width="1"/></g>
+
+  <!-- rows -->
+  <text x="180" y="272" text-anchor="middle" font-size="10" fill="#444">HBM 总流量</text>
+  <text x="420" y="272" text-anchor="middle" font-size="10" fill="#b85450">272 MB</text>
+  <text x="680" y="272" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">224 MB (-17.6%)</text>
+
+  <text x="180" y="294" text-anchor="middle" font-size="10" fill="#444">中间张量</text>
+  <text x="420" y="294" text-anchor="middle" font-size="10" fill="#b85450">24 MB (qkv 往返)</text>
+  <text x="680" y="294" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">0（消除）</text>
+
+  <text x="180" y="316" text-anchor="middle" font-size="10" fill="#444">kernel launch</text>
+  <text x="420" y="316" text-anchor="middle" font-size="10" fill="#b85450">2 次</text>
+  <text x="680" y="316" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">1 次</text>
+
+  <text x="180" y="338" text-anchor="middle" font-size="10" fill="#444">算术强度</text>
+  <text x="420" y="338" text-anchor="middle" font-size="10" fill="#b85450">~1.0 FLOP/byte</text>
+  <text x="680" y="338" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">~1.5 FLOP/byte</text>
+
+  <text x="180" y="360" text-anchor="middle" font-size="10" fill="#444">瓶颈</text>
+  <text x="420" y="360" text-anchor="middle" font-size="10" fill="#b85450">W_qkv 非合并 + 中间往返</text>
+  <text x="680" y="360" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">W_qkv 非合并（无中间）</text>
+
+  <!-- insight box -->
+  <g filter="url(#sk)"><rect x="60" y="380" width="760" height="48" rx="6" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.2"/></g>
+  <text x="440" y="400" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">关键洞察</text>
+  <text x="440" y="418" text-anchor="middle" font-size="10" fill="#444">out[part][head*M*hd + m*hd + d] = sum —— 一行代码消灭中间张量</text>
+</svg>

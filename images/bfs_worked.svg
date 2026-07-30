@@ -1,0 +1,351 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 460" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="460" fill="#fafafa"/>
+
+  <text x="320" y="24" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Worked Example：4×4 网格 pull-based BFS 逐层扩展</text>
+  <text x="320" y="42" text-anchor="middle" font-size="11" fill="#888">grid = [[0,0,0,0],[1,1,0,1],[0,0,0,0],[0,1,1,0]]，start=(0,0)，end=(3,3)，结果 = 6</text>
+
+  <!-- ===== 6个小网格，每层一个 ===== -->
+
+  <!-- Level 0: only start visited -->
+  <text x="55" y="72" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">level = 0</text>
+  <text x="55" y="86" text-anchor="middle" font-size="9" fill="#888">init: dist[0,0]=0</text>
+  <g font-size="10" fill="#333">
+    <rect x="20" y="95" width="32" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="2" filter="url(#rough2)"/>
+    <text x="36" y="113" text-anchor="middle" fill="#4a7a3a" font-weight="bold">0</text>
+    <rect x="52" y="95" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="68" y="113" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="84" y="95" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="100" y="113" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="116" y="95" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="132" y="113" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+
+    <rect x="20" y="123" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="36" y="141" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="52" y="123" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="68" y="141" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="84" y="123" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="100" y="141" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="116" y="123" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="132" y="141" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+
+    <rect x="20" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="36" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="52" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="68" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="84" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="100" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="116" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="132" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+
+    <rect x="20" y="179" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="36" y="197" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="52" y="179" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="68" y="197" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="84" y="179" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="100" y="197" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="116" y="179" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="132" y="197" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+  </g>
+
+  <!-- arrow -->
+  <path d="M 145 170 L 165 170" stroke="#666" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- Level 1: (0,1) pulled to 1 -->
+  <text x="205" y="72" text-anchor="middle" font-size="11" fill="#d6a040" font-weight="bold">level = 1</text>
+  <text x="205" y="86" text-anchor="middle" font-size="9" fill="#888">(0,1) finds (0,0)=0</text>
+  <g font-size="10" fill="#333">
+    <rect x="170" y="95" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="186" y="113" text-anchor="middle" fill="#d6a040">0</text>
+    <rect x="202" y="95" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="218" y="113" text-anchor="middle" fill="#d6a040" font-weight="bold">1</text>
+    <rect x="234" y="95" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="250" y="113" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="266" y="95" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="282" y="113" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+
+    <rect x="170" y="123" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="186" y="141" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="202" y="123" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="218" y="141" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="234" y="123" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="250" y="141" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="266" y="123" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="282" y="141" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+
+    <rect x="170" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="186" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="202" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="218" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="234" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="250" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="266" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="282" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+
+    <rect x="170" y="179" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="186" y="197" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="202" y="179" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="218" y="197" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="234" y="179" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="250" y="197" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="266" y="179" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="282" y="197" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+  </g>
+
+  <!-- arrow -->
+  <path d="M 295 170 L 315 170" stroke="#666" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- Level 2: (0,2) pulled to 2 -->
+  <text x="355" y="72" text-anchor="middle" font-size="11" fill="#d6a040" font-weight="bold">level = 2</text>
+  <text x="355" y="86" text-anchor="middle" font-size="9" fill="#888">(0,2) finds (0,1)=1</text>
+  <g font-size="10" fill="#333">
+    <rect x="320" y="95" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="336" y="113" text-anchor="middle" fill="#d6a040">0</text>
+    <rect x="352" y="95" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="368" y="113" text-anchor="middle" fill="#d6a040">1</text>
+    <rect x="384" y="95" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="400" y="113" text-anchor="middle" fill="#d6a040" font-weight="bold">2</text>
+    <rect x="416" y="95" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="432" y="113" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+
+    <rect x="320" y="123" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="336" y="141" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="352" y="123" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="368" y="141" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="384" y="123" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="400" y="141" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="416" y="123" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="432" y="141" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+
+    <rect x="320" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="336" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="352" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="368" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="384" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="400" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="416" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="432" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+
+    <rect x="320" y="179" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="336" y="197" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="352" y="179" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="368" y="197" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="384" y="179" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="400" y="197" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="416" y="179" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="432" y="197" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+  </g>
+
+  <!-- arrow -->
+  <path d="M 445 170 L 465 170" stroke="#666" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- Level 3: (0,3) and (1,2) pulled to 3 -->
+  <text x="510" y="72" text-anchor="middle" font-size="11" fill="#d6a040" font-weight="bold">level = 3</text>
+  <text x="510" y="86" text-anchor="middle" font-size="9" fill="#888">(0,3)←(0,2); (1,2)←(0,2)</text>
+  <g font-size="10" fill="#333">
+    <rect x="470" y="95" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="486" y="113" text-anchor="middle" fill="#d6a040">0</text>
+    <rect x="502" y="95" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="518" y="113" text-anchor="middle" fill="#d6a040">1</text>
+    <rect x="534" y="95" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="550" y="113" text-anchor="middle" fill="#d6a040">2</text>
+    <rect x="566" y="95" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="582" y="113" text-anchor="middle" fill="#d6a040" font-weight="bold">3</text>
+
+    <rect x="470" y="123" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="486" y="141" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="502" y="123" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="518" y="141" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="534" y="123" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="550" y="141" text-anchor="middle" fill="#d6a040" font-weight="bold">3</text>
+    <rect x="566" y="123" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="582" y="141" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+
+    <rect x="470" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="486" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="502" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="518" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="534" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="550" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="566" y="151" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="582" y="169" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+
+    <rect x="470" y="179" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="486" y="197" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="502" y="179" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="518" y="197" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="534" y="179" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="550" y="197" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="566" y="179" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="582" y="197" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+  </g>
+
+  <!-- second row of grids: level 4, 5, 6 -->
+
+  <!-- Level 4: (2,0),(2,1),(2,2) pulled -->
+  <text x="105" y="252" text-anchor="middle" font-size="11" fill="#d6a040" font-weight="bold">level = 4</text>
+  <text x="105" y="266" text-anchor="middle" font-size="9" fill="#888">(2,0)←(1,0)#; (2,2)←(1,2)</text>
+  <g font-size="10" fill="#333">
+    <rect x="20" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="36" y="293" text-anchor="middle" fill="#d6a040" font-size="9">0</text>
+    <rect x="52" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="68" y="293" text-anchor="middle" fill="#d6a040" font-size="9">1</text>
+    <rect x="84" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="100" y="293" text-anchor="middle" fill="#d6a040" font-size="9">2</text>
+    <rect x="116" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="132" y="293" text-anchor="middle" fill="#d6a040" font-size="9">3</text>
+    <rect x="148" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="164" y="293" text-anchor="middle" fill="#d6a040" font-size="9">3</text>
+
+    <rect x="20" y="303" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="36" y="321" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="52" y="303" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="68" y="321" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="84" y="303" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="100" y="321" text-anchor="middle" fill="#d6a040" font-size="9">3</text>
+    <rect x="116" y="303" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="132" y="321" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="148" y="303" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="164" y="321" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+
+    <rect x="20" y="331" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="36" y="349" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="52" y="331" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="68" y="349" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="84" y="331" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="100" y="349" text-anchor="middle" fill="#d6a040" font-weight="bold" font-size="9">4</text>
+    <rect x="116" y="331" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="132" y="349" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="148" y="331" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="164" y="349" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+
+    <rect x="20" y="359" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="36" y="377" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="52" y="359" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="68" y="377" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="84" y="359" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="100" y="377" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="116" y="359" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="132" y="377" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="148" y="359" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="164" y="377" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+  </g>
+
+  <!-- arrow -->
+  <path d="M 185 340 L 210 340" stroke="#666" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- Level 5: (2,1),(2,3),(3,0) pulled -->
+  <text x="265" y="252" text-anchor="middle" font-size="11" fill="#d6a040" font-weight="bold">level = 5</text>
+  <text x="265" y="266" text-anchor="middle" font-size="9" fill="#888">(2,1)←(2,2); (2,3)←(2,2)</text>
+  <g font-size="9" fill="#333">
+    <rect x="200" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="216" y="293" text-anchor="middle" fill="#d6a040">0</text>
+    <rect x="232" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="248" y="293" text-anchor="middle" fill="#d6a040">1</text>
+    <rect x="264" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="280" y="293" text-anchor="middle" fill="#d6a040">2</text>
+    <rect x="296" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="312" y="293" text-anchor="middle" fill="#d6a040">3</text>
+    <rect x="328" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="344" y="293" text-anchor="middle" fill="#d6a040">3</text>
+
+    <rect x="200" y="303" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="216" y="321" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="232" y="303" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="248" y="321" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="264" y="303" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="280" y="321" text-anchor="middle" fill="#d6a040">3</text>
+    <rect x="296" y="303" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="312" y="321" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="328" y="303" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="344" y="321" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+
+    <rect x="200" y="331" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="216" y="349" text-anchor="middle" fill="#d6a040">4</text>
+    <rect x="232" y="331" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="248" y="349" text-anchor="middle" fill="#d6a040" font-weight="bold">5</text>
+    <rect x="264" y="331" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="280" y="349" text-anchor="middle" fill="#d6a040">4</text>
+    <rect x="296" y="331" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="312" y="349" text-anchor="middle" fill="#d6a040" font-weight="bold">5</text>
+    <rect x="328" y="331" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="344" y="349" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+
+    <rect x="200" y="359" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="216" y="377" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="232" y="359" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="248" y="377" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="264" y="359" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="280" y="377" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="296" y="359" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="312" y="377" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="328" y="359" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="344" y="377" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+  </g>
+
+  <!-- arrow -->
+  <path d="M 365 340 L 390 340" stroke="#666" stroke-width="1.2" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- Level 6: (3,3) found! -->
+  <text x="460" y="252" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">level = 6 ✓</text>
+  <text x="460" y="266" text-anchor="middle" font-size="9" fill="#888">(3,3)←(2,3)=5 → flag=2!</text>
+  <g font-size="9" fill="#333">
+    <rect x="395" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="411" y="293" text-anchor="middle" fill="#d6a040">0</text>
+    <rect x="427" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="443" y="293" text-anchor="middle" fill="#d6a040">1</text>
+    <rect x="459" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="475" y="293" text-anchor="middle" fill="#d6a040">2</text>
+    <rect x="491" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="507" y="293" text-anchor="middle" fill="#d6a040">3</text>
+    <rect x="523" y="275" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="539" y="293" text-anchor="middle" fill="#d6a040">3</text>
+
+    <rect x="395" y="303" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="411" y="321" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="427" y="303" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="443" y="321" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="459" y="303" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="475" y="321" text-anchor="middle" fill="#d6a040">3</text>
+    <rect x="491" y="303" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="507" y="321" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="523" y="303" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="539" y="321" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+
+    <rect x="395" y="331" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="411" y="349" text-anchor="middle" fill="#d6a040">4</text>
+    <rect x="427" y="331" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="443" y="349" text-anchor="middle" fill="#d6a040">5</text>
+    <rect x="459" y="331" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="475" y="349" text-anchor="middle" fill="#d6a040">4</text>
+    <rect x="491" y="331" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="507" y="349" text-anchor="middle" fill="#d6a040">5</text>
+    <rect x="523" y="331" width="32" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="539" y="349" text-anchor="middle" fill="#d6a040">5</text>
+
+    <rect x="395" y="359" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="411" y="377" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+    <rect x="427" y="359" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="443" y="377" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="459" y="359" width="32" height="28" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="475" y="377" text-anchor="middle" fill="#b85450" font-size="8">#</text>
+    <rect x="491" y="359" width="32" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="2" rx="2" filter="url(#rough2)"/>
+    <text x="507" y="377" text-anchor="middle" fill="#4a7a3a" font-weight="bold">6</text>
+    <rect x="523" y="359" width="32" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="2" filter="url(#rough2)"/>
+    <text x="539" y="377" text-anchor="middle" fill="#446688" font-size="8">-1</text>
+  </g>
+
+  <!-- bottom: final result -->
+  <rect x="20" y="410" width="600" height="40" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="8" filter="url(#rough2)"/>
+  <text x="320" y="428" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">结果：level=6 时 (3,3) 的线程 pull 到 (2,3)=5 → dist[(3,3)]=6 → flag=2 → host 返回 level=6 ✓</text>
+  <text x="320" y="442" text-anchor="middle" font-size="9" fill="#888">路径：(0,0)→(0,1)→(0,2)→(1,2)→(2,2)→(2,3)→(3,3)，距离 0→1→2→3→4→5→6</text>
+</svg>

@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 560" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="3" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="880" height="560" fill="#fdfcf7"/>
+
+  <text x="440" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#2b2b2b">Worked Example：一行 [1, 2, 3, 4]，D=4，γ=1，β=0，eps=1e-5</text>
+  <path d="M 240 38 Q 440 46 640 38" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- ===== 输入行 ===== -->
+  <text x="100" y="76" text-anchor="middle" font-size="11" fill="#2b6e9e" font-weight="bold">输入 x（第 r 行）</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="84" width="120" height="32" rx="4" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.2"/>
+    <line x1="70" y1="84" x2="70" y2="116" stroke="#4a8edb" stroke-width="0.8"/>
+    <line x1="100" y1="84" x2="100" y2="116" stroke="#4a8edb" stroke-width="0.8"/>
+    <line x1="130" y1="84" x2="130" y2="116" stroke="#4a8edb" stroke-width="0.8"/>
+  </g>
+  <text x="55" y="105" text-anchor="middle" font-size="11" fill="#2b2b2b" font-weight="bold">1</text>
+  <text x="85" y="105" text-anchor="middle" font-size="11" fill="#2b2b2b" font-weight="bold">2</text>
+  <text x="115" y="105" text-anchor="middle" font-size="11" fill="#2b2b2b" font-weight="bold">3</text>
+  <text x="145" y="105" text-anchor="middle" font-size="11" fill="#2b2b2b" font-weight="bold">4</text>
+
+  <!-- ===== Pass 1: mean ===== -->
+  <g filter="url(#sk)"><rect x="200" y="80" width="220" height="40" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/></g>
+  <text x="310" y="98" text-anchor="middle" font-size="10.5" fill="#2e6e2e" font-weight="bold">Pass 1：block_reduce_sum(x)</text>
+  <text x="310" y="113" text-anchor="middle" font-size="9.5" fill="#444">sum = 1+2+3+4 = 10 → μ = 10/4 = 2.5</text>
+  <path d="M 162 100 L 198 100" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- syncthreads -->
+  <g filter="url(#sk)"><rect x="448" y="86" width="76" height="28" rx="5" fill="#fce4ec" stroke="#b85450" stroke-width="1.1"/></g>
+  <text x="486" y="105" text-anchor="middle" font-size="9.5" fill="#b85450" font-weight="bold">sync</text>
+  <path d="M 422 100 L 446 100" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- ===== Pass 2: variance ===== -->
+  <g filter="url(#sk)"><rect x="550" y="80" width="290" height="40" rx="6" fill="#fce4ec" stroke="#b85450" stroke-width="1.3"/></g>
+  <text x="695" y="98" text-anchor="middle" font-size="10.5" fill="#b85450" font-weight="bold">Pass 2：block_reduce_sum((x-μ)²)</text>
+  <text x="695" y="113" text-anchor="middle" font-size="9.5" fill="#444">dev=[-1.5,-0.5,0.5,1.5] → σ²=(2.25+0.25+0.25+2.25)/4=1.25</text>
+  <path d="M 526 100 L 548 100" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- ===== deviations row ===== -->
+  <text x="100" y="148" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">x - μ</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="156" width="120" height="28" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1"/>
+    <line x1="70" y1="156" x2="70" y2="184" stroke="#d6a040" stroke-width="0.8"/>
+    <line x1="100" y1="156" x2="100" y2="184" stroke="#d6a040" stroke-width="0.8"/>
+    <line x1="130" y1="156" x2="130" y2="184" stroke="#d6a040" stroke-width="0.8"/>
+  </g>
+  <text x="55" y="174" text-anchor="middle" font-size="10" fill="#2b2b2b">-1.5</text>
+  <text x="85" y="174" text-anchor="middle" font-size="10" fill="#2b2b2b">-0.5</text>
+  <text x="115" y="174" text-anchor="middle" font-size="10" fill="#2b2b2b">0.5</text>
+  <text x="145" y="174" text-anchor="middle" font-size="10" fill="#2b2b2b">1.5</text>
+
+  <!-- ===== (x-mu)^2 row ===== -->
+  <text x="100" y="208" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">(x-μ)²</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="216" width="120" height="28" rx="4" fill="#fff8e1" stroke="#d6a040" stroke-width="1.1"/>
+    <line x1="70" y1="216" x2="70" y2="244" stroke="#d6a040" stroke-width="0.8"/>
+    <line x1="100" y1="216" x2="100" y2="244" stroke="#d6a040" stroke-width="0.8"/>
+    <line x1="130" y1="216" x2="130" y2="244" stroke="#d6a040" stroke-width="0.8"/>
+  </g>
+  <text x="55" y="234" text-anchor="middle" font-size="10" fill="#2b2b2b">2.25</text>
+  <text x="85" y="234" text-anchor="middle" font-size="10" fill="#2b2b2b">0.25</text>
+  <text x="115" y="234" text-anchor="middle" font-size="10" fill="#2b2b2b">0.25</text>
+  <text x="145" y="234" text-anchor="middle" font-size="10" fill="#2b2b2b">2.25</text>
+
+  <!-- ===== rstd ===== -->
+  <g filter="url(#sk)"><rect x="240" y="216" width="300" height="28" rx="6" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.3"/></g>
+  <text x="390" y="235" text-anchor="middle" font-size="10.5" fill="#2e6e2e" font-weight="bold">rstd = rsqrt(σ²+eps) = rsqrt(1.25001) ≈ 0.89442</text>
+  <path d="M 162 230 L 238 230" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- ===== Pass 3: normalize ===== -->
+  <text x="440" y="276" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">Pass 3：y = (x - μ) · rstd · γ + β</text>
+
+  <!-- output cells -->
+  <g filter="url(#sk)">
+    <rect x="180" y="288" width="520" height="44" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <line x1="310" y1="288" x2="310" y2="332" stroke="#4a8e4a" stroke-width="0.9"/>
+    <line x1="440" y1="288" x2="440" y2="332" stroke="#4a8e4a" stroke-width="0.9"/>
+    <line x1="570" y1="288" x2="570" y2="332" stroke="#4a8e4a" stroke-width="0.9"/>
+  </g>
+  <text x="245" y="314" text-anchor="middle" font-size="11" fill="#2e6e2e" font-weight="bold">-1.34164</text>
+  <text x="375" y="314" text-anchor="middle" font-size="11" fill="#2e6e2e" font-weight="bold">-0.44721</text>
+  <text x="505" y="314" text-anchor="middle" font-size="11" fill="#2e6e2e" font-weight="bold">0.44721</text>
+  <text x="635" y="314" text-anchor="middle" font-size="11" fill="#2e6e2e" font-weight="bold">1.34164</text>
+  <text x="440" y="350" text-anchor="middle" font-size="9.5" fill="#2e6e2e">输出 y（和 ≈ 0，方差 ≈ 1）</text>
+
+  <!-- ===== 对比 RMSNorm 同输入 ===== -->
+  <g filter="url(#sk)"><rect x="40" y="380" width="800" height="160" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-dasharray="5 3"/></g>
+  <text x="440" y="404" text-anchor="middle" font-size="13" font-weight="bold" fill="#444">同一输入 [1,2,3,4]：LayerNorm vs RMSNorm</text>
+
+  <text x="60" y="430" font-size="10.5" fill="#444">• <tspan font-weight="bold" fill="#b85450">LayerNorm</tspan>（mean-centering）：μ=2.5 → y = [-1.342, -0.447, 0.447, 1.342]，输出<tspan font-weight="bold">均值为 0、方差为 1</tspan></text>
+  <text x="60" y="450" font-size="10.5" fill="#444">• <tspan font-weight="bold" fill="#2e6e2e">RMSNorm</tspan>（无 mean-centering）：RMS=2.7386 → y = [0.365, 0.730, 1.095, 1.461]，输出<tspan font-weight="bold">全正</tspan>，仅缩放不居中</text>
+  <text x="60" y="470" font-size="10.5" fill="#444">• 差异本质：LayerNorm 减去 μ（多一次归约 + 一次 mean-centering），RMSNorm 省掉这一步 → 少一遍 HBM 读，是 Llama 选 RMSNorm 的性能动机</text>
+  <text x="60" y="490" font-size="10.5" fill="#444">• 两者都把数据归一化到稳定尺度，但 LayerNorm 的「去均值」让分布真正零中心，对训练更稳；RMSNorm 实测效果相当且更快</text>
+
+  <g filter="url(#sk)"><rect x="60" y="504" width="760" height="26" rx="5" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.1"/></g>
+  <text x="440" y="521" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">关键洞察：μ=2.5 是 Pass 1 归约后才广播的；没有它，Pass 2 无法算 (x-μ)² —— 这就是 LayerNorm「串行两次归约」的数值根源</text>
+</svg>

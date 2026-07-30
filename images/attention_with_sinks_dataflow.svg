@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="520" viewBox="0 0 940 520" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="31" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="a3" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#2b2b2b"/>
+    </marker>
+    <marker id="a3r" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#b85450"/>
+    </marker>
+  </defs>
+  <rect width="940" height="520" fill="#fdfcf7"/>
+  <text x="470" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">融合 Kernel 数据流：存储层次与同步屏障</text>
+  <path d="M 280 42 Q 470 50 660 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+  <text x="470" y="68" text-anchor="middle" font-size="12" fill="#666">一个 block 处理一行 query；BLOCK_SIZE=128 thread 协作；每步 j 循环的数据流动与 __syncthreads 作用</text>
+
+  <!-- storage columns: global | shared | register -->
+  <g filter="url(#sk)">
+    <rect x="40" y="86" width="180" height="32" rx="4" fill="#eee" stroke="#bbb"/>
+    <text x="130" y="107" text-anchor="middle" font-size="12" font-weight="bold" fill="#666">global memory (HBM)</text>
+    <rect x="330" y="86" width="240" height="32" rx="4" fill="#fff8e1" stroke="#d6a040"/>
+    <text x="450" y="107" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5415">shared memory (SRAM)</text>
+    <rect x="700" y="86" width="200" height="32" rx="4" fill="#e8f0fa" stroke="#4a8edb"/>
+    <text x="800" y="107" text-anchor="middle" font-size="12" font-weight="bold" fill="#2b6e9e">register (per-thread)</text>
+  </g>
+
+  <!-- global items -->
+  <g filter="url(#sk)">
+    <rect x="50" y="130" width="160" height="30" rx="4" fill="#dbeafe" stroke="#4a8edb"/>
+    <text x="130" y="150" text-anchor="middle" font-size="11" fill="#2b6e9e">Q[i] （载入一次复用）</text>
+    <rect x="50" y="168" width="160" height="30" rx="4" fill="#fff" stroke="#bbb"/>
+    <text x="130" y="188" text-anchor="middle" font-size="11" fill="#444">K[j] （每轮读一行）</text>
+    <rect x="50" y="206" width="160" height="30" rx="4" fill="#fff" stroke="#bbb"/>
+    <text x="130" y="226" text-anchor="middle" font-size="11" fill="#444">V[j] （每轮读一行）</text>
+    <rect x="50" y="380" width="160" height="30" rx="4" fill="#bfe0bf" stroke="#4a8e4a"/>
+    <text x="130" y="400" text-anchor="middle" font-size="11" fill="#2e6e2e">output[i] （末尾写回）</text>
+  </g>
+
+  <!-- shared items -->
+  <g filter="url(#sk)">
+    <rect x="340" y="130" width="220" height="30" rx="4" fill="#fff8e1" stroke="#d6a040"/>
+    <text x="450" y="150" text-anchor="middle" font-size="11" fill="#7a5415">q_shm[128]  ← Q[i]</text>
+    <rect x="340" y="178" width="220" height="30" rx="4" fill="#fff8e1" stroke="#d6a040"/>
+    <text x="450" y="198" text-anchor="middle" font-size="11" fill="#7a5415">red[NUM_WARPS] （归约暂存）</text>
+    <rect x="340" y="216" width="220" height="30" rx="4" fill="#fff8e1" stroke="#d6a040"/>
+    <text x="450" y="236" text-anchor="middle" font-size="11" fill="#7a5415">s_m, s_l （running max/sum）</text>
+    <rect x="340" y="254" width="220" height="30" rx="4" fill="#fff8e1" stroke="#d6a040"/>
+    <text x="450" y="274" text-anchor="middle" font-size="11" fill="#7a5415">s_corr, s_p （每轮广播）</text>
+  </g>
+
+  <!-- register items -->
+  <g filter="url(#sk)">
+    <rect x="710" y="178" width="180" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb"/>
+    <text x="800" y="198" text-anchor="middle" font-size="11" fill="#2b6e9e">part = q_shm[t]·K[j·d+t]</text>
+    <rect x="710" y="216" width="180" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb"/>
+    <text x="800" y="236" text-anchor="middle" font-size="11" fill="#2b6e9e">acc （输出的一维）</text>
+    <rect x="710" y="254" width="180" height="30" rx="4" fill="#e8f0fa" stroke="#4a8edb"/>
+    <text x="800" y="274" text-anchor="middle" font-size="11" fill="#2b6e9e">s （广播后的 score）</text>
+  </g>
+
+  <!-- step arrows -->
+  <!-- 1: Q[i] -> q_shm -->
+  <path d="M 210 145 L 340 145" stroke="#4a8edb" stroke-width="1.6" fill="none" marker-end="url(#a3)" filter="url(#sk)"/>
+  <text x="275" y="138" text-anchor="middle" font-size="9" fill="#4a8edb">① 载入</text>
+
+  <!-- 2: K[j] + q_shm -> part (register) -->
+  <path d="M 210 183 Q 280 183 340 250" stroke="#bbb" stroke-width="0" fill="none"/>
+  <path d="M 560 145 Q 640 180 710 193" stroke="#7a5415" stroke-width="1.6" fill="none" marker-end="url(#a3)" filter="url(#sk)"/>
+  <text x="640" y="160" font-size="9" fill="#7a5415">② 乘</text>
+  <path d="M 210 183 Q 460 183 710 193" stroke="#444" stroke-width="1.4" fill="none" marker-end="url(#a3)" filter="url(#sk)"/>
+  <text x="460" y="176" text-anchor="middle" font-size="9" fill="#444">K[j] 读</text>
+
+  <!-- 3: part -> block_reduce -> red -> s_m/s_l (tid=0) -->
+  <path d="M 800 208 Q 700 300 560 230" stroke="#4a8e4a" stroke-width="1.6" fill="none" marker-end="url(#a3)" filter="url(#sk)"/>
+  <text x="700" y="300" font-size="9" fill="#2e6e2e">③ block_reduce_sum → s·scale</text>
+
+  <!-- 4: tid0 writes s_corr,s_p -> all read -->
+  <path d="M 450 254 Q 450 285 560 269" stroke="#d6a040" stroke-width="0" fill="none"/>
+  <path d="M 560 269 Q 640 269 710 232" stroke="#b85450" stroke-width="1.6" fill="none" marker-end="url(#a3r)" filter="url(#sk)"/>
+  <text x="640" y="262" font-size="9" fill="#b85450">④ 广播 corr,p</text>
+
+  <!-- 5: acc update uses V[j] -->
+  <path d="M 210 221 Q 460 290 710 231" stroke="#444" stroke-width="1.4" stroke-dasharray="4 2" fill="none" marker-end="url(#a3)" filter="url(#sk)"/>
+  <text x="460" y="300" font-size="9" fill="#444">⑤ V[j] 读 → acc=acc·corr+p·V</text>
+
+  <!-- 6: final acc/s_l -> output -->
+  <path d="M 800 290 Q 470 360 210 395" stroke="#2e6e2e" stroke-width="1.6" fill="none" marker-end="url(#a3)" filter="url(#sk)"/>
+  <text x="500" y="356" font-size="9" fill="#2e6e2e">⑥ acc / s_l → output[i]</text>
+
+  <!-- sync barriers box -->
+  <g filter="url(#sk)">
+    <rect x="40" y="412" width="860" height="92" rx="8" fill="#fce4ec" stroke="#b85450"/>
+  </g>
+  <text x="60" y="436" font-size="13" font-weight="bold" fill="#b03a3a">三次 __syncthreads 的作用（每轮 j 循环）</text>
+  <text x="60" y="458" font-size="11" fill="#444"><tspan font-weight="bold">sync A（q_shm 载入后）</tspan>：确保 Q[i] 全部写入 shared，全 block 复用做点积前可见。缺失 → 读到未初始化数据。</text>
+  <text x="60" y="478" font-size="11" fill="#444"><tspan font-weight="bold">sync B（tid=0 写 s_corr/s_p 后）</tspan>：把 online softmax 的 corr/p 广播给全 block。缺失 → 其他 thread 用旧值更新 acc，输出错误。</text>
+  <text x="60" y="498" font-size="11" fill="#444"><tspan font-weight="bold">sync C（acc 更新后）</tspan>：防止 tid=0 在下一轮覆写 s_corr/s_p 前其他 thread 还没读完。缺失 → 数据竞争。</text>
+</svg>

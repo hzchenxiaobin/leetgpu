@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="680" height="480" fill="#fafafa"/>
+
+  <text x="340" y="28" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Worked Example：B=1, G=2, S=2 逐步推演</text>
+  <text x="340" y="48" text-anchor="middle" font-size="11" fill="#888">rewards=[[10,0]], log_pi=[[[0.1,0.2],[−0.5,−0.4]]], 其余 0, ε=0.2, β=0.01</text>
+
+  <!-- ===== Step 1: advantage ===== -->
+  <rect x="24" y="64" width="632" height="78" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4" rx="6" filter="url(#rough2)"/>
+  <text x="40" y="84" font-size="11" fill="#d6a040" font-weight="bold">① 组内标准化（warp 归约）</text>
+  <text x="40" y="104" font-size="10" fill="#555">mean = (10+0)/2 = 5.0</text>
+  <text x="40" y="120" font-size="10" fill="#555">var = ((10−5)² + (0−5)²)/2 = 25  →  std = 5.0</text>
+  <text x="40" y="136" font-size="10" fill="#b85450" font-weight="bold">advantages = [(10−5)/5, (0−5)/5] = [+1.0, −1.0]</text>
+
+  <!-- ===== Token table header ===== -->
+  <text x="340" y="166" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">② 逐 token 全融合计算</text>
+
+  <!-- table -->
+  <rect x="24" y="176" width="632" height="216" fill="none" stroke="#bbb" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <!-- header row -->
+  <rect x="24" y="176" width="632" height="24" fill="#e8f0fe" stroke="#446688" stroke-width="1" filter="url(#rough2)"/>
+  <text x="46" y="192" font-size="9" fill="#446688" font-weight="bold">token(b,g,s)</text>
+  <text x="150" y="192" font-size="9" fill="#446688" font-weight="bold">adv</text>
+  <text x="200" y="192" font-size="9" fill="#446688" font-weight="bold">ratio=exp(π−πo)</text>
+  <text x="310" y="192" font-size="9" fill="#446688" font-weight="bold">clipped</text>
+  <text x="380" y="192" font-size="9" fill="#446688" font-weight="bold">surrogate</text>
+  <text x="470" y="192" font-size="9" fill="#446688" font-weight="bold">kl_pen</text>
+  <text x="560" y="192" font-size="9" fill="#446688" font-weight="bold">term</text>
+
+  <!-- row 0,0,0 -->
+  <text x="46" y="212" font-size="9" fill="#555">(0,0,0)</text>
+  <text x="150" y="212" font-size="9" fill="#d6a040" font-weight="bold">+1.0</text>
+  <text x="200" y="212" font-size="9" fill="#555">exp(0.1)=1.1052</text>
+  <text x="310" y="212" font-size="9" fill="#555">1.1052</text>
+  <text x="380" y="212" font-size="9" fill="#555">1.1052</text>
+  <text x="470" y="212" font-size="9" fill="#555">0.00484</text>
+  <text x="560" y="212" font-size="9" fill="#b85450" font-weight="bold">1.10512</text>
+
+  <!-- row 0,0,1 -->
+  <text x="46" y="232" font-size="9" fill="#555">(0,0,1)</text>
+  <text x="150" y="232" font-size="9" fill="#d6a040" font-weight="bold">+1.0</text>
+  <text x="200" y="232" font-size="9" fill="#555">exp(0.2)=1.2214</text>
+  <text x="310" y="232" font-size="9" fill="#b85450">1.2000</text>
+  <text x="380" y="232" font-size="9" fill="#555">1.2000</text>
+  <text x="470" y="232" font-size="9" fill="#555">0.01873</text>
+  <text x="560" y="232" font-size="9" fill="#b85450" font-weight="bold">1.19981</text>
+
+  <!-- row 0,1,0 -->
+  <text x="46" y="252" font-size="9" fill="#555">(0,1,0)</text>
+  <text x="150" y="252" font-size="9" fill="#d6a040" font-weight="bold">−1.0</text>
+  <text x="200" y="252" font-size="9" fill="#555">exp(−0.5)=0.6065</text>
+  <text x="310" y="252" font-size="9" fill="#b85450">0.8000</text>
+  <text x="380" y="252" font-size="9" fill="#555">−0.8000</text>
+  <text x="470" y="252" font-size="9" fill="#555">0.14872</text>
+  <text x="560" y="252" font-size="9" fill="#b85450" font-weight="bold">−0.80149</text>
+
+  <!-- row 0,1,1 -->
+  <text x="46" y="272" font-size="9" fill="#555">(0,1,1)</text>
+  <text x="150" y="272" font-size="9" fill="#d6a040" font-weight="bold">−1.0</text>
+  <text x="200" y="272" font-size="9" fill="#555">exp(−0.4)=0.6703</text>
+  <text x="310" y="272" font-size="9" fill="#b85450">0.8000</text>
+  <text x="380" y="272" font-size="9" fill="#555">−0.8000</text>
+  <text x="470" y="272" font-size="9" fill="#555">0.09182</text>
+  <text x="560" y="272" font-size="9" fill="#b85450" font-weight="bold">−0.80092</text>
+
+  <!-- notes -->
+  <text x="40" y="300" font-size="9" fill="#888">clipped = clamp(ratio, 0.8, 1.2)：1.2214→1.2, 0.6065→0.8, 0.6703→0.8</text>
+  <text x="40" y="316" font-size="9" fill="#888">surrogate = min(ratio·adv, clipped·adv)：adv=−1 时 min(−0.607,−0.800)=−0.800（更负者胜）</text>
+  <text x="40" y="332" font-size="9" fill="#888">kl_pen = exp(ref−π) − (ref−π) − 1：ref=0,π=0.1 → exp(−0.1)+0.1−1 = 0.00484</text>
+  <text x="40" y="348" font-size="9" fill="#888">term = surrogate − β·kl_pen = surrogate − 0.01·kl_pen</text>
+  <text x="40" y="372" font-size="9" fill="#888">↑ 注意 adv=−1 的组：clip 把 ratio 抬到 0.8，乘负 adv 后 surrogate 变 −0.8（比未 clip 的 −0.607 更负）→ PPO clip 在反向传播时截断梯度</text>
+
+  <!-- ===== Step 3: final reduction ===== -->
+  <rect x="24" y="400" width="632" height="64" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.4" rx="6" filter="url(#rough2)"/>
+  <text x="40" y="420" font-size="11" fill="#4a7a3a" font-weight="bold">③ 全局归约（block reduce + atomicAdd）</text>
+  <text x="40" y="438" font-size="10" fill="#555">Σterm = 1.10512 + 1.19981 − 0.80149 − 0.80092 = 0.70257</text>
+  <text x="40" y="456" font-size="10" fill="#b85450" font-weight="bold">output = −0.70257 / 4 = −0.17563   （N = B·G·S = 4）</text>
+
+  <text x="630" y="456" text-anchor="end" font-size="9" fill="#888">CPU 验证: −0.17563244 ✓</text>
+</svg>

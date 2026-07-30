@@ -1,0 +1,265 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 560"
+     font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#446688"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="560" fill="#fafafa"/>
+
+  <!-- Title -->
+  <text x="380" y="30" text-anchor="middle" font-size="17" font-weight="bold"
+        fill="#333" filter="url(#rough2)">N=8 Radix-2 DIT FFT 蝶形网络 (完整数据流)</text>
+
+  <!-- ===== Column headers ===== -->
+  <g filter="url(#rough2)" font-size="11" fill="#666">
+    <text x="80" y="58" text-anchor="middle">输入</text>
+    <text x="80" y="72" text-anchor="middle">(自然序)</text>
+    <text x="200" y="58" text-anchor="middle" fill="#d6a040">位反转后</text>
+    <text x="200" y="72" text-anchor="middle" fill="#d6a040">(乱序)</text>
+    <text x="340" y="58" text-anchor="middle" fill="#d6a040">Stage 1</text>
+    <text x="340" y="72" text-anchor="middle" fill="#d6a040">m=2</text>
+    <text x="480" y="58" text-anchor="middle" fill="#d6a040">Stage 2</text>
+    <text x="480" y="72" text-anchor="middle" fill="#d6a040">m=4</text>
+    <text x="620" y="58" text-anchor="middle" fill="#4a7a3a">Stage 3</text>
+    <text x="620" y="72" text-anchor="middle" fill="#4a7a3a">m=8</text>
+    <text x="710" y="58" text-anchor="middle" fill="#4a7a3a">输出</text>
+    <text x="710" y="72" text-anchor="middle" fill="#4a7a3a">X[k]</text>
+  </g>
+
+  <!-- ===== Input nodes (natural order) ===== -->
+  <g filter="url(#rough2)" font-size="11" fill="#446688">
+    <circle cx="80" cy="110" r="16" fill="#e8f0fe" stroke="#446688" stroke-width="1.5"/>
+    <text x="80" y="114" text-anchor="middle">x[0]</text>
+    <circle cx="80" cy="170" r="16" fill="#e8f0fe" stroke="#446688" stroke-width="1.5"/>
+    <text x="80" y="174" text-anchor="middle">x[1]</text>
+    <circle cx="80" cy="230" r="16" fill="#e8f0fe" stroke="#446688" stroke-width="1.5"/>
+    <text x="80" y="234" text-anchor="middle">x[2]</text>
+    <circle cx="80" cy="290" r="16" fill="#e8f0fe" stroke="#446688" stroke-width="1.5"/>
+    <text x="80" y="294" text-anchor="middle">x[3]</text>
+    <circle cx="80" cy="350" r="16" fill="#e8f0fe" stroke="#446688" stroke-width="1.5"/>
+    <text x="80" y="354" text-anchor="middle">x[4]</text>
+    <circle cx="80" cy="410" r="16" fill="#e8f0fe" stroke="#446688" stroke-width="1.5"/>
+    <text x="80" y="414" text-anchor="middle">x[5]</text>
+    <circle cx="80" cy="470" r="16" fill="#e8f0fe" stroke="#446688" stroke-width="1.5"/>
+    <text x="80" y="474" text-anchor="middle">x[6]</text>
+    <circle cx="80" cy="530" r="16" fill="#e8f0fe" stroke="#446688" stroke-width="1.5"/>
+    <text x="80" y="534" text-anchor="middle">x[7]</text>
+  </g>
+
+  <!-- ===== Bit-reversal permutation lines ===== -->
+  <g filter="url(#rough2)" stroke="#999" stroke-width="1" fill="none">
+    <!-- x[0] (000) -> 0 (000) -->
+    <line x1="96" y1="110" x2="184" y2="110" marker-end="url(#arr)"/>
+    <!-- x[1] (001) -> 4 (100) -->
+    <line x1="96" y1="170" x2="184" y2="350" marker-end="url(#arr)"/>
+    <!-- x[2] (010) -> 2 (010) -->
+    <line x1="96" y1="230" x2="184" y2="230" marker-end="url(#arr)"/>
+    <!-- x[3] (011) -> 6 (110) -->
+    <line x1="96" y1="290" x2="184" y2="470" marker-end="url(#arr)"/>
+    <!-- x[4] (100) -> 1 (001) -->
+    <line x1="96" y1="350" x2="184" y2="170" marker-end="url(#arr)"/>
+    <!-- x[5] (101) -> 5 (101) -->
+    <line x1="96" y1="410" x2="184" y2="410" marker-end="url(#arr)"/>
+    <!-- x[6] (110) -> 3 (011) -->
+    <line x1="96" y1="470" x2="184" y2="290" marker-end="url(#arr)"/>
+    <!-- x[7] (111) -> 7 (111) -->
+    <line x1="96" y1="530" x2="184" y2="530" marker-end="url(#arr)"/>
+  </g>
+
+  <!-- ===== Bit-reversed nodes ===== -->
+  <g filter="url(#rough2)" font-size="10" fill="#d6a040">
+    <circle cx="200" cy="110" r="16" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5"/>
+    <text x="200" y="114" text-anchor="middle">a[0]</text>
+    <circle cx="200" cy="170" r="16" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5"/>
+    <text x="200" y="174" text-anchor="middle">a[4]</text>
+    <circle cx="200" cy="230" r="16" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5"/>
+    <text x="200" y="234" text-anchor="middle">a[2]</text>
+    <circle cx="200" cy="290" r="16" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5"/>
+    <text x="200" y="294" text-anchor="middle">a[6]</text>
+    <circle cx="200" cy="350" r="16" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5"/>
+    <text x="200" y="354" text-anchor="middle">a[1]</text>
+    <circle cx="200" cy="410" r="16" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5"/>
+    <text x="200" y="414" text-anchor="middle">a[5]</text>
+    <circle cx="200" cy="470" r="16" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5"/>
+    <text x="200" y="474" text-anchor="middle">a[3]</text>
+    <circle cx="200" cy="530" r="16" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5"/>
+    <text x="200" y="534" text-anchor="middle">a[7]</text>
+  </g>
+
+  <!-- ===== Stage 1 butterflies (m=2, m2=1): pairs (0,1)(2,3)(4,5)(6,6,7) ===== -->
+  <!-- Butterfly: a[0],a[4] -> W2^0 -->
+  <g filter="url(#rough2)" stroke="#d6a040" stroke-width="1.2" fill="none">
+    <line x1="216" y1="110" x2="324" y2="110"/>
+    <line x1="216" y1="170" x2="324" y2="170"/>
+    <line x1="216" y1="110" x2="324" y2="170" stroke-dasharray="4,2"/>
+    <line x1="216" y1="170" x2="324" y2="110" stroke-dasharray="4,2"/>
+    <text x="270" y="102" text-anchor="middle" font-size="9" fill="#b85450" stroke="none">W₂⁰=1</text>
+  </g>
+  <!-- Butterfly: a[2],a[6] -->
+  <g filter="url(#rough2)" stroke="#d6a040" stroke-width="1.2" fill="none">
+    <line x1="216" y1="230" x2="324" y2="230"/>
+    <line x1="216" y1="290" x2="324" y2="290"/>
+    <line x1="216" y1="230" x2="324" y2="290" stroke-dasharray="4,2"/>
+    <line x1="216" y1="290" x2="324" y2="230" stroke-dasharray="4,2"/>
+    <text x="270" y="222" text-anchor="middle" font-size="9" fill="#b85450" stroke="none">W₂⁰=1</text>
+  </g>
+  <!-- Butterfly: a[1],a[5] -->
+  <g filter="url(#rough2)" stroke="#d6a040" stroke-width="1.2" fill="none">
+    <line x1="216" y1="350" x2="324" y2="350"/>
+    <line x1="216" y1="410" x2="324" y2="410"/>
+    <line x1="216" y1="350" x2="324" y2="410" stroke-dasharray="4,2"/>
+    <line x1="216" y1="410" x2="324" y2="350" stroke-dasharray="4,2"/>
+    <text x="270" y="342" text-anchor="middle" font-size="9" fill="#b85450" stroke="none">W₂⁰=1</text>
+  </g>
+  <!-- Butterfly: a[3],a[7] -->
+  <g filter="url(#rough2)" stroke="#d6a040" stroke-width="1.2" fill="none">
+    <line x1="216" y1="470" x2="324" y2="470"/>
+    <line x1="216" y1="530" x2="324" y2="530"/>
+    <line x1="216" y1="470" x2="324" y2="530" stroke-dasharray="4,2"/>
+    <line x1="216" y1="530" x2="324" y2="470" stroke-dasharray="4,2"/>
+    <text x="270" y="462" text-anchor="middle" font-size="9" fill="#b85450" stroke="none">W₂⁰=1</text>
+  </g>
+
+  <!-- Stage 1 output nodes -->
+  <g filter="url(#rough2)" font-size="9" fill="#d6a040">
+    <circle cx="340" cy="110" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="340" y="113" text-anchor="middle">b0</text>
+    <circle cx="340" cy="170" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="340" y="173" text-anchor="middle">b1</text>
+    <circle cx="340" cy="230" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="340" y="233" text-anchor="middle">b2</text>
+    <circle cx="340" cy="290" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="340" y="293" text-anchor="middle">b3</text>
+    <circle cx="340" cy="350" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="340" y="353" text-anchor="middle">b4</text>
+    <circle cx="340" cy="410" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="340" y="413" text-anchor="middle">b5</text>
+    <circle cx="340" cy="470" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="340" y="473" text-anchor="middle">b6</text>
+    <circle cx="340" cy="530" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="340" y="533" text-anchor="middle">b7</text>
+  </g>
+
+  <!-- ===== Stage 2 butterflies (m=4, m2=2): groups (0,1,2,3) and (4,5,6,7) ===== -->
+  <!-- Group 1: b0,b1,b2,b3 → W4^0, W4^1 -->
+  <g filter="url(#rough2)" stroke="#d6a040" stroke-width="1.2" fill="none">
+    <line x1="354" y1="110" x2="464" y2="110"/>
+    <line x1="354" y1="230" x2="464" y2="230"/>
+    <line x1="354" y1="110" x2="464" y2="230" stroke-dasharray="4,2"/>
+    <line x1="354" y1="230" x2="464" y2="110" stroke-dasharray="4,2"/>
+    <text x="410" y="102" text-anchor="middle" font-size="9" fill="#b85450" stroke="none">W₄⁰=1</text>
+    <!-- b1,b3 -->
+    <line x1="354" y1="170" x2="464" y2="170"/>
+    <line x1="354" y1="290" x2="464" y2="290"/>
+    <line x1="354" y1="170" x2="464" y2="290" stroke-dasharray="4,2"/>
+    <line x1="354" y1="290" x2="464" y2="170" stroke-dasharray="4,2"/>
+    <text x="410" y="162" text-anchor="middle" font-size="9" fill="#b85450" stroke="none">W₄¹=-i</text>
+  </g>
+  <!-- Group 2: b4,b5,b6,b7 -->
+  <g filter="url(#rough2)" stroke="#d6a040" stroke-width="1.2" fill="none">
+    <line x1="354" y1="350" x2="464" y2="350"/>
+    <line x1="354" y1="470" x2="464" y2="470"/>
+    <line x1="354" y1="350" x2="464" y2="470" stroke-dasharray="4,2"/>
+    <line x1="354" y1="470" x2="464" y2="350" stroke-dasharray="4,2"/>
+    <text x="410" y="342" text-anchor="middle" font-size="9" fill="#b85450" stroke="none">W₄⁰=1</text>
+    <line x1="354" y1="410" x2="464" y2="410"/>
+    <line x1="354" y1="530" x2="464" y2="530"/>
+    <line x1="354" y1="410" x2="464" y2="530" stroke-dasharray="4,2"/>
+    <line x1="354" y1="530" x2="464" y2="410" stroke-dasharray="4,2"/>
+    <text x="410" y="402" text-anchor="middle" font-size="9" fill="#b85450" stroke="none">W₄¹=-i</text>
+  </g>
+
+  <!-- Stage 2 output nodes -->
+  <g filter="url(#rough2)" font-size="9" fill="#d6a040">
+    <circle cx="480" cy="110" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="480" y="113" text-anchor="middle">c0</text>
+    <circle cx="480" cy="170" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="480" y="173" text-anchor="middle">c1</text>
+    <circle cx="480" cy="230" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="480" y="233" text-anchor="middle">c2</text>
+    <circle cx="480" cy="290" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="480" y="293" text-anchor="middle">c3</text>
+    <circle cx="480" cy="350" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="480" y="353" text-anchor="middle">c4</text>
+    <circle cx="480" cy="410" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="480" y="413" text-anchor="middle">c5</text>
+    <circle cx="480" cy="470" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="480" y="473" text-anchor="middle">c6</text>
+    <circle cx="480" cy="530" r="14" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="480" y="533" text-anchor="middle">c7</text>
+  </g>
+
+  <!-- ===== Stage 3 butterflies (m=8, m2=4): one group all 8 elements ===== -->
+  <g filter="url(#rough2)" stroke="#4a7a3a" stroke-width="1.2" fill="none">
+    <!-- c0,c4 → W8^0 -->
+    <line x1="494" y1="110" x2="604" y2="110"/>
+    <line x1="494" y1="350" x2="604" y2="350"/>
+    <line x1="494" y1="110" x2="604" y2="350" stroke-dasharray="4,2"/>
+    <line x1="494" y1="350" x2="604" y2="110" stroke-dasharray="4,2"/>
+    <text x="549" y="102" text-anchor="middle" font-size="9" fill="#b85450" stroke="none">W₈⁰=1</text>
+    <!-- c1,c5 → W8^1 -->
+    <line x1="494" y1="170" x2="604" y2="170"/>
+    <line x1="494" y1="410" x2="604" y2="410"/>
+    <line x1="494" y1="170" x2="604" y2="410" stroke-dasharray="4,2"/>
+    <line x1="494" y1="410" x2="604" y2="170" stroke-dasharray="4,2"/>
+    <text x="549" y="162" text-anchor="middle" font-size="9" fill="#b85450" stroke="none">W₈¹</text>
+    <!-- c2,c6 → W8^2 -->
+    <line x1="494" y1="230" x2="604" y2="230"/>
+    <line x1="494" y1="470" x2="604" y2="470"/>
+    <line x1="494" y1="230" x2="604" y2="470" stroke-dasharray="4,2"/>
+    <line x1="494" y1="470" x2="604" y2="230" stroke-dasharray="4,2"/>
+    <text x="549" y="222" text-anchor="middle" font-size="9" fill="#b85450" stroke="none">W₈²=-i</text>
+    <!-- c3,c7 → W8^3 -->
+    <line x1="494" y1="290" x2="604" y2="290"/>
+    <line x1="494" y1="530" x2="604" y2="530"/>
+    <line x1="494" y1="290" x2="604" y2="530" stroke-dasharray="4,2"/>
+    <line x1="494" y1="530" x2="604" y2="290" stroke-dasharray="4,2"/>
+    <text x="549" y="282" text-anchor="middle" font-size="9" fill="#b85450" stroke="none">W₈³</text>
+  </g>
+
+  <!-- ===== Output nodes (natural order) ===== -->
+  <g filter="url(#rough2)" font-size="11" fill="#4a7a3a">
+    <circle cx="620" cy="110" r="16" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5"/>
+    <text x="620" y="114" text-anchor="middle">X[0]</text>
+    <circle cx="620" cy="170" r="16" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5"/>
+    <text x="620" y="174" text-anchor="middle">X[1]</text>
+    <circle cx="620" cy="230" r="16" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5"/>
+    <text x="620" y="234" text-anchor="middle">X[2]</text>
+    <circle cx="620" cy="290" r="16" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5"/>
+    <text x="620" y="294" text-anchor="middle">X[3]</text>
+    <circle cx="620" cy="350" r="16" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5"/>
+    <text x="620" y="354" text-anchor="middle">X[4]</text>
+    <circle cx="620" cy="410" r="16" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5"/>
+    <text x="620" y="414" text-anchor="middle">X[5]</text>
+    <circle cx="620" cy="470" r="16" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5"/>
+    <text x="620" y="474" text-anchor="middle">X[6]</text>
+    <circle cx="620" cy="530" r="16" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5"/>
+    <text x="620" y="534" text-anchor="middle">X[7]</text>
+  </g>
+
+  <!-- Arrow to output column -->
+  <g filter="url(#rough2)">
+    <line x1="640" y1="320" x2="690" y2="320" stroke="#4a7a3a" stroke-width="1.5" marker-end="url(#arr)"/>
+  </g>
+
+  <!-- ===== Butterfly formula box ===== -->
+  <g filter="url(#rough2)">
+    <rect x="640" y="360" width="110" height="170" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="6"/>
+    <text x="695" y="380" text-anchor="middle" font-size="11" font-weight="bold" fill="#b85450">蝶形公式</text>
+    <text x="650" y="400" font-size="9" fill="#333">t = W·x[j+m2]</text>
+    <text x="650" y="415" font-size="9" fill="#333">u = x[j]</text>
+    <text x="650" y="435" font-size="9" fill="#4a7a3a">x[j] = u + t</text>
+    <text x="650" y="450" font-size="9" fill="#b85450">x[j+m2] = u - t</text>
+    <text x="650" y="475" font-size="9" fill="#666">实线: u±t (加法)</text>
+    <text x="650" y="490" font-size="9" fill="#666">虚线: W·x (旋转)</text>
+    <text x="650" y="510" font-size="8" fill="#999">W = e^(-2πi/m)</text>
+    <text x="650" y="522" font-size="8" fill="#999">每级 N/2 个蝶形</text>
+  </g>
+</svg>

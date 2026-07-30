@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 540" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="12" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+    <marker id="ar3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="880" height="540" fill="#fdfcf7"/>
+
+  <text x="440" y="28" text-anchor="middle" font-size="17" font-weight="bold" fill="#2b2b2b">逐步演算：x=[1,2,3,4] + residual=[3,2,1,0] 的 Fused Add+RMSNorm</text>
+  <path d="M 180 36 Q 440 44 700 36" stroke="#2b2b2b" stroke-width="1.4" fill="none" filter="url(#sk)"/>
+
+  <!-- 输入 -->
+  <g filter="url(#sk)">
+    <text x="40" y="75" font-size="11" fill="#2b6e9e" font-weight="bold">输入 (D=4, γ=[1,1,1,1], eps=1e-5):</text>
+    <!-- x row -->
+    <text x="40" y="98" font-size="10.5" fill="#444">x        =</text>
+    <rect x="100" y="85" width="44" height="22" rx="3" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.2" filter="url(#sk)"/>
+    <text x="122" y="101" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">1</text>
+    <rect x="148" y="85" width="44" height="22" rx="3" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.2" filter="url(#sk)"/>
+    <text x="170" y="101" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">2</text>
+    <rect x="196" y="85" width="44" height="22" rx="3" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.2" filter="url(#sk)"/>
+    <text x="218" y="101" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">3</text>
+    <rect x="244" y="85" width="44" height="22" rx="3" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.2" filter="url(#sk)"/>
+    <text x="266" y="101" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">4</text>
+    <!-- residual row -->
+    <text x="40" y="128" font-size="10.5" fill="#444">residual =</text>
+    <rect x="100" y="115" width="44" height="22" rx="3" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.2" filter="url(#sk)"/>
+    <text x="122" y="131" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">3</text>
+    <rect x="148" y="115" width="44" height="22" rx="3" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.2" filter="url(#sk)"/>
+    <text x="170" y="131" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">2</text>
+    <rect x="196" y="115" width="44" height="22" rx="3" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.2" filter="url(#sk)"/>
+    <text x="218" y="131" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">1</text>
+    <rect x="244" y="115" width="44" height="22" rx="3" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.2" filter="url(#sk)"/>
+    <text x="266" y="131" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">0</text>
+  </g>
+
+  <!-- Pass 1 box -->
+  <g filter="url(#sk)"><rect x="350" y="70" width="500" height="100" rx="8" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/></g>
+  <text x="600" y="92" text-anchor="middle" font-size="11.5" fill="#2e6e2e" font-weight="bold">Pass 1：add + sum_sq（每 thread 处理 1 元素）</text>
+
+  <!-- h row -->
+  <text x="370" y="116" font-size="10" fill="#b85450" font-weight="bold">h = x+res</text>
+  <g filter="url(#sk)">
+    <rect x="445" y="103" width="44" height="22" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <text x="467" y="119" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">4</text>
+    <rect x="493" y="103" width="44" height="22" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <text x="515" y="119" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">4</text>
+    <rect x="541" y="103" width="44" height="22" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <text x="563" y="119" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">4</text>
+    <rect x="589" y="103" width="44" height="22" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <text x="611" y="119" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">4</text>
+  </g>
+  <text x="650" y="119" font-size="9" fill="#b85450">register ✓</text>
+
+  <!-- h² row -->
+  <text x="370" y="148" font-size="10" fill="#2b6e9e" font-weight="bold">h²</text>
+  <g filter="url(#sk)">
+    <rect x="445" y="135" width="44" height="22" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="467" y="151" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">16</text>
+    <rect x="493" y="135" width="44" height="22" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="515" y="151" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">16</text>
+    <rect x="541" y="135" width="44" height="22" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="563" y="151" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">16</text>
+    <rect x="589" y="135" width="44" height="22" rx="3" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2"/>
+    <text x="611" y="151" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">16</text>
+  </g>
+  <path d="M 290 100 L 348 110" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar3)" filter="url(#sk)"/>
+
+  <!-- 归约结果 -->
+  <g filter="url(#sk)"><rect x="40" y="195" width="810" height="95" rx="8" fill="#fff8e1" stroke="#d6a040" stroke-width="1.4"/></g>
+  <text x="55" y="218" font-size="11" fill="#7a5415" font-weight="bold">块归约结果：</text>
+  <text x="55" y="240" font-size="10.5" fill="#444">sum_sq   = 16 + 16 + 16 + 16 = <tspan font-weight="bold" fill="#7a5415">64</tspan></text>
+  <text x="55" y="258" font-size="10.5" fill="#444">mean_sq  = 64 / 4 = <tspan font-weight="bold" fill="#7a5415">16.0</tspan></text>
+  <text x="55" y="276" font-size="10.5" fill="#444">rrms     = rsqrt(16.0 + 1e-5) = <tspan font-weight="bold" fill="#b85450">0.25000</tspan>     ← 广播到全 block</text>
+  <path d="M 615 175 Q 500 185 350 200" stroke="#5a5a5a" stroke-width="1.2" fill="none" marker-end="url(#ar3)" filter="url(#sk)"/>
+  <text x="480" y="190" font-size="9" fill="#d6a040" font-weight="bold">block_reduce_sum</text>
+
+  <!-- Pass 2 box -->
+  <g filter="url(#sk)"><rect x="350" y="305" width="500" height="115" rx="8" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.4"/></g>
+  <text x="600" y="327" text-anchor="middle" font-size="11.5" fill="#2e6e2e" font-weight="bold">Pass 2：重算 h + 归一化写回</text>
+
+  <!-- 重算 h -->
+  <text x="370" y="351" font-size="10" fill="#b85450" font-weight="bold">h(重算)</text>
+  <g filter="url(#sk)">
+    <rect x="445" y="338" width="44" height="22" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <text x="467" y="354" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">4</text>
+    <rect x="493" y="338" width="44" height="22" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <text x="515" y="354" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">4</text>
+    <rect x="541" y="338" width="44" height="22" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <text x="563" y="354" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">4</text>
+    <rect x="589" y="338" width="44" height="22" rx="3" fill="#fce4ec" stroke="#b85450" stroke-width="1.2"/>
+    <text x="611" y="354" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">4</text>
+  </g>
+  <text x="650" y="354" font-size="9" fill="#7a5415">命中 cache</text>
+
+  <!-- y row -->
+  <text x="370" y="383" font-size="10" fill="#2e6e2e" font-weight="bold">y=h·rrms·γ</text>
+  <g filter="url(#sk)">
+    <rect x="445" y="370" width="44" height="22" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+    <text x="467" y="386" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">1.0</text>
+    <rect x="493" y="370" width="44" height="22" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+    <text x="515" y="386" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">1.0</text>
+    <rect x="541" y="370" width="44" height="22" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+    <text x="563" y="386" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">1.0</text>
+    <rect x="589" y="370" width="44" height="22" rx="3" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.4"/>
+    <text x="611" y="386" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">1.0</text>
+  </g>
+  <text x="650" y="386" font-size="9" fill="#2e6e2e" font-weight="bold">= 4·0.25·1</text>
+  <text x="370" y="408" font-size="9.5" fill="#444">→ y = [1.0, 1.0, 1.0, 1.0] ✓</text>
+
+  <!-- 左侧对比：朴素版需物化 temp -->
+  <g filter="url(#sk)"><rect x="40" y="305" width="290" height="115" rx="8" fill="#fff3f0" stroke="#b85450" stroke-width="1.2" stroke-dasharray="5 3"/></g>
+  <text x="55" y="328" font-size="10.5" fill="#b85450" font-weight="bold">朴素版对照（被融合消除的步骤）：</text>
+  <text x="55" y="348" font-size="9.5" fill="#b85450">Kernel 1: temp = x + res → 写 HBM</text>
+  <text x="65" y="363" font-size="9" fill="#b85450">temp = [4,4,4,4]  ← 物化到 HBM</text>
+  <text x="55" y="383" font-size="9.5" fill="#b85450">Kernel 2: 读 temp → rmsnorm</text>
+  <text x="65" y="398" font-size="9" fill="#b85450">读回 temp = [4,4,4,4] ← 再读 HBM</text>
+  <text x="55" y="413" font-size="9" fill="#b85450" font-weight="bold">↑ 这两步在融合版中完全消失</text>
+
+  <!-- 底部洞察 -->
+  <g filter="url(#sk)"><rect x="40" y="445" width="810" height="50" rx="6" fill="#e8f0fe" stroke="#4a8edb" stroke-width="1.2"/></g>
+  <text x="55" y="466" font-size="10.5" fill="#2b6e9e" font-weight="bold">关键洞察：</text>
+  <text x="135" y="466" font-size="10" fill="#444">融合版 h=[4,4,4,4] 全程在 register 计算，朴素版则要把它写进 HBM 再读出来。</text>
+  <text x="135" y="483" font-size="10" fill="#444">计算量完全相同（甚至 Pass 2 重算了一遍 h），但省掉了 temp 的 2·MD 字节 HBM 往返 → memory-bound 场景下直接省 40% 延迟。</text>
+</svg>

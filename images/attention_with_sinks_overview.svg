@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="480" viewBox="0 0 940 480" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="11" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
+    </filter>
+  </defs>
+  <rect width="940" height="480" fill="#fdfcf7"/>
+  <text x="470" y="34" text-anchor="middle" font-size="20" font-weight="bold" fill="#2b2b2b">Attention with Sinks：一行 query 一个 block，融合 online softmax</text>
+  <path d="M 280 42 Q 470 50 660 42" stroke="#2b2b2b" stroke-width="1.5" fill="none" filter="url(#sk)"/>
+
+  <!-- left: grid blocks (one block per query row) -->
+  <text x="120" y="76" text-anchor="middle" font-size="12" font-weight="bold" fill="#444">并行策略：M 个 block，每 block 一行 query</text>
+  <g filter="url(#sk)">
+    <rect x="40" y="92" width="160" height="34" rx="5" fill="#e8f0fa" stroke="#4a8edb"/>
+    <text x="120" y="114" text-anchor="middle" font-size="11" fill="#2b6e9e">block 0 → output[0]</text>
+    <rect x="40" y="130" width="160" height="34" rx="5" fill="#e8f0fa" stroke="#4a8edb"/>
+    <text x="120" y="152" text-anchor="middle" font-size="11" fill="#2b6e9e">block 1 → output[1]</text>
+    <rect x="40" y="168" width="160" height="34" rx="5" fill="#e8f0fa" stroke="#4a8edb"/>
+    <text x="120" y="190" text-anchor="middle" font-size="11" fill="#2b6e9e">block 2 → output[2]</text>
+    <rect x="40" y="206" width="160" height="34" rx="5" fill="#fff8e1" stroke="#d6a040"/>
+    <text x="120" y="228" text-anchor="middle" font-size="11" fill="#7a5415">block i → output[i]</text>
+    <rect x="40" y="244" width="160" height="24" rx="5" fill="#eee" stroke="#bbb" stroke-dasharray="3 2"/>
+    <text x="120" y="260" text-anchor="middle" font-size="10" fill="#999">...</text>
+    <rect x="40" y="272" width="160" height="34" rx="5" fill="#e8f0fa" stroke="#4a8edb"/>
+    <text x="120" y="294" text-anchor="middle" font-size="11" fill="#2b6e9e">block M-1 → output[M-1]</text>
+  </g>
+  <text x="120" y="328" text-anchor="middle" font-size="10" fill="#666">每 block 内 BLOCK_SIZE=128 thread</text>
+  <text x="120" y="344" text-anchor="middle" font-size="10" fill="#666">协作算点积 + 累加 V</text>
+
+  <!-- arrow to kernel internals -->
+  <path d="M 210 224 L 250 224" stroke="#2b2b2b" stroke-width="1.6" fill="none" marker-end="url(#a1)" filter="url(#sk)"/>
+  <defs>
+    <marker id="a1" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#2b2b2b"/>
+    </marker>
+  </defs>
+
+  <!-- right: kernel internals for block i -->
+  <text x="600" y="76" text-anchor="middle" font-size="12" font-weight="bold" fill="#444">block i 内部：online softmax 三步循环</text>
+  <g filter="url(#sk)">
+    <!-- Q load -->
+    <rect x="270" y="92" width="180" height="40" rx="6" fill="#dbeafe" stroke="#4a8edb"/>
+    <text x="360" y="116" text-anchor="middle" font-size="11" fill="#2b6e9e">① 载入 Q[i] → shared memory</text>
+    <!-- init -->
+    <rect x="270" y="138" width="180" height="34" rx="6" fill="#eee" stroke="#bbb"/>
+    <text x="360" y="160" text-anchor="middle" font-size="11" fill="#666">init: m=-∞, l=0, acc=0</text>
+    <!-- loop box -->
+    <rect x="252" y="182" width="216" height="170" rx="8" fill="#fff8e1" stroke="#d6a040" stroke-dasharray="4 3"/>
+    <text x="360" y="200" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5415">for j = 0 .. i（仅允许的 j）</text>
+    <!-- step 1 dot -->
+    <rect x="266" y="210" width="188" height="34" rx="5" fill="#bfe0bf" stroke="#4a8e4a"/>
+    <text x="360" y="232" text-anchor="middle" font-size="10" fill="#2e6e2e">② s = dot(Q[i],K[j])·scale（block 归约）</text>
+    <!-- step 2 online softmax -->
+    <rect x="266" y="250" width="188" height="34" rx="5" fill="#bfe0bf" stroke="#4a8e4a"/>
+    <text x="360" y="272" text-anchor="middle" font-size="10" fill="#2e6e2e">③ 更新 m,l,corr,p（tid=0 → 广播）</text>
+    <!-- step 3 accumulate -->
+    <rect x="266" y="290" width="188" height="34" rx="5" fill="#bfe0bf" stroke="#4a8e4a"/>
+    <text x="360" y="312" text-anchor="middle" font-size="10" fill="#2e6e2e">④ acc = acc·corr + p·V[j]（每 thread 一维）</text>
+    <!-- mask check -->
+    <text x="360" y="340" text-anchor="middle" font-size="9" fill="#b85450">if (j≥num_sinks &amp;&amp; j&lt;win_start) continue;</text>
+  </g>
+  <!-- arrows down -->
+  <path d="M 360 132 L 360 138" stroke="#2b2b2b" stroke-width="1.4" fill="none" marker-end="url(#a1)" filter="url(#sk)"/>
+  <path d="M 360 172 L 360 182" stroke="#2b2b2b" stroke-width="1.4" fill="none" marker-end="url(#a1)" filter="url(#sk)"/>
+
+  <!-- final normalize -->
+  <g filter="url(#sk)">
+    <rect x="500" y="220" width="170" height="40" rx="6" fill="#fce4ec" stroke="#b85450"/>
+    <text x="585" y="245" text-anchor="middle" font-size="11" fill="#b03a3a">⑤ output[i] = acc / l</text>
+  </g>
+  <path d="M 468 308 Q 490 270 500 250" stroke="#b85450" stroke-width="1.6" fill="none" marker-end="url(#a1)" filter="url(#sk)"/>
+  <text x="492" y="300" font-size="9" fill="#b85450">循环结束</text>
+
+  <!-- key insight -->
+  <g filter="url(#sk)">
+    <rect x="500" y="290" width="400" height="110" rx="8" fill="#e6f4ea" stroke="#4a7a3a"/>
+  </g>
+  <text x="520" y="314" font-size="12" font-weight="bold" fill="#2e5a22">为什么不物化 S/P？</text>
+  <text x="520" y="334" font-size="11" fill="#444">朴素法要先算 M×M 的 score 矩阵 S、softmax 矩阵 P</text>
+  <text x="520" y="352" font-size="11" fill="#444">再 P@V 得输出 — 中间矩阵吃 O(M²) 显存</text>
+  <text x="520" y="372" font-size="11" fill="#b03a3a">融合版：s 是标量，算完即用，永不落 HBM</text>
+  <text x="520" y="390" font-size="11" fill="#2e6e2e">online softmax 把 max/sum/acc 增量更新一遍搞定</text>
+
+  <!-- allowed set note -->
+  <g filter="url(#sk)">
+    <rect x="40" y="380" width="420" height="84" rx="8" fill="#e8f0fa" stroke="#4a8edb"/>
+  </g>
+  <text x="60" y="404" font-size="12" font-weight="bold" fill="#2b6e9e">允许集 = { j : j≤i ∧ (j&lt;num_sinks ∨ j≥i-window+1) }</text>
+  <text x="60" y="424" font-size="11" fill="#444">= sink 段 [0, num_sinks) ∪ window 段 [i-window+1, i]</text>
+  <text x="60" y="442" font-size="11" fill="#7a5415">两段不重叠（window 从 num_sinks 起）→ 不重不漏</text>
+  <text x="60" y="458" font-size="11" fill="#666">每行仅遍历 O(window+num_sinks) 个 key 而非 O(M)</text>
+</svg>

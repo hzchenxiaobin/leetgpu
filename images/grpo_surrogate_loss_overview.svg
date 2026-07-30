@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 440" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="660" height="440" fill="#fafafa"/>
+
+  <text x="330" y="28" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">GRPO Surrogate Loss 概览：两阶段融合 kernel</text>
+  <text x="330" y="48" text-anchor="middle" font-size="11" fill="#888">① 组内归约求 advantage → ② 全融合逐 token 计算 + 全局归约出标量</text>
+
+  <!-- ===== Inputs (left) ===== -->
+  <text x="70" y="92" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">输入</text>
+  <rect x="22" y="100" width="96" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.3" rx="4" filter="url(#rough2)"/>
+  <text x="70" y="120" text-anchor="middle" font-size="10" fill="#446688">rewards (B,G)</text>
+  <rect x="22" y="138" width="96" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.3" rx="4" filter="url(#rough2)"/>
+  <text x="70" y="158" text-anchor="middle" font-size="10" fill="#446688">log_pi (B,G,S)</text>
+  <rect x="22" y="176" width="96" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.3" rx="4" filter="url(#rough2)"/>
+  <text x="70" y="196" text-anchor="middle" font-size="10" fill="#446688">log_pi_old (B,G,S)</text>
+  <rect x="22" y="214" width="96" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.3" rx="4" filter="url(#rough2)"/>
+  <text x="70" y="234" text-anchor="middle" font-size="10" fill="#446688">log_ref (B,G,S)</text>
+
+  <!-- ===== Kernel 1: advantage ===== -->
+  <line x1="120" y1="115" x2="170" y2="115" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <rect x="172" y="86" width="150" height="60" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="247" y="106" text-anchor="middle" font-size="11" fill="#d6a040" font-weight="bold">① compute_advantages</text>
+  <text x="247" y="124" text-anchor="middle" font-size="9" fill="#555">1 warp / batch</text>
+  <text x="247" y="138" text-anchor="middle" font-size="9" fill="#555">warp shuffle 求 mean/std</text>
+
+  <!-- advantage intermediate -->
+  <line x1="324" y1="116" x2="374" y2="116" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <rect x="376" y="100" width="110" height="34" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="431" y="122" text-anchor="middle" font-size="10" fill="#d6a040">advantages (B,G)</text>
+
+  <!-- ===== Kernel 2: fused loss ===== -->
+  <line x1="120" y1="185" x2="170" y2="185" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="120" y1="205" x2="170" y2="205" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="120" y1="225" x2="170" y2="225" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="431" y1="136" x2="431" y2="175" stroke="#666" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="452" y="160" font-size="8" fill="#888">广播 adv</text>
+
+  <rect x="172" y="158" width="314" height="96" fill="#fce4ec" stroke="#b85450" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="329" y="180" text-anchor="middle" font-size="11" fill="#b85450" font-weight="bold">② grpo_loss_kernel（全融合）</text>
+  <text x="329" y="198" text-anchor="middle" font-size="9" fill="#555">1 block / (b,g) 组，grid-stride 扫 S 个 token</text>
+  <text x="329" y="214" text-anchor="middle" font-size="9" fill="#555">ratio→clip→surrogate→kl→term 全在寄存器</text>
+  <text x="329" y="230" text-anchor="middle" font-size="9" fill="#555">block_reduce_sum + atomicAdd(output)</text>
+  <text x="329" y="246" text-anchor="middle" font-size="9" fill="#b85450">读 3 遍 (B,G,S)，无中间数组</text>
+
+  <!-- ===== Output ===== -->
+  <line x1="490" y1="206" x2="548" y2="206" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="519" y="198" text-anchor="middle" font-size="9" fill="#888">atomicAdd</text>
+  <rect x="550" y="180" width="84" height="56" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="592" y="206" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">output</text>
+  <text x="592" y="224" text-anchor="middle" font-size="9" fill="#888">(1,) 标量</text>
+  <text x="592" y="238" text-anchor="middle" font-size="9" fill="#888">= -mean</text>
+
+  <!-- ===== Bottom: reduction structure ===== -->
+  <text x="330" y="296" text-anchor="middle" font-size="13" fill="#444" font-weight="bold">两级归约结构</text>
+
+  <rect x="48" y="312" width="150" height="44" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="5" filter="url(#rough2)"/>
+  <text x="123" y="332" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">组内归约（G 维）</text>
+  <text x="123" y="348" text-anchor="middle" font-size="9" fill="#555">warp shuffle: mean, std</text>
+
+  <rect x="254" y="312" width="150" height="44" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="5" filter="url(#rough2)"/>
+  <text x="329" y="332" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">全局归约（B·G·S 维）</text>
+  <text x="329" y="348" text-anchor="middle" font-size="9" fill="#555">block reduce + atomicAdd</text>
+
+  <rect x="460" y="312" width="150" height="44" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="5" filter="url(#rough2)"/>
+  <text x="535" y="332" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">标量损失</text>
+  <text x="535" y="348" text-anchor="middle" font-size="9" fill="#555">output[0] = -mean</text>
+
+  <line x1="200" y1="334" x2="252" y2="334" stroke="#666" stroke-width="1.3" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="406" y1="334" x2="458" y2="334" stroke="#666" stroke-width="1.3" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <text x="330" y="392" text-anchor="middle" font-size="10" fill="#888">朴素版需 6 个 (B,G,S) 中间数组（12 遍 HBM）；融合后 3 遍读 + 1 标量写</text>
+  <text x="330" y="410" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">HBM 流量降到 ~1/4，memory-bound 收益最大</text>
+</svg>
