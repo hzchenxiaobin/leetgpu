@@ -40,6 +40,37 @@ def _rewrite_md_links_to_html(markdown_text: str) -> str:
     return re.sub(r"\]\((?!https?://|#)([^)]+)\)", replace_link, markdown_text)
 
 
+# leetgpu.com challenge slugs that differ from the local solution file slug
+CHALLENGE_SLUG_ALIASES = {
+    "general-matrix-multiplication-gemm": "gemm",
+    "sigmoid-activation": "sigmoid",
+}
+
+
+def _rewrite_challenge_links(markdown_text: str, solution_slugs: set) -> str:
+    """Rewrite leetgpu.com challenge links inside the 同类练习题 section to the
+    local solution page (./leetgpu-<slug>-solution.html) when a solution exists.
+    Links outside that section (e.g. the problem statement URL) stay external.
+    """
+
+    def replace_link(match):
+        slug = match.group(1)
+        slug = CHALLENGE_SLUG_ALIASES.get(slug, slug)
+        if slug in solution_slugs:
+            return f"](./leetgpu-{slug}-solution.html)"
+        return match.group(0)
+
+    section = re.search(r"^## 同类练习题\n.*?(?=^## |\Z)", markdown_text, re.MULTILINE | re.DOTALL)
+    if not section:
+        return markdown_text
+    rewritten = re.sub(
+        r"\]\(https://leetgpu\.com/challenges/([a-z0-9-]+)\)",
+        replace_link,
+        section.group(0),
+    )
+    return markdown_text[: section.start()] + rewritten + markdown_text[section.end() :]
+
+
 def _parse_title(markdown_text: str) -> str:
     match = re.search(r"^#\s+(.+)$", markdown_text, re.MULTILINE)
     return match.group(1).strip() if match else "题解"
@@ -200,6 +231,10 @@ def build(public_dir: Path) -> None:
         [{"title": s["display_title"], "slug": _challenge_slug(s["slug"])} for s in unique_solutions],
         ensure_ascii=False,
     )
+
+    solution_slugs = {_challenge_slug(s["slug"]) for s in unique_solutions}
+    for s in solutions:
+        s["markdown"] = _rewrite_challenge_links(s["markdown"], solution_slugs)
 
     overview_markdown = f"""<div class="random-pick">
   <button id="random-pick-btn" class="random-btn" data-problems='{problems_json}'>🎲 随机选一道题练习</button>
