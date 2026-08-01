@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 400" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="560" height="400" fill="#fafafa"/>
+
+  <text x="280" y="24" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">DPO Sequence Loss：融合 kernel 数据流</text>
+  <text x="280" y="42" text-anchor="middle" font-size="11" fill="#888">4 组输入 → 逐元素算 logits + softplus → block 归约 → atomicAdd → 1 个输出</text>
+
+  <!-- ===== 4 input arrays ===== -->
+  <text x="30" y="70" font-size="11" fill="#446688" font-weight="bold">输入（各 B 个 float32）</text>
+
+  <rect x="30" y="78" width="200" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="130" y="95" text-anchor="middle" font-size="10" fill="#333">chosen_logps[B]</text>
+
+  <rect x="30" y="110" width="200" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="130" y="127" text-anchor="middle" font-size="10" fill="#333">rejected_logps[B]</text>
+
+  <rect x="30" y="142" width="200" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="130" y="159" text-anchor="middle" font-size="10" fill="#333">chosen_ref_logps[B]</text>
+
+  <rect x="30" y="174" width="200" height="26" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="130" y="191" text-anchor="middle" font-size="10" fill="#333">rejected_ref_logps[B]</text>
+
+  <!-- arrows from inputs to fused compute -->
+  <line x1="230" y1="91" x2="270" y2="139" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="230" y1="123" x2="270" y2="139" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="230" y1="155" x2="270" y2="139" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <line x1="230" y1="187" x2="270" y2="139" stroke="#666" stroke-width="1" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- ===== Fused element-wise compute ===== -->
+  <rect x="270" y="108" width="180" height="62" fill="#fff8e1" stroke="#d6a040" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="360" y="124" text-anchor="middle" font-size="10" fill="#8a6d20" font-weight="bold">融合逐元素计算</text>
+  <text x="360" y="138" text-anchor="middle" font-size="9" fill="#555">margin = chosen - rejected</text>
+  <text x="360" y="150" text-anchor="middle" font-size="9" fill="#555">logits = β·(margin - ref_margin)</text>
+  <text x="360" y="162" text-anchor="middle" font-size="9" fill="#b85450" font-weight="bold">loss = softplus(-logits)</text>
+
+  <!-- arrow to reduction -->
+  <line x1="360" y1="170" x2="360" y2="210" stroke="#666" stroke-width="1.2" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- ===== Block reduction ===== -->
+  <rect x="270" y="212" width="180" height="56" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="6" filter="url(#rough2)"/>
+  <text x="360" y="228" text-anchor="middle" font-size="10" fill="#2d5a1d" font-weight="bold">Block 归约 + atomicAdd</text>
+  <text x="360" y="242" text-anchor="middle" font-size="9" fill="#555">warp shuffle → shared</text>
+  <text x="360" y="254" text-anchor="middle" font-size="9" fill="#555">→ atomicAdd(output, sum/B)</text>
+
+  <!-- arrow to output -->
+  <line x1="360" y1="268" x2="360" y2="300" stroke="#666" stroke-width="1.2" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- ===== Output ===== -->
+  <rect x="310" y="302" width="100" height="30" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="4" filter="url(#rough2)"/>
+  <text x="360" y="321" text-anchor="middle" font-size="11" fill="#333" font-weight="bold">output[0]</text>
+
+  <!-- ===== Formula box ===== -->
+  <rect x="30" y="300" width="220" height="64" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="140" y="316" text-anchor="middle" font-size="10" fill="#8a3040" font-weight="bold">DPO Loss 公式</text>
+  <text x="140" y="332" text-anchor="middle" font-size="9" fill="#555">loss = -mean(log σ(β·Δmargin))</text>
+  <text x="140" y="346" text-anchor="middle" font-size="9" fill="#555">= mean(softplus(-logits))</text>
+  <text x="140" y="358" text-anchor="middle" font-size="9" fill="#888">Δmargin = (ch-rej) - (ch_ref-rej_ref)</text>
+
+  <!-- ===== Key insight ===== -->
+  <text x="280" y="385" text-anchor="middle" font-size="10" fill="#888">4 次 global 读 + 1 次 atomicAdd → 极低算术强度，memory-bound</text>
+</svg>
