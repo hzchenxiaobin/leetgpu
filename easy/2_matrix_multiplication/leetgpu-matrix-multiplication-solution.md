@@ -357,7 +357,7 @@ __global__ void matrix_multiplication_kernel(const float* A, const float* B, flo
     const int LOAD_A = BM * BK / NUM_THREADS;
     const int LOAD_B = BK * BN / NUM_THREADS;
 
-    int num_tiles = (N + BK - 1) / BK;
+    int num_tiles = (K + BK - 1) / BK;
     for (int t = 0; t < num_tiles; ++t) {
         #pragma unroll
         for (int i = 0; i < LOAD_A; ++i) {
@@ -366,7 +366,7 @@ __global__ void matrix_multiplication_kernel(const float* A, const float* B, flo
             int c = lin % BK;
             int ar = by * BM + r;
             int ac = t * BK + c;
-            As[r][c] = (ar < M && ac < N) ? A[ar * N + ac] : 0.0f;
+            As[r][c] = (ar < M && ac < K) ? A[ar * K + ac] : 0.0f;
         }
         #pragma unroll
         for (int i = 0; i < LOAD_B; ++i) {
@@ -375,7 +375,7 @@ __global__ void matrix_multiplication_kernel(const float* A, const float* B, flo
             int c = lin % BN;
             int br = t * BK + r;
             int bc = bx * BN + c;
-            Bs[r][c] = (br < N && bc < K) ? B[br * K + bc] : 0.0f;
+            Bs[r][c] = (br < K && bc < N) ? B[br * N + bc] : 0.0f;
         }
         __syncthreads();
 
@@ -405,8 +405,8 @@ __global__ void matrix_multiplication_kernel(const float* A, const float* B, flo
         for (int j = 0; j < TN; ++j) {
             int gr = by * BM + ty * TM + i;
             int gc = bx * BN + tx * TN + j;
-            if (gr < M && gc < K) {
-                C[gr * K + gc] = acc[i][j];
+            if (gr < M && gc < N) {
+                C[gr * N + gc] = acc[i][j];
             }
         }
     }
@@ -415,7 +415,7 @@ __global__ void matrix_multiplication_kernel(const float* A, const float* B, flo
 // A, B, C are device pointers (i.e. pointers to memory on the GPU)
 extern "C" void solve(const float* A, const float* B, float* C, int M, int N, int K) {
     dim3 threadsPerBlock(NUM_THREADS);
-    dim3 blocksPerGrid((K + BN - 1) / BN, (M + BM - 1) / BM);
+    dim3 blocksPerGrid((N + BN - 1) / BN, (M + BM - 1) / BM);
 
     matrix_multiplication_kernel<<<blocksPerGrid, threadsPerBlock>>>(A, B, C, M, N, K);
     cudaDeviceSynchronize();
