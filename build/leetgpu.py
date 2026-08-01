@@ -45,6 +45,11 @@ def _parse_title(markdown_text: str) -> str:
     return match.group(1).strip() if match else "题解"
 
 
+def _strip_leading_h1(markdown_text: str) -> str:
+    """Remove the leading '# Title' heading — the page header already renders it."""
+    return re.sub(r"^#\s+[^\n]*\n(\n)?", "", markdown_text, count=1)
+
+
 def _display_title(title: str) -> str:
     """Strip 'LeetGPU ' prefix and ' 题解...' suffix for cleaner labels."""
     t = title
@@ -148,6 +153,7 @@ def build(public_dir: Path) -> None:
         markdown_text = _rewrite_md_links_to_html(markdown_text)
 
         title = _parse_title(markdown_text)
+        markdown_text = _strip_leading_h1(markdown_text)
         base_slug = md_file.stem
 
         rel_parts = md_file.relative_to(LEETGPU_DIR).parts
