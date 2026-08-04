@@ -56,7 +56,7 @@ __global__ void naive_atomic_reduce(const float* input, float* sum, int N) {
 
 核心思想是**两阶段归约**：block 归约 → final 归约。
 
-1. **block 归约**：每个 block 处理 `BLOCK_SIZE` 个元素，内部先做 warp 级归约，再跨 warp 归约，每个 block 产出一个部分和写到 `output[blockIdx.x]`。
+1. **block 归约**：每个 block 处理 `BLOCK_SIZE` 个元素，内部先做 warp 级归约，再跨 warp 归约，每个 block 产出一个部分和写到中间缓冲区 `partial[blockIdx.x]`（LeetGPU 的 `output` 只有 1 个 float 的空间，不能直接写）。
 2. **final 归约**：单个 block 对所有部分和再归约一次，得到全局总和。
 
 warp 内用 `__shfl_down_sync`（寄存器内、无 bank conflict），warp 间用 shared memory（需保证同步）。`BLOCK_SIZE=256` 时每 block 含 8 个 warp，warp 间只需归约 8 个值。
@@ -69,7 +69,7 @@ warp 内用 `__shfl_down_sync`（寄存器内、无 bank conflict），warp 间�
 
 | 层次 | 是否使用 | 说明 |
 |------|----------|------|
-| global memory | ✓ | `input` 读取、`output` 部分和暂存 |
+| global memory | ✓ | `input` 读取、`partial` 部分和暂存、`output` 写最终结果 |
 | shared memory | ✓ | `warp_sums[BLOCK_SIZE/WARP_SIZE]` 存各 warp 部分和，作 warp 间归约中转 |
 | register | ✓ | `__shfl_down_sync` 在寄存器内完成 warp 归约，不碰 shared memory |
 
@@ -139,10 +139,17 @@ __global__ void final_reduce(const float* input, float* output, int N) {
 
 extern "C" void solve(const float* input, float* output, int N) {
     int gridSize = (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    reduce_kernel<<<gridSize, BLOCK_SIZE>>>(input, output, N);
-    final_reduce<<<1, BLOCK_SIZE>>>(output, output, gridSize);
+    float* partial = nullptr;
+    cudaMalloc(&partial, gridSize * sizeof(float));   // 部分和缓冲区
+    reduce_kernel<<<gridSize, BLOCK_SIZE>>>(input, partial, N);
+    final_reduce<<<1, BLOCK_SIZE>>>(partial, output, gridSize);
+    cudaFree(partial);
 }
 ```
+
+> ⚠️ **为什么不能直接把部分和写进 `output`**：LeetGPU 评测端只为 `output` 分配 **1 个 float** 的空间。第一阶段若写 `output[blockIdx.x]`，`blockIdx.x > 0` 时就是越界写，提交会报 `Out of bounds write detected`。必须另开一块 `gridSize` 大小的中间缓冲区 `partial` 暂存部分和，最终结果才写 `output[0]`。
+>
+> 💡 若想省掉 `cudaMalloc`/`cudaFree` 和第二次 launch，可以改用**单 kernel + 原子尾聚合**：先 `cudaMemsetAsync(output, 0, sizeof(float))` 清零，然后每个 block 的 lane 0 直接 `atomicAdd(output, val)`。`gridSize` 个 block 竞争一个地址的开销远小于朴素版（每线程一次），对中等规模 `N` 完全够用。
 
 ### 4.2 完整自测版
 
