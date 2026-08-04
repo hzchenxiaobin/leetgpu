@@ -16,70 +16,70 @@
   <text x="390" y="58" text-anchor="middle" font-size="11" fill="#888">一个 block 处理一个 (n, g) 对，对 C/G × H × W 个元素做 mean/var 归约</text>
 
   <!-- 左侧：输入张量 X[N,C,H,W]，N=1 C=6 G=2 -->
-  <text x="130" y="82" text-anchor="middle" font-size="12" fill="#666" font-weight="bold">X[N=1, C=6, H=2, W=2]</text>
+  <text x="117" y="76" text-anchor="middle" font-size="12" fill="#666" font-weight="bold">X[N=1, C=6, H=2, W=2]</text>
 
   <!-- Group 0: channels 0-2 (蓝色) -->
+  <text x="117" y="90" text-anchor="middle" font-size="10" fill="#4a8edb" font-weight="bold">Group 0（C/G=3 通道）</text>
   <g filter="url(#sk)">
-    <rect x="40" y="92" width="50" height="40" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
-    <rect x="92" y="92" width="50" height="40" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
-    <rect x="144" y="92" width="50" height="40" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="40" y="94" width="50" height="40" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="92" y="94" width="50" height="40" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="144" y="94" width="50" height="40" rx="4" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
   </g>
-  <text x="65" y="116" text-anchor="middle" font-size="10" fill="#2b6e9e">ch0</text>
-  <text x="117" y="116" text-anchor="middle" font-size="10" fill="#2b6e9e">ch1</text>
-  <text x="169" y="116" text-anchor="middle" font-size="10" fill="#2b6e9e">ch2</text>
-  <text x="117" y="84" text-anchor="middle" font-size="10" fill="#4a8edb" font-weight="bold">Group 0（C/G=3 通道）</text>
+  <text x="65" y="118" text-anchor="middle" font-size="10" fill="#2b6e9e">ch0</text>
+  <text x="117" y="118" text-anchor="middle" font-size="10" fill="#2b6e9e">ch1</text>
+  <text x="169" y="118" text-anchor="middle" font-size="10" fill="#2b6e9e">ch2</text>
 
   <!-- Group 1: channels 3-5 (绿色) -->
   <g filter="url(#sk)">
-    <rect x="40" y="148" width="50" height="40" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
-    <rect x="92" y="148" width="50" height="40" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
-    <rect x="144" y="148" width="50" height="40" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="40" y="150" width="50" height="40" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="92" y="150" width="50" height="40" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="144" y="150" width="50" height="40" rx="4" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
   </g>
-  <text x="65" y="172" text-anchor="middle" font-size="10" fill="#2e6e2e">ch3</text>
-  <text x="117" y="172" text-anchor="middle" font-size="10" fill="#2e6e2e">ch4</text>
-  <text x="169" y="172" text-anchor="middle" font-size="10" fill="#2e6e2e">ch5</text>
-  <text x="117" y="202" text-anchor="middle" font-size="10" fill="#4a8e4a" font-weight="bold">Group 1（C/G=3 通道）</text>
+  <text x="65" y="174" text-anchor="middle" font-size="10" fill="#2e6e2e">ch3</text>
+  <text x="117" y="174" text-anchor="middle" font-size="10" fill="#2e6e2e">ch4</text>
+  <text x="169" y="174" text-anchor="middle" font-size="10" fill="#2e6e2e">ch5</text>
+  <text x="117" y="204" text-anchor="middle" font-size="10" fill="#4a8e4a" font-weight="bold">Group 1（C/G=3 通道）</text>
 
   <!-- 箭头到中间 -->
-  <path d="M 200 130 L 270 130" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
-  <path d="M 200 168 L 270 168" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 200 114 L 270 114" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 200 170 L 270 170" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
 
   <!-- 中间：block 映射 -->
   <g filter="url(#sk)">
-    <rect x="278" y="110" width="100" height="40" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
+    <rect x="278" y="94" width="100" height="40" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
   </g>
-  <text x="328" y="128" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">block(n=0, g=0)</text>
-  <text x="328" y="142" text-anchor="middle" font-size="9" fill="#888">3×2×2=12 元素</text>
+  <text x="328" y="114" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">block(n=0, g=0)</text>
+  <text x="328" y="128" text-anchor="middle" font-size="9" fill="#888">3×2×2=12 元素</text>
 
   <g filter="url(#sk)">
-    <rect x="278" y="158" width="100" height="40" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
+    <rect x="278" y="150" width="100" height="40" rx="6" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.3"/>
   </g>
-  <text x="328" y="176" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">block(n=0, g=1)</text>
-  <text x="328" y="190" text-anchor="middle" font-size="9" fill="#888">3×2×2=12 元素</text>
+  <text x="328" y="170" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">block(n=0, g=1)</text>
+  <text x="328" y="184" text-anchor="middle" font-size="9" fill="#888">3×2×2=12 元素</text>
 
-  <!-- 箭头到右侧流程 -->
-  <path d="M 382 130 L 440 130" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
-  <path d="M 382 178 L 440 178" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <!-- 箭头到右侧流程：两个 block 都汇入 Pass 1 -->
+  <path d="M 382 114 L 440 114" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 382 170 L 420 170 L 420 114 L 440 114" stroke="#3a3a3a" stroke-width="1.5" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
 
-  <!-- 右侧：两遍 scan 流程 -->
+  <!-- 右侧：三遍 scan 流程 -->
   <g filter="url(#sk)">
-    <rect x="448" y="92" width="140" height="36" rx="6" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
+    <rect x="448" y="94" width="140" height="36" rx="6" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.3"/>
   </g>
-  <text x="518" y="115" text-anchor="middle" font-size="11" fill="#2b6e9e" font-weight="bold">① Pass 1: 求 mean</text>
-
-  <g filter="url(#sk)">
-    <rect x="448" y="140" width="140" height="36" rx="6" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.3"/>
-  </g>
-  <text x="518" y="163" text-anchor="middle" font-size="11" fill="#8e5db8" font-weight="bold">② Pass 2: 求 var</text>
+  <text x="518" y="117" text-anchor="middle" font-size="11" fill="#2b6e9e" font-weight="bold">① Pass 1: 求 mean</text>
 
   <g filter="url(#sk)">
-    <rect x="448" y="188" width="140" height="36" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+    <rect x="448" y="142" width="140" height="36" rx="6" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.3"/>
   </g>
-  <text x="518" y="211" text-anchor="middle" font-size="11" fill="#4a8e4a" font-weight="bold">③ Pass 3: 归一化写回</text>
+  <text x="518" y="165" text-anchor="middle" font-size="11" fill="#8e5db8" font-weight="bold">② Pass 2: 求 var</text>
+
+  <g filter="url(#sk)">
+    <rect x="448" y="190" width="140" height="36" rx="6" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.3"/>
+  </g>
+  <text x="518" y="213" text-anchor="middle" font-size="11" fill="#4a8e4a" font-weight="bold">③ Pass 3: 归一化写回</text>
 
   <!-- 依赖箭头 -->
-  <path d="M 518 128 L 518 138" stroke="#4a8edb" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)" stroke-dasharray="3,2"/>
-  <path d="M 518 176 L 518 186" stroke="#8e5db8" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)" stroke-dasharray="3,2"/>
+  <path d="M 518 130 L 518 140" stroke="#4a8edb" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)" stroke-dasharray="3,2"/>
+  <path d="M 518 178 L 518 188" stroke="#8e5db8" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)" stroke-dasharray="3,2"/>
 
   <!-- 右下：关键公式 -->
   <g filter="url(#sk)">
