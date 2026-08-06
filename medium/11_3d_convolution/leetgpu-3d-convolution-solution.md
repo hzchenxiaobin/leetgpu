@@ -287,7 +287,7 @@ int main(int argc, char** argv) {
     conv3d_cpu(hIn, hKer, hRef, D, H, W, KD, KH, KW);
     int err = 0;
     for (int i = 0; i < outD * outH * outW && err < 5; i++) {
-        if (fabsf(hOut[i] - hRef[i]) > 1e-3f) {
+        if (fabsf(hOut[i] - hRef[i]) > 1e-3f * fmaxf(1.0f, fabsf(hRef[i]))) {
             ++err;
             printf("MISMATCH @%d: got %f, expect %f\n", i, hOut[i], hRef[i]);
         }

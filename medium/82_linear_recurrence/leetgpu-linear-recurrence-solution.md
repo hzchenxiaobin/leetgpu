@@ -227,22 +227,18 @@ __global__ void linear_recurrence_kernel(
 
     // 2d: 计算每 thread 的 exclusive prefix
     //     = warp 间 prefix（shared[warp_id-1]）⊙ warp 内 prefix（incl[lane-1]）
+    float prev_a = __shfl_up_sync(0xFFFFFFFF, incl.a, 1);
+    float prev_b = __shfl_up_sync(0xFFFFFFFF, incl.b, 1);
+
     Affine prefix;
     if (warp_id == 0) {
-        prefix = (lane == 0) ? Affine{1.0f, 0.0f}
-                             : Affine{
-                                 __shfl_up_sync(0xFFFFFFFF, incl.a, 1),
-                                 __shfl_up_sync(0xFFFFFFFF, incl.b, 1)
-                               };
+        prefix = (lane == 0) ? Affine{1.0f, 0.0f} : Affine{prev_a, prev_b};
     } else {
         Affine warp_prefix = shared[warp_id - 1];
         if (lane == 0) {
             prefix = warp_prefix;
         } else {
-            Affine prev = {
-                __shfl_up_sync(0xFFFFFFFF, incl.a, 1),
-                __shfl_up_sync(0xFFFFFFFF, incl.b, 1)
-            };
+            Affine prev = {prev_a, prev_b};
             prefix = compose(prev, warp_prefix);
         }
     }

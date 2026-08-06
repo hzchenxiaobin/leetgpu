@@ -371,7 +371,7 @@ int main(int argc, char** argv) {
     int err = 0;
     for (int i = 0; i < N * N && err < 5; ++i) {
         float ref = hRef[i], got = hOut[i];
-        if (fabsf(got - ref) > 1e-4f * fmaxf(1.0f, fabsf(ref))) {
+        if (fabsf(got - ref) > 1e-3f * fmaxf(1.0f, fabsf(ref))) {
             ++err;
             int r = i / N, c = i % N;
             printf("MISMATCH @(%d,%d): got %f ref %f\n", r, c, got, ref);

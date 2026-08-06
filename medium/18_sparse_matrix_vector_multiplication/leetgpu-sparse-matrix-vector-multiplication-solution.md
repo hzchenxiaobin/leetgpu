@@ -273,7 +273,7 @@ int main(int argc, char** argv) {
     int *d_row_ptr, *d_col_idx, *d_row_count;
     float* d_values;
     CHECK_CUDA(cudaMalloc(&d_row_ptr, (M + 1) * sizeof(int)));
-    CHECK_CUDA(cudaMalloc(&d_row_count, M * sizeof(int)));
+    CHECK_CUDA(cudaMalloc(&d_row_count, (M + 2) * sizeof(int)));
     CHECK_CUDA(cudaMalloc(&d_col_idx, target_nnz * sizeof(int)));
     CHECK_CUDA(cudaMalloc(&d_values, target_nnz * sizeof(float)));
 
@@ -283,11 +283,12 @@ int main(int argc, char** argv) {
 
     // ---- CSR 转换 ----
     int blocks_row = (M + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    CHECK_CUDA(cudaMemset(d_row_count, 0, M * sizeof(int)));
+    CHECK_CUDA(cudaMemset(d_row_count, 0, (M + 2) * sizeof(int)));
     count_nnz_per_row<<<blocks_row, BLOCK_SIZE>>>(dA, d_row_count, M, N);
-    // exclusive scan（M <= 1024 时单 block）
-    int scan_blocks = (M + 1 + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    exclusive_scan<<<1, BLOCK_SIZE, BLOCK_SIZE * sizeof(int)>>>(d_row_count, M + 1);
+    // exclusive scan（需要 blockDim.x >= M+1，用 1024 threads 覆盖 M <= 1023）
+    int scan_threads = 1024;
+    int scan_shared = scan_threads * sizeof(int);
+    exclusive_scan<<<1, scan_threads, scan_shared>>>(d_row_count, M + 1);
     CHECK_CUDA(cudaMemcpy(d_row_ptr, d_row_count, (M + 1) * sizeof(int),
                            cudaMemcpyDeviceToDevice));
     fill_csr<<<blocks_row, BLOCK_SIZE>>>(dA, d_row_ptr, d_col_idx, d_values, M, N);

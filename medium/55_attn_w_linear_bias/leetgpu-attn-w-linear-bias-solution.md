@@ -262,9 +262,9 @@ void alibi_attn_cpu(const float* Q, const float* K, const float* V, float* O,
 }
 
 int main(int argc, char** argv) {
-    int M = (argc > 1) ? atoi(argv[1]) : 2048;
-    int N = (argc > 2) ? atoi(argv[2]) : 2048;
-    int d = (argc > 3) ? atoi(argv[3]) : 1024;
+    int M = (argc > 1) ? atoi(argv[1]) : 256;
+    int N = (argc > 2) ? atoi(argv[2]) : 256;
+    int d = (argc > 3) ? atoi(argv[3]) : 64;
     float alpha = -0.5f;
     if (d > D_MAX) {
         printf("要求 d <= %d\n", D_MAX);

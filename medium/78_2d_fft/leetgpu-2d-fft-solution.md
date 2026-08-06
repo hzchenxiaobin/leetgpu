@@ -455,6 +455,36 @@ void solve_gpu(const float* d_signal, float* d_spectrum, int M, int N) {
 }
 
 int main(int argc, char** argv) {
+    // ---- 小尺寸正确性验证 (M=N=64) ----
+    {
+        int sM = 64, sN = 64;
+        size_t sbytes = (size_t)sM * sN * 2 * sizeof(float);
+        float* s_sig = (float*)malloc(sbytes);
+        float* s_spec = (float*)malloc(sbytes);
+        float* s_ref = (float*)malloc(sbytes);
+        srand(42);
+        for (size_t i = 0; i < (size_t)sM * sN * 2; i++)
+            s_sig[i] = ((float)(rand() % 20000) - 10000.0f) / 1000.0f;
+        float *d_sig, *d_spec;
+        CHECK_CUDA(cudaMalloc(&d_sig, sbytes));
+        CHECK_CUDA(cudaMalloc(&d_spec, sbytes));
+        CHECK_CUDA(cudaMemcpy(d_sig, s_sig, sbytes, cudaMemcpyHostToDevice));
+        solve_gpu(d_sig, d_spec, sM, sN);
+        CHECK_CUDA(cudaMemcpy(s_spec, d_spec, sbytes, cudaMemcpyDeviceToHost));
+        fft2d_cpu(s_sig, s_ref, sM, sN);
+        int fail = 0;
+        for (int i = 0; i < sM * sN; i++) {
+            float err_re = fabsf(s_spec[2*i]   - s_ref[2*i]);
+            float err_im = fabsf(s_spec[2*i+1] - s_ref[2*i+1]);
+            float tol = 0.01f * (1.0f + fabsf(s_ref[2*i]) + fabsf(s_ref[2*i+1]));
+            if (err_re > tol || err_im > tol) { fail = 1; break; }
+        }
+        printf("Small test (M=N=%d): %s\n", sM, fail ? "FAIL" : "PASS");
+        CHECK_CUDA(cudaFree(d_sig));
+        CHECK_CUDA(cudaFree(d_spec));
+        free(s_sig); free(s_spec); free(s_ref);
+    }
+
     int M = (argc > 1) ? atoi(argv[1]) : 2048;
     int N = (argc > 2) ? atoi(argv[2]) : 2048;
     size_t bytes = (size_t)M * N * 2 * sizeof(float);

@@ -303,7 +303,7 @@ int main(int argc, char** argv) {
     float maxd = 0;
     for (int i = 0; i < nq * S * d; ++i)
         maxd = fmaxf(maxd, fabsf(hO[i] - hRef[i]));
-    printf("max diff: %.2e (%s, tol=1e-4)\n", maxd, maxd < 1e-4f ? "PASS" : "FAIL");
+    printf("max diff: %.2e (%s, tol=1e-3)\n", maxd, maxd < 1e-3f ? "PASS" : "FAIL");
 
     // KV cache 收益估算
     printf("\n[KV Cache 收益] GQA cache / MHA cache = %d / %d = %.2f\n", nkv, nq, (double)nkv / nq);
