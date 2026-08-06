@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 480" font-family="'Comic Sans MS','Marker Felt','Segoe UI','Kaiti SC',楷体,cursive">
+  <defs>
+    <filter id="sk" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="14" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.5"/>
+    </filter>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="480" fill="#fdfcf7"/>
+
+  <text x="380" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#2b2b2b">Softmax Attention Backward：6 kernel 流水线</text>
+  <path d="M 240 40 Q 380 48 520 40" stroke="#2b2b2b" stroke-width="1.4" fill="none" filter="url(#sk)"/>
+  <text x="380" y="56" text-anchor="middle" font-size="11" fill="#888">Q:(M,d) K,V:(N,d) dO:(M,d) → dQ:(M,d) dK:(N,d) dV:(N,d)；物化 P,dP,dS (M×N)</text>
+
+  <!-- ===== Inputs ===== -->
+  <text x="100" y="82" text-anchor="middle" font-size="11" font-weight="bold" fill="#666">输入（forward 缓存）</text>
+  <g filter="url(#sk)"><rect x="40" y="92" width="120" height="40" rx="5" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/></g>
+  <text x="100" y="116" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">Q (M×d)</text>
+  <g filter="url(#sk)"><rect x="40" y="138" width="120" height="40" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/></g>
+  <text x="100" y="162" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">K, V (N×d)</text>
+  <g filter="url(#sk)"><rect x="40" y="184" width="120" height="40" rx="5" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.2"/></g>
+  <text x="100" y="208" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">dO (M×d)</text>
+
+  <!-- ===== Pipeline of 6 kernels ===== -->
+  <text x="440" y="82" text-anchor="middle" font-size="11" font-weight="bold" fill="#666">6 kernel 流水线（箭头 = 数据依赖）</text>
+
+  <!-- k1: fwd softmax P -->
+  <g filter="url(#sk)"><rect x="200" y="92" width="150" height="40" rx="5" fill="#e8f0fa" stroke="#4a8edb" stroke-width="1.2"/></g>
+  <text x="275" y="110" text-anchor="middle" font-size="10" fill="#2b6e9e" font-weight="bold">k1: fwd softmax</text>
+  <text x="275" y="124" text-anchor="middle" font-size="9" fill="#888">S=QKᵀ/√d, P=softmax(S)</text>
+
+  <!-- k2: dP = dO @ Vᵀ -->
+  <g filter="url(#sk)"><rect x="380" y="92" width="150" height="40" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/></g>
+  <text x="455" y="110" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">k2: dP = dO·Vᵀ</text>
+  <text x="455" y="124" text-anchor="middle" font-size="9" fill="#888">GEMM (M×d)·(d×N)</text>
+
+  <!-- k3: dV = Pᵀ @ dO -->
+  <g filter="url(#sk)"><rect x="560" y="92" width="160" height="40" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/></g>
+  <text x="640" y="110" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">k3: dV = Pᵀ·dO</text>
+  <text x="640" y="124" text-anchor="middle" font-size="9" fill="#888">GEMM → dV (N×d) ✓</text>
+
+  <!-- k4: dS = (dP·P - P·rowsum(dP·P))/√d -->
+  <g filter="url(#sk)"><rect x="380" y="148" width="150" height="44" rx="5" fill="#f3eaf7" stroke="#8e5db8" stroke-width="1.2"/></g>
+  <text x="455" y="166" text-anchor="middle" font-size="10" fill="#8e5db8" font-weight="bold">k4: dS = softmax'</text>
+  <text x="455" y="180" text-anchor="middle" font-size="9" fill="#888">(dP·P − P·ΣdP·P)/√d</text>
+
+  <!-- k5: dQ = dS @ K -->
+  <g filter="url(#sk)"><rect x="380" y="208" width="150" height="40" rx="5" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.2"/></g>
+  <text x="455" y="226" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">k5: dQ = dS·K</text>
+  <text x="455" y="240" text-anchor="middle" font-size="9" fill="#888">GEMM → dQ (M×d) ✓</text>
+
+  <!-- k6: dK = dSᵀ @ Q -->
+  <g filter="url(#sk)"><rect x="560" y="208" width="160" height="40" rx="5" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.2"/></g>
+  <text x="640" y="226" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">k6: dK = dSᵀ·Q</text>
+  <text x="640" y="240" text-anchor="middle" font-size="9" fill="#888">GEMM → dK (N×d) ✓</text>
+
+  <!-- arrows -->
+  <path d="M 160 112 L 198 112" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 350 112 L 378 112" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 275 132 L 275 168 L 378 168" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 530 112 L 558 112" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 455 192 L 455 206" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+  <path d="M 530 228 L 558 228" stroke="#5a5a5a" stroke-width="1.3" fill="none" marker-end="url(#ar)" filter="url(#sk)"/>
+
+  <!-- ===== Outputs ===== -->
+  <text x="640" y="280" text-anchor="middle" font-size="11" font-weight="bold" fill="#666">输出梯度</text>
+  <g filter="url(#sk)"><rect x="560" y="290" width="160" height="30" rx="5" fill="#eaf6ee" stroke="#4a8e4a" stroke-width="1.2"/></g>
+  <text x="640" y="310" text-anchor="middle" font-size="10" fill="#2e6e2e" font-weight="bold">dV (N×d)</text>
+  <g filter="url(#sk)"><rect x="380" y="290" width="150" height="30" rx="5" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.2"/></g>
+  <text x="455" y="310" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">dQ (M×d)</text>
+  <g filter="url(#sk)"><rect x="560" y="330" width="160" height="30" rx="5" fill="#fef6e6" stroke="#c98a2b" stroke-width="1.2"/></g>
+  <text x="640" y="350" text-anchor="middle" font-size="10" fill="#7a5415" font-weight="bold">dK (N×d)</text>
+  <path d="M 640 134 L 640 288" stroke="#888" stroke-width="1" fill="none" filter="url(#sk)" stroke-dasharray="3,2"/>
+  <path d="M 455 250 L 455 288" stroke="#888" stroke-width="1" fill="none" filter="url(#sk)" stroke-dasharray="3,2"/>
+  <path d="M 640 250 L 640 328" stroke="#888" stroke-width="1" fill="none" filter="url(#sk)" stroke-dasharray="3,2"/>
+
+  <!-- ===== Bottom: key formula ===== -->
+  <g filter="url(#sk)"><rect x="40" y="380" width="680" height="80" rx="8" fill="#fffdf3" stroke="#9e9e9e" stroke-width="1.1" stroke-dasharray="4,3"/></g>
+  <text x="380" y="402" text-anchor="middle" font-size="11" fill="#444" font-weight="bold">softmax 反向公式（逐行）</text>
+  <text x="380" y="420" text-anchor="middle" font-size="10" fill="#555">dS = (dP ⊙ P) − P ⊙ rowsum(dP ⊙ P)</text>
+  <text x="380" y="436" text-anchor="middle" font-size="10" fill="#555">rowsum 沿 N 维归约，每行一个标量；dS 再除 √d</text>
+  <text x="380" y="452" text-anchor="middle" font-size="9" fill="#888">3 个 GEMM (dP/dV/dQ/dK) + 1 个 softmax 行归约；P/dP/dS 物化 (M×N)</text>
+</svg>
