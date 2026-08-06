@@ -124,7 +124,9 @@ __global__ void reduce_kernel(const float* input, float* output, int N) {
 __global__ void final_reduce(const float* input, float* output, int N) {
     __shared__ float warp_sums[BLOCK_SIZE / WARP_SIZE];
     int tid = threadIdx.x;
-    float val = (tid < N) ? input[tid] : 0.0f;
+    float val = 0.0f;
+    for (int i = tid; i < N; i += BLOCK_SIZE)
+        val += input[i];
     val = warp_reduce(val);
     if (tid % WARP_SIZE == 0)
         warp_sums[tid / WARP_SIZE] = val;
@@ -203,7 +205,9 @@ __global__ void reduce_kernel(const float* input, float* output, int N) {
 __global__ void final_reduce(const float* input, float* output, int N) {
     __shared__ float warp_sums[BLOCK_SIZE / WARP_SIZE];
     int tid = threadIdx.x;
-    float val = (tid < N) ? input[tid] : 0.0f;
+    float val = 0.0f;
+    for (int i = tid; i < N; i += BLOCK_SIZE)
+        val += input[i];
     val = warp_reduce(val);
     if (tid % WARP_SIZE == 0)
         warp_sums[tid / WARP_SIZE] = val;

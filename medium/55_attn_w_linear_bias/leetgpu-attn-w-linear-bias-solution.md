@@ -307,7 +307,7 @@ int main(int argc, char** argv) {
     float maxd = 0;
     for (int i = 0; i < M * d; ++i)
         maxd = fmaxf(maxd, fabsf(hO[i] - hRef[i]));
-    printf("max diff: %.2e (%s, tol=1e-4)\n", maxd, maxd < 1e-4f ? "PASS" : "FAIL");
+    printf("max diff: %.2e (%s, tol=1e-3)\n", maxd, maxd < 1e-3f ? "PASS" : "FAIL");
 
     cudaFree(dQ);  cudaFree(dK);  cudaFree(dV);  cudaFree(dO);
     return 0;

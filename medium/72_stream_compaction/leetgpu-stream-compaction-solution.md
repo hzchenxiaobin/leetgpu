@@ -190,14 +190,19 @@ int main() {
     // 2. block 内 exclusive scan
     block_excl_scan_kernel<<<blocks, BLOCK>>>(d_pred, d_ps, d_block_sums, N);
 
-    // 3. 对 block_sums 做 exclusive scan（block 数较少，单 block 够）
+    // 3. 对 block_sums 做 exclusive scan（num_blocks 可能 > 1024，CPU 上做最稳妥）
     int num_blocks = blocks;
     int* d_block_sums_excl;
     cudaMalloc(&d_block_sums_excl, num_blocks * sizeof(int));
-    int* d_dummy;
-    cudaMalloc(&d_dummy, sizeof(int)); // 第二级 scan 不需要再记录 block 和
-    block_excl_scan_kernel<<<(num_blocks + BLOCK - 1) / BLOCK, BLOCK>>>(d_block_sums, d_block_sums_excl, d_dummy,
-                                                                        num_blocks);
+    int* h_block_sums = (int*)malloc(num_blocks * sizeof(int));
+    cudaMemcpy(h_block_sums, d_block_sums, num_blocks * sizeof(int), cudaMemcpyDeviceToHost);
+    int* h_block_sums_excl = (int*)malloc(num_blocks * sizeof(int));
+    h_block_sums_excl[0] = 0;
+    for (int i = 1; i < num_blocks; i++)
+        h_block_sums_excl[i] = h_block_sums_excl[i - 1] + h_block_sums[i - 1];
+    cudaMemcpy(d_block_sums_excl, h_block_sums_excl, num_blocks * sizeof(int), cudaMemcpyHostToDevice);
+    free(h_block_sums);
+    free(h_block_sums_excl);
 
     // 4. 累加前序 block
     add_prev_blocks<<<blocks, BLOCK>>>(d_ps, d_block_sums_excl, N);

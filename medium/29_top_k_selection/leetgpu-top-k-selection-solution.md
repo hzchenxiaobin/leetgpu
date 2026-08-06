@@ -89,9 +89,8 @@ Bitonic 序列：先升后降（或先降后升）的序列。Bitonic sort 利�
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
+#include <algorithm>
 #include <cuda_runtime.h>
-
-// bitonic sort kernel：对一个 block 内的数据排序（升序）
 // 每步 compare-swap：比较距离 j 的两元素，按方向交换
 __global__ void bitonic_sort_kernel(int* data, int N) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -131,7 +130,7 @@ __global__ void bitonic_sort_block(int* data, int N) {
     if (tid < N)
         sdata[tid] = data[tid];
     else
-        sdata[tid] = INT_MIN;
+        sdata[tid] = INT_MAX;
     __syncthreads();
 
     // bitonic sort in shared memory
@@ -169,13 +168,22 @@ int main() {
     std::vector<int> h_out(N);
     cudaMemcpy(h_out.data(), d_data, N * sizeof(int), cudaMemcpyDeviceToHost);
 
+    // 验证：排序正确 + top-k 正确
+    std::vector<int> ref = h_input;
+    std::sort(ref.begin(), ref.end());
+    bool pass = true;
+    for (int i = 0; i < N; i++)
+        if (h_out[i] != ref[i]) pass = false;
+    for (int i = 0; i < k; i++)
+        if (h_out[N - k + i] != ref[N - k + i]) pass = false;
+
     printf("Sorted: ");
     for (int x : h_out)
         printf("%d ", x);
     printf("\nTop %d: ", k);
     for (int i = N - k; i < N; i++)
         printf("%d ", h_out[i]);
-    printf("\n");
+    printf("\n%s\n", pass ? "PASS" : "FAIL");
 
     cudaFree(d_data);
     return 0;

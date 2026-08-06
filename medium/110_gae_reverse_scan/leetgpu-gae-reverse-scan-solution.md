@@ -257,9 +257,12 @@ __global__ void gae_kernel(const float* rewards, const float* values, float* adv
     Op inc = warp_rev_inclusive_scan(chunk_agg); // inc = combine(chunk[tid..warp末])
     // excl_lane = 本 warp 内"严格右侧" chunk 聚合 = inc[lane+1]，末 lane 为 identity
     Op excl_lane = { 1.0f, 0.0f };
+    // 所有 lane 必须参与 __shfl_down_sync（mask=0xffffffff），否则死锁
+    float excl_a = __shfl_down_sync(0xffffffff, inc.a, 1);
+    float excl_b = __shfl_down_sync(0xffffffff, inc.b, 1);
     if (lane + 1 < WARP_SIZE) {
-        excl_lane.a = __shfl_down_sync(0xffffffff, inc.a, 1);
-        excl_lane.b = __shfl_down_sync(0xffffffff, inc.b, 1);
+        excl_lane.a = excl_a;
+        excl_lane.b = excl_b;
     }
     // 本 warp 总聚合（lane 0 持有 combine(整个 warp)）写 shared
     __shared__ Op s_warp[NUM_WARPS];
@@ -443,9 +446,11 @@ __global__ void gae_kernel(const float* rewards, const float* values, float* adv
 
     Op inc = warp_rev_inclusive_scan(chunk_agg);
     Op excl_lane = { 1.0f, 0.0f };
+    float excl_a = __shfl_down_sync(0xffffffff, inc.a, 1);
+    float excl_b = __shfl_down_sync(0xffffffff, inc.b, 1);
     if (lane + 1 < WARP_SIZE) {
-        excl_lane.a = __shfl_down_sync(0xffffffff, inc.a, 1);
-        excl_lane.b = __shfl_down_sync(0xffffffff, inc.b, 1);
+        excl_lane.a = excl_a;
+        excl_lane.b = excl_b;
     }
 
     __shared__ Op s_warp[NUM_WARPS];

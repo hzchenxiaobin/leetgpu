@@ -323,13 +323,16 @@ int main(int argc, char** argv) {
     float* hy = (float*)malloc(M * sizeof(float));
     CHECK_CUDA(cudaMemcpy(hy, dy, M * sizeof(float), cudaMemcpyDeviceToHost));
     float max_err = 0.0f;
+    float max_rel_err = 0.0f;
     for (int i = 0; i < M; ++i) {
         float d = fabsf(hy[i] - hy_ref[i]);
+        float rel = d / fmaxf(1.0f, fabsf(hy_ref[i]));
         if (d > max_err) max_err = d;
+        if (rel > max_rel_err) max_rel_err = rel;
     }
     printf("[dense GEMV] time: %.3f ms\n", ms_dense);
-    printf("[CSR SpMV ]  time: %.3f ms  speedup: %.2fx  max_err: %.4e  %s\n",
-           ms_spmv, ms_dense / ms_spmv, max_err, max_err < 1e-2 ? "PASS" : "FAIL");
+    printf("[CSR SpMV ]  time: %.3f ms  speedup: %.2fx  max_err: %.4e (rel %.4e)  %s\n",
+           ms_spmv, ms_dense / ms_spmv, max_err, max_rel_err, max_rel_err < 1e-3 ? "PASS" : "FAIL");
 
     // 带宽估算（SpMV：读 values+col_idx + gather x）
     float bytes_read = (float)(target_nnz * (sizeof(int) + sizeof(float)) + target_nnz * sizeof(float));

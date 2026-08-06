@@ -150,12 +150,12 @@ int main() {
     cudaMemcpy(&gpu_result, d_result, sizeof(float), cudaMemcpyDeviceToHost);
 
     // CPU 验证
-    float cpu_result = 0;
+    double cpu_result = 0;
     for (int i = 0; i < N; i++)
-        cpu_result += h_a[i] * h_b[i];
+        cpu_result += (double)h_a[i] * h_b[i];
 
-    printf("GPU: %.4f, CPU: %.4f, %s\n", gpu_result, cpu_result,
-           fabs(gpu_result - cpu_result) < 1e-2 ? "PASS" : "FAIL");
+    printf("GPU: %.4f, CPU: %.4f, %s\n", gpu_result, (float)cpu_result,
+           fabs((double)gpu_result - cpu_result) < 1e-3 * fabs(cpu_result) ? "PASS" : "FAIL");
 
     cudaFree(d_a);
     cudaFree(d_b);

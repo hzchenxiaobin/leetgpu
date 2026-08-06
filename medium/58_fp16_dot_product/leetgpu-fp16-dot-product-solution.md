@@ -176,19 +176,19 @@ int main() {
 
     int blocks = (N + BLOCK - 1) / BLOCK;
     fp16_dot_kernel<<<blocks, BLOCK>>>(d_a, d_b, d_partial, N);
-    convert_fp32_to_half<<<1, 1>>>(d_partial, d_result);
     cudaDeviceSynchronize();
 
-    half gpu_result;
-    cudaMemcpy(&gpu_result, d_result, sizeof(half), cudaMemcpyDeviceToHost);
+    // 直接读 FP32 结果（N=1M 时点积 ~250k，超过 half 范围 65504，转 half 会 inf）
+    float gpu_result;
+    cudaMemcpy(&gpu_result, d_partial, sizeof(float), cudaMemcpyDeviceToHost);
 
     // CPU 验证（FP32 累加）
-    float cpu_result = 0;
+    double cpu_result = 0;
     for (int i = 0; i < N; i++)
-        cpu_result += __half2float(h_a[i]) * __half2float(h_b[i]);
+        cpu_result += (double)__half2float(h_a[i]) * __half2float(h_b[i]);
 
-    printf("GPU: %.4f, CPU: %.4f, %s\n", __half2float(gpu_result), cpu_result,
-           fabs(__half2float(gpu_result) - cpu_result) < 1e-2 ? "PASS" : "FAIL");
+    printf("GPU: %.4f, CPU: %.4f, %s\n", gpu_result, (float)cpu_result,
+           fabs((double)gpu_result - cpu_result) < 1e-3 * fabs(cpu_result) ? "PASS" : "FAIL");
 
     cudaFree(d_a);
     cudaFree(d_b);

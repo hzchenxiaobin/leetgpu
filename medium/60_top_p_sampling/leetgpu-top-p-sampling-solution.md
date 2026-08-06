@@ -225,14 +225,13 @@ __global__ void top_p_sampling_kernel(
     int vocab_size)
 {
     extern __shared__ char smem[];
-    float* s_probs = (float*)smem;              // [padded_V]
-    int*   s_idx   = (int*)(s_probs + padded_V); // [padded_V]
-    float* s_cum   = (float*)(s_idx + padded_V); // [padded_V]
 
     int padded_V = 1;
     while (padded_V < vocab_size) padded_V <<= 1;
-    // 重新分配（padded_V 在 shared 内动态计算）
-    // 实际实现中 padded_V 作为 kernel template 参数或从 global 传入
+
+    float* s_probs = (float*)smem;              // [padded_V]
+    int*   s_idx   = (int*)(s_probs + padded_V); // [padded_V]
+    float* s_cum   = (float*)(s_idx + padded_V); // [padded_V]
 
     int tid = threadIdx.x;
     float p = *p_val;

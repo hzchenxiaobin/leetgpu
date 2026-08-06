@@ -144,22 +144,11 @@ __global__ void fp16_bmm_kernel(const half* __restrict__ A,
     // ---- FP32 累加 ----
     float acc = 0.0f;
 
-    // 尽量用 __half2 向量化读取（每次处理 2 个 K）
-    int k = 0;
-    // 向量化部分：K 为偶数时，每次读 2 个 half
-    for (; k + 1 < K; k += 2) {
-        // 读 A[b, m, k] 和 A[b, m, k+1]（连续内存，可打包为 half2）
-        __half2 a_h2 = *reinterpret_cast<const __half2*>(&A_b[m * K + k]);
-        // 读 B[b, k, n] 和 B[b, k+1, n]（非连续，需单独读）
-        float a0 = __half2float(__low2half(a_h2));
-        float a1 = __half2float(__high2half(a_h2));
-        float b0 = __half2float(B_b[k * N + n]);
-        float b1 = __half2float(B_b[(k + 1) * N + n]);
-        acc += a0 * b0 + a1 * b1;
-    }
-    // 剩余 1 个（K 为奇数时）
-    if (k < K) {
-        acc += __half2float(A_b[m * K + k]) * __half2float(B_b[k * N + n]);
+    // 逐元素读取（避免 __half2 reinterpret_cast 在 K 为奇数时地址未对齐）
+    for (int k = 0; k < K; k++) {
+        float a = __half2float(A_b[m * K + k]);
+        float b = __half2float(B_b[k * N + n]);
+        acc += a * b;
     }
 
     // ---- 转回 half 写出 ----

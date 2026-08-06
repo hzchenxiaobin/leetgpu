@@ -119,13 +119,20 @@ __global__ void segmented_excl_scan_kernel(const int* input, int* output, const 
     int val = (tid < N) ? input[tid] : 0;
     int seg_flag = (tid < N) ? is_seg_start[tid] : 0;
 
-    // 段内 exclusive scan：若自己是段首，前缀=0；否则累加前序同段元素
-    // 关键：把"段首之前"的元素视为 0（不 carry 跨段）
-    int scan_val = seg_flag ? 0 : val; // 段首元素不参与累加前缀（它的前缀是 0）
-    int warp_excl = warp_excl_scan(scan_val);
-
-    // 段内总和（用于跨 warp carry，但只在同段内 carry）
-    int warp_total = warp_excl + scan_val;
+    // 分段 warp inclusive scan：段首不累加前序，非段首累加
+    int sum = val;
+    int flag = seg_flag;
+    #pragma unroll
+    for (int offset = 1; offset < WARP; offset *= 2) {
+        int v = __shfl_up_sync(0xffffffff, sum, offset);
+        int f = __shfl_up_sync(0xffffffff, flag, offset);
+        if ((threadIdx.x & (WARP - 1)) >= offset) {
+            if (!flag) sum += v;
+            flag |= f;
+        }
+    }
+    int warp_excl = sum - val;
+    int warp_total = sum;
     if (lane == WARP - 1)
         warp_sums[warp_id] = warp_total;
     __syncthreads();

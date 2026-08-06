@@ -113,15 +113,17 @@ __global__ void moe_topk_kernel(const float* logits, float* topk_weights, int* t
     __shared__ int   s_idx[BLOCK];
     __shared__ float sel_vals[64];   // k ≤ E ≤ BLOCK
     __shared__ int   sel_idx[64];
-    __shared__ float s_red[BLOCK];   // softmax 归约用
+    __shared__ bool  s_selected[BLOCK];
 
     // ① 加载行数据到 shared memory
     if (tid < E) {
         s_vals[tid] = logits[row * E + tid];
         s_idx[tid]  = tid;
+        s_selected[tid] = false;
     } else {
         s_vals[tid] = -1e30f;
         s_idx[tid]  = -1;
+        s_selected[tid] = false;
     }
     __syncthreads();
 
@@ -141,7 +143,17 @@ __global__ void moe_topk_kernel(const float* logits, float* topk_weights, int* t
         if (tid == 0) {
             sel_vals[sel] = s_vals[0];
             sel_idx[sel]  = s_idx[0];
-            s_vals[s_idx[0]] = -1e30f;   // 剔除已选
+            s_selected[s_idx[0]] = true;
+        }
+        __syncthreads();
+
+        // 重新加载（树形归约会破坏 s_vals，需从 global 恢复并标记已选）
+        if (tid < E) {
+            s_vals[tid] = s_selected[tid] ? -1e30f : logits[row * E + tid];
+            s_idx[tid]  = tid;
+        } else {
+            s_vals[tid] = -1e30f;
+            s_idx[tid]  = -1;
         }
         __syncthreads();
     }

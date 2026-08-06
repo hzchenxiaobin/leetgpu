@@ -54,6 +54,7 @@ x → LayerNorm1 → Causal Attention → +x → LayerNorm2 → FFN(GELU) → +x
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 
 constexpr int kDModel = 768;
 constexpr int kNumHeads = 12;

@@ -68,6 +68,7 @@ __global__ void naive_argmax(const float* input, int* output, int N) {
 ```cuda
 // argmax.cu —— Argmax with warp shuffle
 #include <cuda_runtime.h>
+#include <cstdio>
 
 struct ValIdx {
     float val;
