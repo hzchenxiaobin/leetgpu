@@ -307,7 +307,36 @@ __global__ void attention_fused_kernel(const float* __restrict__ Q, const float*
         O[i * d + tid] = o_local;
 }
 
-// ---------- CPU 参考实现：见 §2.1 attention_cpu ----------
+// ---------- CPU 参考实现 ----------
+void attention_cpu(const float* Q, const float* K, const float* V, float* O, int N, int d) {
+    float scale = 1.0f / sqrtf((float)d);
+    float* S = (float*)malloc(N * sizeof(float));
+    float* P = (float*)malloc(N * sizeof(float));
+    for (int i = 0; i < N; ++i) {
+        float mx = -INFINITY;
+        for (int k = 0; k < N; ++k) {
+            float s = 0.0f;
+            for (int t = 0; t < d; ++t)
+                s += Q[i * d + t] * K[k * d + t];
+            s *= scale;
+            S[k] = s;
+            mx = fmaxf(mx, s);
+        }
+        float sum = 0.0f;
+        for (int k = 0; k < N; ++k) {
+            P[k] = expf(S[k] - mx);
+            sum += P[k];
+        }
+        for (int t = 0; t < d; ++t) {
+            float acc = 0.0f;
+            for (int k = 0; k < N; ++k)
+                acc += P[k] * V[k * d + t];
+            O[i * d + t] = acc / sum;
+        }
+    }
+    free(S);
+    free(P);
+}
 
 int main(int argc, char** argv) {
     int N = (argc > 1) ? atoi(argv[1]) : 1024;

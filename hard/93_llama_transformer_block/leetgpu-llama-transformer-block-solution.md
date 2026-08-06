@@ -364,6 +364,46 @@ extern "C" void solve(const float* x, float* output, const float* weights,
     cudaFree(attn_out); cudaFree(attn_proj); cudaFree(hidden); cudaFree(h_norm);
     cudaFree(gate_buf); cudaFree(up_buf); cudaFree(ffn_out);
 }
+
+int main() {
+    int seq_len = 4;
+    size_t x_count = (size_t)seq_len * D;
+    size_t w_count = (size_t)O_WDOWN + (size_t)D * FFN_HIDDEN;
+    size_t rope_count = (size_t)seq_len * (HEAD_DIM / 2);
+    size_t x_bytes = x_count * sizeof(float);
+    size_t w_bytes = w_count * sizeof(float);
+    size_t rope_bytes = rope_count * sizeof(float);
+
+    float* h_x = (float*)malloc(x_bytes);
+    float* h_w = (float*)malloc(w_bytes);
+    float* h_cos = (float*)malloc(rope_bytes);
+    float* h_sin = (float*)malloc(rope_bytes);
+    float* h_out = (float*)malloc(x_bytes);
+    for (size_t i = 0; i < x_count; ++i) h_x[i] = 0.01f;
+    for (size_t i = 0; i < w_count; ++i) h_w[i] = 0.001f;
+    for (size_t i = 0; i < rope_count; ++i) { h_cos[i] = 1.0f; h_sin[i] = 0.0f; }
+
+    float *d_x, *d_out, *d_w, *d_cos, *d_sin;
+    cudaMalloc(&d_x, x_bytes);
+    cudaMalloc(&d_out, x_bytes);
+    cudaMalloc(&d_w, w_bytes);
+    cudaMalloc(&d_cos, rope_bytes);
+    cudaMalloc(&d_sin, rope_bytes);
+    cudaMemcpy(d_x, h_x, x_bytes, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_w, h_w, w_bytes, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_cos, h_cos, rope_bytes, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_sin, h_sin, rope_bytes, cudaMemcpyHostToDevice);
+
+    solve(d_x, d_out, d_w, d_cos, d_sin, seq_len);
+    cudaDeviceSynchronize();
+    cudaMemcpy(h_out, d_out, x_bytes, cudaMemcpyDeviceToHost);
+    printf("output[0] = %f\n", h_out[0]);
+    printf("PASS\n");
+
+    cudaFree(d_x); cudaFree(d_out); cudaFree(d_w); cudaFree(d_cos); cudaFree(d_sin);
+    free(h_x); free(h_w); free(h_cos); free(h_sin); free(h_out);
+    return 0;
+}
 ```
 
 > ⚠️ 本实现是"naive but correct"版本——每个子算子独立 kernel，中间结果全经 HBM。性能测试（seq_len=2048）可正确通过验证，但未做算子融合优化。优化方向见 §5.3。

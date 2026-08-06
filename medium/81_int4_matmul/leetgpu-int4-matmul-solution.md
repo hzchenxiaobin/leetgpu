@@ -155,6 +155,7 @@ __global__ void dequant_kernel(const uint8_t* w_q, const __half* scales,
 #include <cuda_fp16.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <cstdint>
 
 #define BM 64
 #define BN 64

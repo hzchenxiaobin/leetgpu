@@ -128,6 +128,28 @@ extern "C" void solve(const float* input, int* output, int N) {
     cudaMemcpy(output, &init, sizeof(int), cudaMemcpyHostToDevice);
     argmax_kernel<<<gridSize, blockSize>>>(input, output, N);
 }
+
+int main() {
+    int N = 8;
+    float h_input[] = {1.0f, 5.0f, 3.0f, 9.0f, 2.0f, 9.0f, 4.0f, 7.0f};
+    int h_output = -1;
+
+    float* d_input;
+    int* d_output;
+    cudaMalloc(&d_input, N * sizeof(float));
+    cudaMalloc(&d_output, sizeof(int));
+    cudaMemcpy(d_input, h_input, N * sizeof(float), cudaMemcpyHostToDevice);
+
+    solve(d_input, d_output, N);
+    cudaDeviceSynchronize();
+    cudaMemcpy(&h_output, d_output, sizeof(int), cudaMemcpyDeviceToHost);
+
+    printf("argmax = %d (expect 3)\n", h_output);
+    printf("%s\n", h_output == 3 ? "PASS" : "FAIL");
+
+    cudaFree(d_input); cudaFree(d_output);
+    return 0;
+}
 ```
 
 ### 4.1 LeetGPU 提交版本

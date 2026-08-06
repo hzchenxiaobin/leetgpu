@@ -125,6 +125,7 @@ void ssm_cpu(const float* u, const float* delta, const float* A,
 #include <cstdlib>
 #include <cmath>
 #include <cstring>
+#include <vector>
 #include <cuda_runtime.h>
 
 #define CHECK_CUDA(call)                                                                                          \

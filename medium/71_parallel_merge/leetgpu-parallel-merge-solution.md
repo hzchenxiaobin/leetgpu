@@ -196,6 +196,11 @@ __global__ void parallel_merge_kernel(const float* __restrict__ A,
     }
 }
 
+int cmpfloat(const void* a, const void* b) {
+    float fa = *(const float*)a, fb = *(const float*)b;
+    return (fa > fb) - (fa < fb);
+}
+
 // ===== Host 端 =====
 int main() {
     // 功能测试: A=[1,3,5,7], B=[2,4,6,8]

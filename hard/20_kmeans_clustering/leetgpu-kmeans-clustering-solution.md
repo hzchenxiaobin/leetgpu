@@ -300,13 +300,14 @@ int main(int argc, char** argv) {
     }
 
     // ---- device ----
-    float *d_dx, *d_dy, *d_ix, *d_iy, *d_fx, *d_sum_x, *d_sum_y;
+    float *d_dx, *d_dy, *d_ix, *d_iy, *d_fx, *d_fy, *d_sum_x, *d_sum_y;
     int *d_labels, *d_count;
     CHECK_CUDA(cudaMalloc(&d_dx, bf));   CHECK_CUDA(cudaMalloc(&d_dy, bf));
     CHECK_CUDA(cudaMalloc(&d_labels, bi));
     CHECK_CUDA(cudaMalloc(&d_ix, k * sizeof(float)));
     CHECK_CUDA(cudaMalloc(&d_iy, k * sizeof(float)));
     CHECK_CUDA(cudaMalloc(&d_fx, k * sizeof(float)));
+    CHECK_CUDA(cudaMalloc(&d_fy, k * sizeof(float)));
     CHECK_CUDA(cudaMalloc(&d_sum_x, k * sizeof(float)));
     CHECK_CUDA(cudaMalloc(&d_sum_y, k * sizeof(float)));
     CHECK_CUDA(cudaMalloc(&d_count, k * sizeof(int)));
@@ -358,7 +359,7 @@ int main(int argc, char** argv) {
 
     CHECK_CUDA(cudaFree(d_dx)); CHECK_CUDA(cudaFree(d_dy));
     CHECK_CUDA(cudaFree(d_labels)); CHECK_CUDA(cudaFree(d_ix));
-    CHECK_CUDA(cudaFree(d_iy)); CHECK_CUDA(cudaFree(d_fx));
+    CHECK_CUDA(cudaFree(d_iy)); CHECK_CUDA(cudaFree(d_fx)); CHECK_CUDA(cudaFree(d_fy));
     CHECK_CUDA(cudaFree(d_sum_x)); CHECK_CUDA(cudaFree(d_sum_y));
     CHECK_CUDA(cudaFree(d_count));
     free(hdx); free(hdy); free(hix); free(hiy);

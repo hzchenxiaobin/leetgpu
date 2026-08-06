@@ -154,6 +154,7 @@ for (int i = 0; i < cutoff; i++) {
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <cstdint>
 
 #define BLOCK_SIZE 256
 #define MAX_VOCAB 50000

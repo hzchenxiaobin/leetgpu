@@ -298,6 +298,37 @@ extern "C" void solve(const float* x, float* output, const float* weights, int s
 
     cleanup();
 }
+
+int main() {
+    int seq_len = 4;
+    size_t x_count = (size_t)seq_len * kDModel;
+    size_t w_count = kBProjOffset + kDModel;
+    size_t x_bytes = x_count * sizeof(float);
+    size_t w_bytes = w_count * sizeof(float);
+
+    float* h_x = (float*)malloc(x_bytes);
+    float* h_w = (float*)malloc(w_bytes);
+    float* h_out = (float*)malloc(x_bytes);
+    for (size_t i = 0; i < x_count; ++i) h_x[i] = 0.01f;
+    for (size_t i = 0; i < w_count; ++i) h_w[i] = 0.001f;
+
+    float *d_x, *d_out, *d_w;
+    cudaMalloc(&d_x, x_bytes);
+    cudaMalloc(&d_out, x_bytes);
+    cudaMalloc(&d_w, w_bytes);
+    cudaMemcpy(d_x, h_x, x_bytes, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_w, h_w, w_bytes, cudaMemcpyHostToDevice);
+
+    solve(d_x, d_out, d_w, seq_len);
+    cudaDeviceSynchronize();
+    cudaMemcpy(h_out, d_out, x_bytes, cudaMemcpyDeviceToHost);
+    printf("output[0] = %f\n", h_out[0]);
+    printf("PASS\n");
+
+    cudaFree(d_x); cudaFree(d_out); cudaFree(d_w);
+    free(h_x); free(h_w); free(h_out);
+    return 0;
+}
 ```
 
 ### 4.2 代码详解
