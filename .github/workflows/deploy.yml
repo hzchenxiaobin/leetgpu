@@ -9,6 +9,9 @@ on:
       - 'static/**'
       - 'week*/**'
       - 'images/**'
+      - 'easy/**'
+      - 'medium/**'
+      - 'hard/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
