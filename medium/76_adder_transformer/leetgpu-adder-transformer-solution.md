@@ -124,7 +124,7 @@ void derive_constants(float& omega, float& attn_scale) {
 // 一个 block 处理一个 batch 元素的一步前向：
 //   ① 各 thread 并行算 k/v（含 embedding/norm/QKV/RoPE）
 //   ② thread 0 串行算 last 位置的 attention + MLP + norm + logits + argmax
-__global__ void forward_step_kernel(const int* seq, float* output, const float* weights,
+__global__ void forward_step_kernel(int* seq, float* output, const float* weights,
                                     int batch_size, int cur_len, int step,
                                     float omega, float attn_scale) {
     int b = blockIdx.x;
@@ -150,7 +150,7 @@ __global__ void forward_step_kernel(const int* seq, float* output, const float* 
     }
     __syncthreads();
 
-    const int* seq_b = seq + b * MAX_LEN;
+    int* seq_b = seq + b * MAX_LEN;
     float* out_b = output + (b * OUTPUT_DIGITS + step) * VOCAB_SIZE;
     int last = cur_len - 1;
 
@@ -406,7 +406,7 @@ __global__ void init_seq_kernel(const int* prompts, int* seq, int batch_size) {
     }
 }
 
-__global__ void forward_step_kernel(const int* seq, float* output, const float* weights,
+__global__ void forward_step_kernel(int* seq, float* output, const float* weights,
                                     int batch_size, int cur_len, int step,
                                     float omega, float attn_scale) {
     int b = blockIdx.x;
@@ -431,7 +431,7 @@ __global__ void forward_step_kernel(const int* seq, float* output, const float* 
     }
     __syncthreads();
 
-    const int* seq_b = seq + b * MAX_LEN;
+    int* seq_b = seq + b * MAX_LEN;
     float* out_b = output + (b * OUTPUT_DIGITS + step) * VOCAB_SIZE;
     int last = cur_len - 1;
 

@@ -192,7 +192,9 @@ __device__ __forceinline__ Op combine(Op l, Op r) {
 __device__ __forceinline__ Op warp_rev_inclusive_scan(Op v) {
     int lane = threadIdx.x & (WARP_SIZE - 1);
     for (int off = 1; off < WARP_SIZE; off <<= 1) {
-        Op r = __shfl_down_sync(0xffffffff, v, off);   // 取右侧 lane+off 的当前累积值
+        Op r;
+        r.a = __shfl_down_sync(0xffffffff, v.a, off);
+        r.b = __shfl_down_sync(0xffffffff, v.b, off);
         if (lane + off < WARP_SIZE)
             v = combine(v, r);                         // v = combine(自身及左侧, 右侧累积)
     }
@@ -255,8 +257,10 @@ __global__ void gae_kernel(const float* rewards, const float* values, float* adv
     Op inc = warp_rev_inclusive_scan(chunk_agg); // inc = combine(chunk[tid..warp末])
     // excl_lane = 本 warp 内"严格右侧" chunk 聚合 = inc[lane+1]，末 lane 为 identity
     Op excl_lane = { 1.0f, 0.0f };
-    if (lane + 1 < WARP_SIZE)
-        excl_lane = __shfl_down_sync(0xffffffff, inc, 1);   // inc[lane+1]
+    if (lane + 1 < WARP_SIZE) {
+        excl_lane.a = __shfl_down_sync(0xffffffff, inc.a, 1);
+        excl_lane.b = __shfl_down_sync(0xffffffff, inc.b, 1);
+    }
     // 本 warp 总聚合（lane 0 持有 combine(整个 warp)）写 shared
     __shared__ Op s_warp[NUM_WARPS];
     if (lane == 0) s_warp[warpId] = inc;
@@ -400,7 +404,9 @@ __device__ __forceinline__ Op combine(Op l, Op r) {
 __device__ __forceinline__ Op warp_rev_inclusive_scan(Op v) {
     int lane = threadIdx.x & (WARP_SIZE - 1);
     for (int off = 1; off < WARP_SIZE; off <<= 1) {
-        Op r = __shfl_down_sync(0xffffffff, v, off);
+        Op r;
+        r.a = __shfl_down_sync(0xffffffff, v.a, off);
+        r.b = __shfl_down_sync(0xffffffff, v.b, off);
         if (lane + off < WARP_SIZE)
             v = combine(v, r);
     }
@@ -437,8 +443,10 @@ __global__ void gae_kernel(const float* rewards, const float* values, float* adv
 
     Op inc = warp_rev_inclusive_scan(chunk_agg);
     Op excl_lane = { 1.0f, 0.0f };
-    if (lane + 1 < WARP_SIZE)
-        excl_lane = __shfl_down_sync(0xffffffff, inc, 1);
+    if (lane + 1 < WARP_SIZE) {
+        excl_lane.a = __shfl_down_sync(0xffffffff, inc.a, 1);
+        excl_lane.b = __shfl_down_sync(0xffffffff, inc.b, 1);
+    }
 
     __shared__ Op s_warp[NUM_WARPS];
     if (lane == 0) s_warp[warpId] = inc;
