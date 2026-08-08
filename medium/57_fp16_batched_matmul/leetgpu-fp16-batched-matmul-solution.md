@@ -3,7 +3,7 @@
 ## 1. 题目概述
 
 - **标题 / 题号**：FP16 Batched Matrix Multiplication（#57，medium）
-- **链接**：https://leetgpu.com/challenges/fp16-batched-matmul
+- **链接**：https://leetgpu.com/challenges/fp16-batched-matrix-multiplication
 - **难度**：中等
 - **标签**：CUDA、FP16、Batched GEMM、half 精度、FP32 累加、Tensor Core
 
