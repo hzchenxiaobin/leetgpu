@@ -12,6 +12,7 @@ on:
       - 'easy/**'
       - 'medium/**'
       - 'hard/**'
+      - 'cuda-interview-notes.md'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 

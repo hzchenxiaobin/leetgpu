@@ -71,6 +71,29 @@ def _rewrite_challenge_links(markdown_text: str, solution_slugs: set) -> str:
     return markdown_text[: section.start()] + rewritten + markdown_text[section.end() :]
 
 
+def _rewrite_all_challenge_links(markdown_text: str, solution_slugs: set) -> str:
+    """Rewrite all leetgpu.com challenge links to local solution pages when a solution exists.
+
+    Unlike _rewrite_challenge_links (which only rewrites inside the 同类练习题
+    section), this rewrites every leetgpu.com/challenges/<slug> link in the
+    document — used for topic pages whose challenge references span multiple
+    tables/sections.
+    """
+
+    def replace_link(match):
+        slug = match.group(1)
+        slug = CHALLENGE_SLUG_ALIASES.get(slug, slug)
+        if slug in solution_slugs:
+            return f"](./leetgpu-{slug}-solution.html)"
+        return match.group(0)
+
+    return re.sub(
+        r"\]\(https://leetgpu\.com/challenges/([a-z0-9-]+)\)",
+        replace_link,
+        markdown_text,
+    )
+
+
 def _parse_title(markdown_text: str) -> str:
     match = re.search(r"^#\s+(.+)$", markdown_text, re.MULTILINE)
     return match.group(1).strip() if match else "题解"
@@ -100,7 +123,11 @@ def _number_from_dirname(name: str) -> int:
     return int(m.group(1)) if m else 0
 
 
-def _build_nav(current_slug: Optional[str], solutions: List[Dict]) -> str:
+def _build_nav(
+    current_slug: Optional[str],
+    solutions: List[Dict],
+    current_topic: Optional[str] = None,
+) -> str:
     """Build sidebar navigation as a difficulty accordion with inline number tags."""
     lines = []
 
@@ -152,6 +179,8 @@ def _build_nav(current_slug: Optional[str], solutions: List[Dict]) -> str:
         lines.append('</div>')
 
     lines.append('<div class="nav-section-title">更多</div>')
+    topic_cls = "nav-link active" if current_topic == "cuda-interview-notes" else "nav-link"
+    lines.append(f'<a class="{topic_cls}" href="./cuda-interview-notes.html">📝 CUDA 手撕题专题</a>')
     lines.append('<a class="nav-link" href="https://hzchenxiaobin.github.io/ai-infra-notes/index.html">📚 AI Infra 学习笔记</a>')
     lines.append('<a class="nav-link" href="https://hzchenxiaobin.github.io/leetcode/">🧩 LeetCode 题解</a>')
     return "\n".join(lines)
@@ -327,3 +356,27 @@ def build(public_dir: Path) -> None:
         slug_html = f"{s['slug']}.html"
         (output_dir / slug_html).write_text(html, encoding="utf-8")
         print(f"Generated: {output_dir / slug_html}")
+
+    topic_md_path = LEETGPU_DIR / "cuda-interview-notes.md"
+    if topic_md_path.exists():
+        topic_text = topic_md_path.read_text(encoding="utf-8")
+        topic_text = _rewrite_all_challenge_links(topic_text, solution_slugs)
+        topic_title = _parse_title(topic_text)
+        topic_markdown = _strip_leading_h1(topic_text)
+        topic_html = page_template(
+            title=topic_title,
+            nav_html=_build_nav(
+                current_slug=None,
+                solutions=solutions,
+                current_topic="cuda-interview-notes",
+            ),
+            markdown=topic_markdown,
+            root_prefix="",
+            sidebar_title="LeetGPU 题解",
+            sidebar_title_style="font-size: 1.5rem; margin-bottom: 0;",
+            sidebar_href="./index.html",
+            show_back_link=True,
+            back_link_href="./index.html",
+        )
+        (output_dir / "cuda-interview-notes.html").write_text(topic_html, encoding="utf-8")
+        print(f"Generated: {output_dir / 'cuda-interview-notes.html'}")
