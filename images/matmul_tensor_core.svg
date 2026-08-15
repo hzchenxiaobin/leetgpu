@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 580" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="580" fill="#fafafa"/>
+
+  <text x="380" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">Tensor Core（TF32 WMMA）：用专用矩阵乘单元替代 CUDA Core</text>
+  <text x="380" y="44" text-anchor="middle" font-size="11" fill="#888">FP32 输入 → TF32 计算（10-bit 尾数）→ FP32 累加 → FP32 输出，一条 mma 指令完成 16×16×8 = 2048 FLOP</text>
+
+  <!-- ===== Left: Register Tiling (CUDA Core) ===== -->
+  <rect x="20" y="64" width="350" height="200" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
+  <text x="36" y="86" font-size="12" fill="#4a7a3a" font-weight="bold">Register Tiling（CUDA Core）</text>
+  <text x="36" y="104" font-size="10" fill="#555">每 thread 算 TM×TN = 4×4 = 16 个输出</text>
+  <text x="36" y="120" font-size="10" fill="#555">用标量 FMA 指令（1 FMA = 2 FLOP）</text>
+
+  <!-- thread tile grid 4x4 -->
+  <g font-size="8" fill="#333">
+    <rect x="36" y="132" width="120" height="80" fill="none" stroke="#4a7a3a" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <rect x="36" y="132" width="30" height="20" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.8" rx="1" filter="url(#rough2)"/>
+    <text x="51" y="146" text-anchor="middle" font-size="7" fill="#4a7a3a">t0</text>
+    <rect x="66" y="132" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="1" filter="url(#rough2)"/>
+    <text x="81" y="146" text-anchor="middle" font-size="7" fill="#446688">t1</text>
+    <rect x="96" y="132" width="30" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="0.8" rx="1" filter="url(#rough2)"/>
+    <text x="111" y="146" text-anchor="middle" font-size="7" fill="#d6a040">t2</text>
+    <rect x="126" y="132" width="30" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" rx="1" filter="url(#rough2)"/>
+    <text x="141" y="146" text-anchor="middle" font-size="7" fill="#b85450">t3</text>
+    <rect x="36" y="152" width="30" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="0.8" rx="1" filter="url(#rough2)"/>
+    <text x="51" y="166" text-anchor="middle" font-size="7" fill="#446688">t4</text>
+    <rect x="66" y="152" width="30" height="20" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="0.8" rx="1" filter="url(#rough2)"/>
+    <text x="81" y="166" text-anchor="middle" font-size="7" fill="#4a7a3a">t5</text>
+    <rect x="96" y="152" width="30" height="20" fill="#fce4ec" stroke="#b85450" stroke-width="0.8" rx="1" filter="url(#rough2)"/>
+    <text x="111" y="166" text-anchor="middle" font-size="7" fill="#b85450">t6</text>
+    <rect x="126" y="152" width="30" height="20" fill="#fff8e1" stroke="#d6a040" stroke-width="0.8" rx="1" filter="url(#rough2)"/>
+    <text x="141" y="166" text-anchor="middle" font-size="7" fill="#d6a040">t7</text>
+  </g>
+  <text x="96" y="184" text-anchor="middle" font-size="8" fill="#888">16 thread × 16 输出 = 256 元素</text>
+  <text x="96" y="198" text-anchor="middle" font-size="8" fill="#4a7a3a">每 thread 做 16 次标量 FMA</text>
+
+  <rect x="180" y="132" width="170" height="80" fill="#fff" stroke="#ccc" stroke-width="0.8" rx="4" filter="url(#rough2)"/>
+  <text x="265" y="150" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">CUDA Core 范式</text>
+  <text x="194" y="168" font-size="9" fill="#555" font-family="monospace">acc[4][4] += a[i]*b[j]</text>
+  <text x="194" y="182" font-size="9" fill="#555" font-family="monospace">1 FMA/cycle/lane</text>
+  <text x="194" y="196" font-size="9" fill="#888">FP32 全精度输入</text>
+  <text x="194" y="210" font-size="9" fill="#888">~128 TFLOPS (peak)</text>
+
+  <!-- arrow between left and right -->
+  <text x="380" y="160" text-anchor="middle" font-size="20" fill="#d6a040" font-weight="bold">→</text>
+  <text x="380" y="178" text-anchor="middle" font-size="9" fill="#888">换计算单元</text>
+
+  <!-- ===== Right: WMMA TF32 (Tensor Core) ===== -->
+  <rect x="390" y="64" width="350" height="200" fill="#e8f0fe" stroke="#446688" stroke-width="1.5" rx="8" filter="url(#rough2)"/>
+  <text x="406" y="86" font-size="12" fill="#446688" font-weight="bold">WMMA TF32（Tensor Core）</text>
+  <text x="406" y="104" font-size="10" fill="#555">每 warp 算 16×16 fragment（1 条 mma 指令）</text>
+  <text x="406" y="120" font-size="10" fill="#555">warp tile = 32×64 = 2×4 个 fragment</text>
+
+  <!-- fragment grid 2x4 -->
+  <g font-size="7" fill="#333">
+    <rect x="406" y="132" width="200" height="60" fill="none" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+    <!-- row 0: 4 fragments -->
+    <rect x="406" y="132" width="50" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="2" filter="url(#rough2)"/>
+    <text x="431" y="150" text-anchor="middle" font-size="7" fill="#446688">16×16</text>
+    <rect x="456" y="132" width="50" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="2" filter="url(#rough2)"/>
+    <text x="481" y="150" text-anchor="middle" font-size="7" fill="#446688">16×16</text>
+    <rect x="506" y="132" width="50" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="2" filter="url(#rough2)"/>
+    <text x="531" y="150" text-anchor="middle" font-size="7" fill="#446688">16×16</text>
+    <rect x="556" y="132" width="50" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="2" filter="url(#rough2)"/>
+    <text x="581" y="150" text-anchor="middle" font-size="7" fill="#446688">16×16</text>
+    <!-- row 1 -->
+    <rect x="406" y="162" width="50" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="2" filter="url(#rough2)"/>
+    <text x="431" y="180" text-anchor="middle" font-size="7" fill="#b85450">16×16</text>
+    <rect x="456" y="162" width="50" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="2" filter="url(#rough2)"/>
+    <text x="481" y="180" text-anchor="middle" font-size="7" fill="#b85450">16×16</text>
+    <rect x="506" y="162" width="50" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="2" filter="url(#rough2)"/>
+    <text x="531" y="180" text-anchor="middle" font-size="7" fill="#b85450">16×16</text>
+    <rect x="556" y="162" width="50" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="2" filter="url(#rough2)"/>
+    <text x="581" y="180" text-anchor="middle" font-size="7" fill="#b85450">16×16</text>
+  </g>
+  <text x="506" y="206" text-anchor="middle" font-size="8" fill="#888">1 warp × 8 mma = 2048 个 C 元素</text>
+
+  <rect x="620" y="132" width="100" height="80" fill="#fff" stroke="#ccc" stroke-width="0.8" rx="4" filter="url(#rough2)"/>
+  <text x="670" y="150" text-anchor="middle" font-size="10" fill="#446688" font-weight="bold">TC 范式</text>
+  <text x="634" y="168" font-size="9" fill="#555" font-family="monospace">mma.sync</text>
+  <text x="634" y="182" font-size="9" fill="#555" font-family="monospace">2048 FLOP/insn</text>
+  <text x="634" y="196" font-size="9" fill="#888">TF32 输入(10bit)</text>
+  <text x="634" y="210" font-size="9" fill="#888">~400+ TFLOPS</text>
+
+  <!-- ===== Three-level tiling ===== -->
+  <line x1="20" y1="282" x2="740" y2="282" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="306" font-size="12" fill="#444" font-weight="bold">三级 Tiling：Block → Warp → Fragment</text>
+
+  <!-- Level 0: Block tile -->
+  <rect x="30" y="316" width="220" height="56" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="336" font-size="11" fill="#b85450" font-weight="bold">Block tile 128×128</text>
+  <text x="44" y="352" font-size="9" fill="#555">1 block = 256 thread / 8 warp</text>
+  <text x="44" y="366" font-size="9" fill="#888">shared As[128×16] + Bs[16×128]</text>
+
+  <text x="260" y="348" font-size="16" fill="#888">→</text>
+
+  <!-- Level 1: Warp tile -->
+  <rect x="280" y="316" width="220" height="56" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="294" y="336" font-size="11" fill="#446688" font-weight="bold">Warp tile 32×64</text>
+  <text x="294" y="352" font-size="9" fill="#555">1 warp = 32 lane 协作</text>
+  <text x="294" y="366" font-size="9" fill="#888">FRAGS_M=2 × FRAGS_N=4</text>
+
+  <text x="510" y="348" font-size="16" fill="#888">→</text>
+
+  <!-- Level 2: Fragment -->
+  <rect x="530" y="316" width="210" height="56" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="544" y="336" font-size="11" fill="#4a7a3a" font-weight="bold">Fragment 16×16×8</text>
+  <text x="544" y="352" font-size="9" fill="#555">1 条 mma.sync = 2048 FLOP</text>
+  <text x="544" y="366" font-size="9" fill="#888">TF32 输入, FP32 累加</text>
+
+  <!-- ===== Precision flow ===== -->
+  <line x1="20" y1="392" x2="740" y2="392" stroke="#eee" stroke-width="1" filter="url(#rough2)"/>
+  <text x="30" y="416" font-size="12" fill="#444" font-weight="bold">精度流：FP32 输入 → TF32 计算 → FP32 累加 → FP32 输出</text>
+
+  <rect x="30" y="426" width="130" height="44" fill="#fce4ec" stroke="#b85450" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="95" y="446" text-anchor="middle" font-size="10" fill="#b85450" font-weight="bold">FP32 输入</text>
+  <text x="95" y="460" text-anchor="middle" font-size="8" fill="#888">23-bit 尾数</text>
+
+  <text x="170" y="450" font-size="14" fill="#888">→</text>
+  <text x="170" y="464" text-anchor="middle" font-size="8" fill="#888">硬件舍入</text>
+
+  <rect x="190" y="426" width="130" height="44" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="255" y="446" text-anchor="middle" font-size="10" fill="#446688" font-weight="bold">TF32 计算</text>
+  <text x="255" y="460" text-anchor="middle" font-size="8" fill="#888">10-bit 尾数, 8-bit 指数</text>
+
+  <text x="330" y="450" font-size="14" fill="#888">→</text>
+
+  <rect x="350" y="426" width="130" height="44" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="415" y="446" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">FP32 累加</text>
+  <text x="415" y="460" text-anchor="middle" font-size="8" fill="#888">23-bit 尾数（全精度）</text>
+
+  <text x="490" y="450" font-size="14" fill="#888">→</text>
+
+  <rect x="510" y="426" width="130" height="44" fill="#fff8e1" stroke="#d6a040" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <text x="575" y="446" text-anchor="middle" font-size="10" fill="#d6a040" font-weight="bold">FP32 输出</text>
+  <text x="575" y="460" text-anchor="middle" font-size="8" fill="#888">无 alpha/beta</text>
+
+  <!-- ===== Comparison table ===== -->
+  <rect x="30" y="486" width="700" height="80" fill="#f6f6f6" stroke="#ccc" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="44" y="506" font-size="11" fill="#444" font-weight="bold">关键对比</text>
+  <text x="44" y="524" font-size="10" fill="#555">CUDA Core：1 thread = 16 个标量 FMA  ·  1 mma = 32 lane 协作算 16×16×8 矩阵乘加</text>
+  <text x="44" y="540" font-size="10" fill="#555">TF32 保留 FP32 指数范围（无溢出），仅损失尾数精度（10bit vs 23bit），FP32 累加保证求和无额外误差</text>
+  <text x="44" y="556" font-size="10" fill="#4a7a3a">→ 算力提升 ~4×（TF32 TC peak ≈ 4× FP32 CUDA Core peak），精度损失可控（典型相对误差 ~1e-5）</text>
+</svg>
