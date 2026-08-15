@@ -360,7 +360,7 @@ def build(public_dir: Path) -> None:
     topic_md_path = LEETGPU_DIR / "cuda-interview-notes.md"
     if topic_md_path.exists():
         topic_text = topic_md_path.read_text(encoding="utf-8")
-        topic_text = _rewrite_all_challenge_links(topic_text, solution_slugs)
+        topic_text = _rewrite_md_links_to_html(topic_text)
         topic_title = _parse_title(topic_text)
         topic_markdown = _strip_leading_h1(topic_text)
         topic_html = page_template(
