@@ -612,6 +612,623 @@ if (tid < d)
 
 > 💡 **与朴素三步的核心区别**：朴素版需要 `S`（N×N）写 HBM 再读回来算 softmax；fused 版的 `s_k` 是一个标量，算完立即用，**永不落 HBM**。这就是"不物化"的含义。
 
+### 4.3 FlashAttention v2 Tiling 版（Br×Bc 分块 + warp 级 work partitioning）
+
+§4.1 的 fused 版"一个 block 处理一行 query"——`K/V` 会被 `M` 个 query 各读一遍，HBM IO 为 `O(M·N·d)`。真正的 FlashAttention 让一个 block 处理 `Br` 行 query，把 `K/V` 的 `Bc` 行 tile 载入 shared memory 后供 `Br` 个 query 复用，把 `K/V` 的 HBM 流量降到 `O(N·d·ceil(M/Br))`。
+
+> 💡 本节代码结构与 [ai-infra-notes Week 5 Day 3](https://hzchenxiaobin.github.io/ai-infra-notes/aiinfra/daily/week5/day3/README.html) 的 `flash_attention_v2.cu` 完全一致：`Br×Bc` tiling、`warpReduceMax/Sum` 原语、每个 warp 负责 `ROWS_PER_WARP` 行 Q、`__syncthreads` 仅在 tile 加载后使用。区别仅在于去掉了 batch/head 维度（本题为单头），并适配 `solve(Q, K, V, output, M, N, d)` 签名（`M` 行 query、`N` 行 KV，可不等）。
+
+#### 4.3.1 线程配置与 work partitioning
+
+| 参数 | §4.1 fused 版 | §4.3 tiling 版 | 说明 |
+|------|---------------|----------------|------|
+| block 映射 | `blockIdx.x → query 行 i` | `blockIdx.x → Q tile (Br 行)` | tiling 版一个 block 处理 Br 行 |
+| grid 大小 | `M` | `ceil(M/Br)` | block 数减少 Br 倍 |
+| K/V 加载 | 每次循环从 global 读 1 行 | KV tile (Bc 行) 载入 shared memory | Br 个 query 复用同一 KV tile |
+| 归约原语 | `block_reduce_sum` (block 级) | `warpReduceMax/Sum` (warp 级) | 跨 warp 无需通信 |
+| `__syncthreads` | 每步 3 次（广播 s_k/α/β） | 仅 tile 加载后 2 次/轮 | 大幅减少同步点 |
+| SRAM 使用 | `q_shm[d]` ≈ 256B | `s_Q[Br][d]+s_K[Bc][d]+s_V[Bc][d]` = 48KB | 用 SRAM 换 HBM IO |
+
+```
+grid = (ceil(M / Br),)           // x: Q tile
+block = (THREADS_PER_BLOCK,)     // 256 = 8 warps × 32 threads
+```
+
+| 参数 | 含义 | 值 |
+|------|------|-----|
+| Br | Q tile 行数（一个 Block 处理） | 64 |
+| Bc | KV tile 行数（一次内循环处理） | 64 |
+| d | Head dimension | 64 |
+| WARPS_PER_BLOCK | Block 内 warp 数 | 8 |
+| THREADS_PER_BLOCK | Block 内线程数 | 256 |
+| ROWS_PER_WARP | 每个 warp 负责的 Q 行数 = Br / WARPS | 8 |
+
+![FlashAttention Tiling 与线程映射](../../images/flash_attention_tiling.svg)
+
+##### 为什么每个 warp 负责多行 Q 而不是一行？
+
+- `Br=64, WARPS=8` → 每个 warp 8 行。如果每 warp 只 1 行，需要 64 个 warp = 2048 线程，超过 block 上限 1024
+- 每个 warp 内 32 线程协作处理一行的 `d=64` 个元素（每线程算 `Bc/32=2` 个点积），再用 `__shfl` 归约
+
+##### 为什么跨 warp 不需要通信？
+
+每个 Q 行的 online softmax 是完全独立的——不同 Q 行之间不共享数据。每个 warp 在自己的 register 中维护 `ROWS_PER_WARP` 组 `(m, l, acc[d])` 状态，warp 内用 `__shfl` 做归约，不需要 `__syncthreads`。`__syncthreads` 只在两处需要：① tile 加载后确保可见 ② 切换 tile 前确保计算完成。
+
+#### 4.3.2 完整可编译代码（本地自测版）
+
+```cuda
+// fa2_tiling.cu —— FlashAttention v2 Forward Kernel（Br×Bc tiling + warp work partitioning）
+// 与 ai-infra-notes W5D3 的 flash_attention_v2.cu 结构一致，适配单头 M×N 场景
+// 编译: nvcc -O3 -arch=sm_120 fa2_tiling.cu -o fa2_tiling -lineinfo
+// 运行: ./fa2_tiling 1024 1024 64
+
+#include <cstdio>
+#include <cstdlib>
+#include <cmath>
+#include <cuda_runtime.h>
+
+constexpr int Br = 64;
+constexpr int Bc = 64;
+constexpr int D = 64;
+
+constexpr int WARPS_PER_BLOCK = 8;
+constexpr int THREADS_PER_BLOCK = WARPS_PER_BLOCK * 32;
+static_assert(Br % WARPS_PER_BLOCK == 0, "Br must be divisible by WARPS_PER_BLOCK");
+constexpr int ROWS_PER_WARP = Br / WARPS_PER_BLOCK;
+
+__inline__ __device__ float warpReduceMax(float val) {
+    #pragma unroll
+    for (int offset = 16; offset > 0; offset >>= 1)
+        val = fmaxf(val, __shfl_down_sync(0xFFFFFFFF, val, offset));
+    return val;
+}
+
+__inline__ __device__ float warpReduceSum(float val) {
+    #pragma unroll
+    for (int offset = 16; offset > 0; offset >>= 1)
+        val += __shfl_down_sync(0xFFFFFFFF, val, offset);
+    return val;
+}
+
+__global__ void flash_attention_v2_kernel(
+    const float* __restrict__ Q, const float* __restrict__ K,
+    const float* __restrict__ V, float* __restrict__ O,
+    int M, int N, int d)
+{
+    __shared__ float s_Q[Br][D];
+    __shared__ float s_K[Bc][D];
+    __shared__ float s_V[Bc][D];
+
+    int qTileRow = blockIdx.x * Br;
+    int tid = threadIdx.x;
+    int lane = tid % 32;
+    int warpId = tid / 32;
+    int qRowStart = warpId * ROWS_PER_WARP;
+
+    // 协作加载 Q tile（常驻 shared memory）
+    #pragma unroll
+    for (int idx = tid; idx < Br * d; idx += THREADS_PER_BLOCK) {
+        int r = idx / d;
+        int c = idx % d;
+        int globalRow = qTileRow + r;
+        s_Q[r][c] = (globalRow < M) ? Q[globalRow * d + c] : 0.0f;
+    }
+    __syncthreads();
+
+    // 每个 warp 维护 ROWS_PER_WARP 个 Q 行的 running 状态
+    float m_arr[ROWS_PER_WARP];
+    float l_arr[ROWS_PER_WARP];
+    float acc[ROWS_PER_WARP][D];
+
+    #pragma unroll
+    for (int i = 0; i < ROWS_PER_WARP; i++) {
+        m_arr[i] = -1e30f;
+        l_arr[i] = 0.0f;
+        #pragma unroll
+        for (int j = 0; j < d; j++)
+            acc[i][j] = 0.0f;
+    }
+
+    float scale = 1.0f / sqrtf((float)d);
+
+    // 内层循环：遍历 KV tile
+    for (int kvStart = 0; kvStart < N; kvStart += Bc) {
+        // 协作加载 K/V tile
+        #pragma unroll
+        for (int idx = tid; idx < Bc * d; idx += THREADS_PER_BLOCK) {
+            int r = idx / d;
+            int c = idx % d;
+            int globalRow = kvStart + r;
+            s_K[r][c] = (globalRow < N) ? K[globalRow * d + c] : 0.0f;
+            s_V[r][c] = (globalRow < N) ? V[globalRow * d + c] : 0.0f;
+        }
+        __syncthreads();
+
+        // 每个 warp 独立处理自己的 ROWS_PER_WARP 个 Q 行（无需跨 warp 通信）
+        #pragma unroll
+        for (int localRow = 0; localRow < ROWS_PER_WARP; localRow++) {
+            int qi = qRowStart + localRow;
+            int globalQi = qTileRow + qi;
+            if (qi >= Br || globalQi >= M)
+                continue;
+
+            // Step 1: Sij[c] = Qi · Kj[c]^T（每线程算 Bc/32 个点积）
+            float Sij[Bc / 32];
+            #pragma unroll
+            for (int c = lane; c < Bc; c += 32) {
+                float dot = 0.0f;
+                #pragma unroll
+                for (int di = 0; di < d; di++)
+                    dot += s_Q[qi][di] * s_K[c][di];
+                Sij[c / 32] = dot * scale;
+            }
+
+            // Step 2: 局部 max（warpReduceMax）
+            float localMax = -1e30f;
+            #pragma unroll
+            for (int i = 0; i < Bc / 32; i++)
+                localMax = fmaxf(localMax, Sij[i]);
+            localMax = warpReduceMax(localMax);
+
+            // Step 3: online softmax 缩放旧状态
+            float m_prev = m_arr[localRow];
+            float m_new = fmaxf(m_prev, localMax);
+            float scale_old = expf(m_prev - m_new);
+            m_arr[localRow] = m_new;
+            l_arr[localRow] *= scale_old;
+            #pragma unroll
+            for (int di = 0; di < d; di++)
+                acc[localRow][di] *= scale_old;
+
+            // Step 4: 处理新块——累加 p 和 p×V
+            #pragma unroll
+            for (int i = 0; i < Bc / 32; i++) {
+                int c = lane + i * 32;
+                bool valid = c < Bc && (kvStart + c) < N;
+                float s_val = valid ? Sij[i] : -1e30f;
+                float p_val = valid ? expf(s_val - m_new) : 0.0f;
+
+                float p_sum = warpReduceSum(p_val);
+                if (lane == 0)
+                    l_arr[localRow] += p_sum;
+
+                #pragma unroll
+                for (int di = 0; di < d; di++) {
+                    float contrib = valid ? p_val * s_V[c][di] : 0.0f;
+                    float sum_contrib = warpReduceSum(contrib);
+                    if (lane == 0)
+                        acc[localRow][di] += sum_contrib;
+                }
+            }
+
+            // 广播 l 和 acc 到 warp 内所有线程
+            l_arr[localRow] = __shfl_sync(0xFFFFFFFF, l_arr[localRow], 0);
+            #pragma unroll
+            for (int di = 0; di < d; di++)
+                acc[localRow][di] = __shfl_sync(0xFFFFFFFF, acc[localRow][di], 0);
+        }
+
+        __syncthreads();
+    }
+
+    // 写回 O（归一化：除以 l）
+    #pragma unroll
+    for (int localRow = 0; localRow < ROWS_PER_WARP; localRow++) {
+        int qi = qRowStart + localRow;
+        int globalRow = qTileRow + qi;
+        if (qi >= Br || globalRow >= M)
+            continue;
+        float inv_l = 1.0f / l_arr[localRow];
+        #pragma unroll
+        for (int di = lane; di < d; di += 32)
+            O[globalRow * d + di] = acc[localRow][di] * inv_l;
+    }
+}
+
+// ---------- CPU 参考实现 ----------
+void attention_cpu(const float* Q, const float* K, const float* V, float* O, int M, int N, int d) {
+    float scale = 1.0f / sqrtf((float)d);
+    float* S = (float*)malloc(N * sizeof(float));
+    float* P = (float*)malloc(N * sizeof(float));
+    for (int i = 0; i < M; ++i) {
+        float mx = -INFINITY;
+        for (int k = 0; k < N; ++k) {
+            float s = 0.0f;
+            for (int t = 0; t < d; ++t)
+                s += Q[i * d + t] * K[k * d + t];
+            s *= scale;
+            S[k] = s;
+            mx = fmaxf(mx, s);
+        }
+        float sum = 0.0f;
+        for (int k = 0; k < N; ++k) {
+            P[k] = expf(S[k] - mx);
+            sum += P[k];
+        }
+        for (int t = 0; t < d; ++t) {
+            float acc = 0.0f;
+            for (int k = 0; k < N; ++k)
+                acc += P[k] * V[k * d + t];
+            O[i * d + t] = acc / sum;
+        }
+    }
+    free(S);
+    free(P);
+}
+
+int main(int argc, char** argv) {
+    int M = (argc > 1) ? atoi(argv[1]) : 1024;
+    int N = (argc > 2) ? atoi(argv[2]) : 1024;
+    int d = (argc > 3) ? atoi(argv[3]) : 64;
+    if (d != D) {
+        printf("tiling 版当前固定 d=%d（与 W5D3 README 一致），传入 d=%d 不支持\n", D, d);
+        return 1;
+    }
+
+    size_t q_bytes = (size_t)M * d * sizeof(float);
+    size_t kv_bytes = (size_t)N * d * sizeof(float);
+    printf("M=%d N=%d d=%d  Q=%.2fMB  K/V=%.2fMB each\n", M, N, d, q_bytes / 1e6, kv_bytes / 1e6);
+
+    float *hQ = (float*)malloc(q_bytes);
+    float *hK = (float*)malloc(kv_bytes);
+    float *hV = (float*)malloc(kv_bytes);
+    float *hO = (float*)malloc(q_bytes);
+    float *hRef = (float*)malloc(q_bytes);
+    srand(42);
+    for (int i = 0; i < M * d; ++i)
+        hQ[i] = ((rand() % 2000) - 1000) / 100.0f;
+    for (int i = 0; i < N * d; ++i) {
+        hK[i] = ((rand() % 2000) - 1000) / 100.0f;
+        hV[i] = ((rand() % 2000) - 1000) / 100.0f;
+    }
+
+    float *dQ, *dK, *dV, *dO;
+    cudaMalloc(&dQ, q_bytes);
+    cudaMemcpy(dQ, hQ, q_bytes, cudaMemcpyHostToDevice);
+    cudaMalloc(&dK, kv_bytes);
+    cudaMemcpy(dK, hK, kv_bytes, cudaMemcpyHostToDevice);
+    cudaMalloc(&dV, kv_bytes);
+    cudaMemcpy(dV, hV, kv_bytes, cudaMemcpyHostToDevice);
+    cudaMalloc(&dO, q_bytes);
+
+    dim3 grid((M + Br - 1) / Br);
+    dim3 block(THREADS_PER_BLOCK);
+
+    // warmup
+    flash_attention_v2_kernel<<<grid, block>>>(dQ, dK, dV, dO, M, N, d);
+    cudaDeviceSynchronize();
+
+    cudaEvent_t t0, t1;
+    cudaEventCreate(&t0);
+    cudaEventCreate(&t1);
+    cudaEventRecord(t0);
+    flash_attention_v2_kernel<<<grid, block>>>(dQ, dK, dV, dO, M, N, d);
+    cudaEventRecord(t1);
+    cudaDeviceSynchronize();
+    float ms = 0;
+    cudaEventElapsedTime(&ms, t0, t1);
+
+    cudaMemcpy(hO, dO, q_bytes, cudaMemcpyDeviceToHost);
+    attention_cpu(hQ, hK, hV, hRef, M, N, d);
+
+    float maxDiff = 0;
+    for (int i = 0; i < M * d; ++i)
+        maxDiff = fmaxf(maxDiff, fabsf(hO[i] - hRef[i]));
+    printf("max diff: %.2e (%s)\n", maxDiff, maxDiff < 1e-3f ? "PASS" : "FAIL");
+    printf("GPU Time: %.3f ms  (grid=%d, block=%d, SRAM=48KB)\n",
+           ms, (M + Br - 1) / Br, THREADS_PER_BLOCK);
+
+    cudaFree(dQ); cudaFree(dK); cudaFree(dV); cudaFree(dO);
+    free(hQ); free(hK); free(hV); free(hO); free(hRef);
+    return 0;
+}
+```
+
+**编译运行**：
+
+```bash
+nvcc -O3 -arch=sm_120 fa2_tiling.cu -o fa2_tiling -lineinfo
+./fa2_tiling 1024 1024 64        # M=1024 N=1024 d=64
+./fa2_tiling 4096 4096 64        # 大序列测试
+# 查看 SRAM 使用量：
+nvcc -Xptxas -v -O3 -arch=sm_120 fa2_tiling.cu -o fa2_tiling
+# shared memory 应为 49152 bytes = 48 KB (Br*d + 2*Bc*d = 3×4096×4)
+```
+
+#### 4.3.3 LeetGPU 提交版本
+
+`d=64` 时使用 tiling kernel（本节主角）；`d != 64` 时回退到 §4.1 的 fused kernel（一个 block 一行 query，支持 `d ≤ 128`）。
+
+```cuda
+#include <cmath>
+#include <cuda_runtime.h>
+
+// ===== tiling kernel 参数 =====
+#define BR 64
+#define BC 64
+#define D_TILING 64
+#define WARPS_TILING 8
+#define THREADS_TILING (WARPS_TILING * 32)
+#define ROWS_PER_WARP_TILING (BR / WARPS_TILING)
+
+// ===== tiling 版：warp 级归约原语 =====
+__inline__ __device__ float warpReduceMax(float val) {
+    #pragma unroll
+    for (int offset = 16; offset > 0; offset >>= 1)
+        val = fmaxf(val, __shfl_down_sync(0xFFFFFFFF, val, offset));
+    return val;
+}
+
+__inline__ __device__ float warpReduceSum(float val) {
+    #pragma unroll
+    for (int offset = 16; offset > 0; offset >>= 1)
+        val += __shfl_down_sync(0xFFFFFFFF, val, offset);
+    return val;
+}
+
+// ===== tiling 版 kernel（Br×Bc 分块，warp 级 work partitioning）=====
+__global__ void flash_attention_v2_kernel(
+    const float* __restrict__ Q, const float* __restrict__ K,
+    const float* __restrict__ V, float* __restrict__ O,
+    int M, int N, int d)
+{
+    __shared__ float s_Q[BR][D_TILING];
+    __shared__ float s_K[BC][D_TILING];
+    __shared__ float s_V[BC][D_TILING];
+
+    int qTileRow = blockIdx.x * BR;
+    int tid = threadIdx.x;
+    int lane = tid % 32;
+    int warpId = tid / 32;
+    int qRowStart = warpId * ROWS_PER_WARP_TILING;
+
+    #pragma unroll
+    for (int idx = tid; idx < BR * d; idx += THREADS_TILING) {
+        int r = idx / d, c = idx % d;
+        int gr = qTileRow + r;
+        s_Q[r][c] = (gr < M) ? Q[gr * d + c] : 0.0f;
+    }
+    __syncthreads();
+
+    float m_arr[ROWS_PER_WARP_TILING];
+    float l_arr[ROWS_PER_WARP_TILING];
+    float acc[ROWS_PER_WARP_TILING][D_TILING];
+
+    #pragma unroll
+    for (int i = 0; i < ROWS_PER_WARP_TILING; i++) {
+        m_arr[i] = -1e30f;
+        l_arr[i] = 0.0f;
+        #pragma unroll
+        for (int j = 0; j < d; j++)
+            acc[i][j] = 0.0f;
+    }
+
+    float scale = 1.0f / sqrtf((float)d);
+
+    for (int kvStart = 0; kvStart < N; kvStart += BC) {
+        #pragma unroll
+        for (int idx = tid; idx < BC * d; idx += THREADS_TILING) {
+            int r = idx / d, c = idx % d;
+            int gr = kvStart + r;
+            s_K[r][c] = (gr < N) ? K[gr * d + c] : 0.0f;
+            s_V[r][c] = (gr < N) ? V[gr * d + c] : 0.0f;
+        }
+        __syncthreads();
+
+        #pragma unroll
+        for (int localRow = 0; localRow < ROWS_PER_WARP_TILING; localRow++) {
+            int qi = qRowStart + localRow;
+            int globalQi = qTileRow + qi;
+            if (qi >= BR || globalQi >= M)
+                continue;
+
+            float Sij[BC / 32];
+            #pragma unroll
+            for (int c = lane; c < BC; c += 32) {
+                float dot = 0.0f;
+                #pragma unroll
+                for (int di = 0; di < d; di++)
+                    dot += s_Q[qi][di] * s_K[c][di];
+                Sij[c / 32] = dot * scale;
+            }
+
+            float localMax = -1e30f;
+            #pragma unroll
+            for (int i = 0; i < BC / 32; i++)
+                localMax = fmaxf(localMax, Sij[i]);
+            localMax = warpReduceMax(localMax);
+
+            float m_prev = m_arr[localRow];
+            float m_new = fmaxf(m_prev, localMax);
+            float scale_old = expf(m_prev - m_new);
+            m_arr[localRow] = m_new;
+            l_arr[localRow] *= scale_old;
+            #pragma unroll
+            for (int di = 0; di < d; di++)
+                acc[localRow][di] *= scale_old;
+
+            #pragma unroll
+            for (int i = 0; i < BC / 32; i++) {
+                int c = lane + i * 32;
+                bool valid = c < BC && (kvStart + c) < N;
+                float s_val = valid ? Sij[i] : -1e30f;
+                float p_val = valid ? expf(s_val - m_new) : 0.0f;
+
+                float p_sum = warpReduceSum(p_val);
+                if (lane == 0)
+                    l_arr[localRow] += p_sum;
+
+                #pragma unroll
+                for (int di = 0; di < d; di++) {
+                    float contrib = valid ? p_val * s_V[c][di] : 0.0f;
+                    float sum_contrib = warpReduceSum(contrib);
+                    if (lane == 0)
+                        acc[localRow][di] += sum_contrib;
+                }
+            }
+
+            l_arr[localRow] = __shfl_sync(0xFFFFFFFF, l_arr[localRow], 0);
+            #pragma unroll
+            for (int di = 0; di < d; di++)
+                acc[localRow][di] = __shfl_sync(0xFFFFFFFF, acc[localRow][di], 0);
+        }
+        __syncthreads();
+    }
+
+    #pragma unroll
+    for (int localRow = 0; localRow < ROWS_PER_WARP_TILING; localRow++) {
+        int qi = qRowStart + localRow;
+        int globalRow = qTileRow + qi;
+        if (qi >= BR || globalRow >= M)
+            continue;
+        float inv_l = 1.0f / l_arr[localRow];
+        #pragma unroll
+        for (int di = lane; di < d; di += 32)
+            O[globalRow * d + di] = acc[localRow][di] * inv_l;
+    }
+}
+
+// ===== fused 版（d != 64 回退，复用 §4.1）=====
+#define BLOCK_SIZE 256
+#define WARP_SIZE 32
+#define NUM_WARPS (BLOCK_SIZE / WARP_SIZE)
+#define D_MAX 128
+
+__inline__ __device__ float warp_reduce_sum(float v) {
+    #pragma unroll
+    for (int o = WARP_SIZE / 2; o > 0; o >>= 1)
+        v += __shfl_down_sync(0xffffffff, v, o);
+    return v;
+}
+
+__inline__ __device__ float block_reduce_sum(float v, float* sh) {
+    int lane = threadIdx.x & 31, wid = threadIdx.x >> 5;
+    v = warp_reduce_sum(v);
+    if (lane == 0) sh[wid] = v;
+    __syncthreads();
+    if (wid == 0) {
+        v = (lane < NUM_WARPS) ? sh[lane] : 0.f;
+        v = warp_reduce_sum(v);
+        if (lane == 0) sh[0] = v;
+    }
+    __syncthreads();
+    return sh[0];
+}
+
+__global__ void attention_fused_kernel(const float* __restrict__ Q, const float* __restrict__ K,
+                                       const float* __restrict__ V, float* __restrict__ O,
+                                       int M, int N, int d) {
+    __shared__ float q_shm[D_MAX];
+    __shared__ float red[NUM_WARPS + 1];
+    __shared__ float s_k_shm, alpha_shm, beta_shm;
+    int i = blockIdx.x, tid = threadIdx.x;
+    if (i >= M) return;
+
+    for (int t = tid; t < d; t += BLOCK_SIZE)
+        q_shm[t] = Q[i * d + t];
+    __syncthreads();
+
+    float m = -INFINITY, l = 0.f;
+    float o_local = 0.f;
+    const float scale = 1.0f / sqrtf((float)d);
+
+    for (int k = 0; k < N; ++k) {
+        float part = 0.f;
+        for (int t = tid; t < d; t += BLOCK_SIZE)
+            part += q_shm[t] * K[k * d + t];
+        float s_k = block_reduce_sum(part, red) * scale;
+        if (tid == 0) s_k_shm = s_k;
+        __syncthreads();
+        s_k = s_k_shm;
+
+        if (tid == 0) {
+            float m_new = fmaxf(m, s_k);
+            float alpha = expf(m - m_new);
+            float p = expf(s_k - m_new);
+            float l_new = l * alpha + p;
+            alpha_shm = (l * alpha) / l_new;
+            beta_shm = p / l_new;
+            m = m_new;
+            l = l_new;
+        }
+        __syncthreads();
+
+        if (tid < d)
+            o_local = o_local * alpha_shm + beta_shm * V[k * d + tid];
+        __syncthreads();
+    }
+    if (tid < d)
+        O[i * d + tid] = o_local;
+}
+
+// Q, K, V, output are device pointers
+extern "C" void solve(const float* Q, const float* K, const float* V, float* output, int M, int N, int d) {
+    if (M <= 0 || N <= 0 || d <= 0) return;
+    if (d == 64) {
+        dim3 grid((M + BR - 1) / BR);
+        flash_attention_v2_kernel<<<grid, THREADS_TILING>>>(Q, K, V, output, M, N, d);
+    } else {
+        attention_fused_kernel<<<M, BLOCK_SIZE>>>(Q, K, V, output, M, N, d);
+    }
+    cudaDeviceSynchronize();
+}
+```
+
+> ⚠️ **d=128 注意**：tiling 版当前固定 `D=64`（与 W5D3 README 一致）。`d=128` 时 SRAM 需 `(64+2×64)×128×4 = 96KB`（超过静态 `__shared__` 48KB 上限），需改用动态 shared memory + `cudaFuncSetAttribute` opt-in，且 `acc[8][128]=1024 floats/thread` register 压力极大。因此 `d != 64` 时回退到 §4.1 fused 版（支持 `d ≤ 128`）。如需 tiling 版支持 `d=128`，可减小 `Br=32, Bc=32` 使 SRAM 回到 48KB，但 `ROWS_PER_WARP` 降为 4、KV 循环翻倍。
+
+#### 4.3.4 Tiling 版循环数据流详解
+
+一个 Block 的执行流程：
+
+1. **Q tile 加载**（协作，全 block 256 线程）：把 `Br=64` 行 Q 载入 `s_Q[64][64]`，常驻整个 kernel 生命周期
+2. **KV tile 循环**（`ceil(N/Bc)` 轮）：
+   - **KV tile 加载**（协作，全 block）：`s_K[64][64]` + `s_V[64][64]`，`__syncthreads` 确保可见
+   - **每个 warp 独立处理 8 行 Q**（无跨 warp 通信）：
+     - Step 1: 每线程算 `Bc/32=2` 个 `Q·K^T` 点积（遍历 `d` 维），存入 `Sij[2]`
+     - Step 2: `warpReduceMax` 求 64 个 score 的 max
+     - Step 3: 用 `exp(m - m_new)` 缩放旧 `l` 和 `acc`
+     - Step 4: 对每个 score，算 `p=exp(s-m_new)`，`warpReduceSum` 归约 `p` 和 `p×V`，lane 0 累加
+     - `__shfl_sync` 广播 `l` 和 `acc` 到 warp 内所有线程
+   - `__syncthreads` 确保计算完成，切换下一 KV tile
+3. **写回 O**：`acc / l` 归一化后写 HBM
+
+##### SRAM 使用量
+
+```
+s_Q: Br×d = 64×64 = 4096 floats = 16 KB
+s_K: Bc×d = 64×64 = 4096 floats = 16 KB
+s_V: Bc×d = 64×64 = 4096 floats = 16 KB
+总计: 48 KB ≤ 48 KB (静态 __shared__ 上限) ✓
+```
+
+> ⚠️ K 和 V 可以分时复用同一块 shared memory（算 `S=QK^T` 时只需 K，算 `O=PV` 时只需 V），省 16KB。教学版分开存储以简化代码。
+
+##### 两次 `__syncthreads` 的作用
+
+| 位置 | 同步对象 | 与 §4.1 的区别 |
+|------|----------|----------------|
+| KV tile 加载后 | 全 block 看到完整 K/V tile | §4.1 每步需 3 次同步；tiling 版仅 2 次/轮 |
+| 切换 KV tile 前 | 全 block 完成当前 tile 计算 | 同上 |
+| **warp 内** | **不需要** | 用 `__shfl` 硬件同步，零 `__syncthreads` |
+
+> 💡 §4.1 fused 版每个 `k` 循环需要 3 次 `__syncthreads`（点积后、softmax 后、累加后），`N` 个 key 共 `3N` 次。tiling 版每轮 KV tile 仅 2 次，`ceil(N/Bc)` 轮共 `2·ceil(N/Bc)` 次——同步次数减少约 `3Bc/2 = 96` 倍。
+
+##### Register 使用与 occupancy
+
+每个 warp 维护 `ROWS_PER_WARP=8` 组 `(m, l, acc[64])` 状态，其中 `acc[8][64]=512` floats 是大头。加上 `m_arr/l_arr/Sij/索引`，每线程约 88-120 个 register。
+
+- RTX 5090 每 SM 最多 65536 register → 120 reg/thread 时每 SM 约 544 线程 ≈ 2 个 block
+- `sm__occupancy` 约 50-75%（register 压力大），这是教学版的局限
+- 缓解：减小 `ROWS_PER_WARP`（增加 `WARPS_PER_BLOCK`）或减小 `d`；官方实现用 warp group 子块划分优化
+
+##### 边界处理
+
+| 场景 | 处理方式 | 为什么不影响正确性 |
+|------|----------|-------------------|
+| `M` 不是 `Br` 倍数 | Q tile 无效行填 0 | 0 不参与点积累加 |
+| `N` 不是 `Bc` 倍数 | KV tile 无效行填 0；score 设 `-1e30f` | `exp(-1e30)=0`，不贡献到 `l` 和 `acc` |
+| 写回 | `globalRow >= M` 时 `continue` | 跳过无效行 |
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行
