@@ -937,19 +937,25 @@ nvcc -Xptxas -v -O3 -arch=sm_120 fa2_tiling.cu -o fa2_tiling
 
 #### 4.3.3 LeetGPU 提交版本
 
-`d=64` 时使用 tiling kernel（本节主角）；`d != 64` 时回退到 §4.1 的 fused kernel（一个 block 一行 query，支持 `d ≤ 128`）。
+通用版本：把 tiling kernel 的 `Br/Bc/D` 模板化，`solve` 按运行时 `d` 分派到对应的模板实例；`d` 不在 {32, 64, 128} 时回退 §4.1 的 fused kernel（一个 block 一行 query，支持 `d ≤ 128`）。
+
+**分派配置**（SRAM = (Br + 2·Bc)·d·4B，均不超 48KB 静态 `__shared__` 上限）：
+
+| d | Br | Bc | ROWS_PER_WARP | SRAM | acc floats/thread |
+|---|----|----|---------------|------|-------------------|
+| 32 | 64 | 64 | 8 | 24 KB | 256 |
+| 64 | 64 | 64 | 8 | 48 KB | 512 |
+| 128 | 32 | 32 | 4 | 48 KB | 512 |
+
+> 💡 `D` 必须做成**编译期模板参数**而不是沿用运行时 `d`：`acc[ROWS_PER_WARP][D]` 的下标只有编译期可确定，`acc` 才能留在 register；用运行时 `d` 索引会把 `acc` 落到 local memory，性能直接崩盘。`d=128` 时把 `Br/Bc` 减半为 32×32，SRAM 恰好回到 48KB、`acc` 保持 512 floats/thread——不需要动态 shared memory + `cudaFuncSetAttribute`。
 
 ```cuda
 #include <cmath>
 #include <cuda_runtime.h>
 
-// ===== tiling kernel 参数 =====
-#define BR 64
-#define BC 64
-#define D_TILING 64
-#define WARPS_TILING 8
-#define THREADS_TILING (WARPS_TILING * 32)
-#define ROWS_PER_WARP_TILING (BR / WARPS_TILING)
+// ===== tiling kernel：Br/Bc/D 模板化，按 d 分派 =====
+constexpr int WARPS_PER_BLOCK = 8;
+constexpr int THREADS_PER_BLOCK = WARPS_PER_BLOCK * 32;
 
 // ===== tiling 版：warp 级归约原语 =====
 __inline__ __device__ float warpReduceMax(float val) {
@@ -967,56 +973,62 @@ __inline__ __device__ float warpReduceSum(float val) {
 }
 
 // ===== tiling 版 kernel（Br×Bc 分块，warp 级 work partitioning）=====
+// D 为编译期模板参数，dispatch 保证运行时 d == D；kernel 内部一律用 D
+template<int BR, int BC, int D>
 __global__ void flash_attention_v2_kernel(
     const float* __restrict__ Q, const float* __restrict__ K,
     const float* __restrict__ V, float* __restrict__ O,
-    int M, int N, int d)
+    int M, int N)
 {
-    __shared__ float s_Q[BR][D_TILING];
-    __shared__ float s_K[BC][D_TILING];
-    __shared__ float s_V[BC][D_TILING];
+    static_assert(BR % WARPS_PER_BLOCK == 0, "BR must be divisible by WARPS_PER_BLOCK");
+    static_assert(BC % 32 == 0, "BC must be a multiple of warp size");
+    constexpr int ROWS_PER_WARP = BR / WARPS_PER_BLOCK;
+
+    __shared__ float s_Q[BR][D];
+    __shared__ float s_K[BC][D];
+    __shared__ float s_V[BC][D];
 
     int qTileRow = blockIdx.x * BR;
     int tid = threadIdx.x;
     int lane = tid % 32;
     int warpId = tid / 32;
-    int qRowStart = warpId * ROWS_PER_WARP_TILING;
+    int qRowStart = warpId * ROWS_PER_WARP;
 
     #pragma unroll
-    for (int idx = tid; idx < BR * d; idx += THREADS_TILING) {
-        int r = idx / d, c = idx % d;
+    for (int idx = tid; idx < BR * D; idx += THREADS_PER_BLOCK) {
+        int r = idx / D, c = idx % D;
         int gr = qTileRow + r;
-        s_Q[r][c] = (gr < M) ? Q[gr * d + c] : 0.0f;
+        s_Q[r][c] = (gr < M) ? Q[gr * D + c] : 0.0f;
     }
     __syncthreads();
 
-    float m_arr[ROWS_PER_WARP_TILING];
-    float l_arr[ROWS_PER_WARP_TILING];
-    float acc[ROWS_PER_WARP_TILING][D_TILING];
+    float m_arr[ROWS_PER_WARP];
+    float l_arr[ROWS_PER_WARP];
+    float acc[ROWS_PER_WARP][D];
 
     #pragma unroll
-    for (int i = 0; i < ROWS_PER_WARP_TILING; i++) {
+    for (int i = 0; i < ROWS_PER_WARP; i++) {
         m_arr[i] = -1e30f;
         l_arr[i] = 0.0f;
         #pragma unroll
-        for (int j = 0; j < d; j++)
+        for (int j = 0; j < D; j++)
             acc[i][j] = 0.0f;
     }
 
-    float scale = 1.0f / sqrtf((float)d);
+    float scale = 1.0f / sqrtf((float)D);
 
     for (int kvStart = 0; kvStart < N; kvStart += BC) {
         #pragma unroll
-        for (int idx = tid; idx < BC * d; idx += THREADS_TILING) {
-            int r = idx / d, c = idx % d;
+        for (int idx = tid; idx < BC * D; idx += THREADS_PER_BLOCK) {
+            int r = idx / D, c = idx % D;
             int gr = kvStart + r;
-            s_K[r][c] = (gr < N) ? K[gr * d + c] : 0.0f;
-            s_V[r][c] = (gr < N) ? V[gr * d + c] : 0.0f;
+            s_K[r][c] = (gr < N) ? K[gr * D + c] : 0.0f;
+            s_V[r][c] = (gr < N) ? V[gr * D + c] : 0.0f;
         }
         __syncthreads();
 
         #pragma unroll
-        for (int localRow = 0; localRow < ROWS_PER_WARP_TILING; localRow++) {
+        for (int localRow = 0; localRow < ROWS_PER_WARP; localRow++) {
             int qi = qRowStart + localRow;
             int globalQi = qTileRow + qi;
             if (qi >= BR || globalQi >= M)
@@ -1027,7 +1039,7 @@ __global__ void flash_attention_v2_kernel(
             for (int c = lane; c < BC; c += 32) {
                 float dot = 0.0f;
                 #pragma unroll
-                for (int di = 0; di < d; di++)
+                for (int di = 0; di < D; di++)
                     dot += s_Q[qi][di] * s_K[c][di];
                 Sij[c / 32] = dot * scale;
             }
@@ -1044,7 +1056,7 @@ __global__ void flash_attention_v2_kernel(
             m_arr[localRow] = m_new;
             l_arr[localRow] *= scale_old;
             #pragma unroll
-            for (int di = 0; di < d; di++)
+            for (int di = 0; di < D; di++)
                 acc[localRow][di] *= scale_old;
 
             #pragma unroll
@@ -1059,7 +1071,7 @@ __global__ void flash_attention_v2_kernel(
                     l_arr[localRow] += p_sum;
 
                 #pragma unroll
-                for (int di = 0; di < d; di++) {
+                for (int di = 0; di < D; di++) {
                     float contrib = valid ? p_val * s_V[c][di] : 0.0f;
                     float sum_contrib = warpReduceSum(contrib);
                     if (lane == 0)
@@ -1069,26 +1081,26 @@ __global__ void flash_attention_v2_kernel(
 
             l_arr[localRow] = __shfl_sync(0xFFFFFFFF, l_arr[localRow], 0);
             #pragma unroll
-            for (int di = 0; di < d; di++)
+            for (int di = 0; di < D; di++)
                 acc[localRow][di] = __shfl_sync(0xFFFFFFFF, acc[localRow][di], 0);
         }
         __syncthreads();
     }
 
     #pragma unroll
-    for (int localRow = 0; localRow < ROWS_PER_WARP_TILING; localRow++) {
+    for (int localRow = 0; localRow < ROWS_PER_WARP; localRow++) {
         int qi = qRowStart + localRow;
         int globalRow = qTileRow + qi;
         if (qi >= BR || globalRow >= M)
             continue;
         float inv_l = 1.0f / l_arr[localRow];
         #pragma unroll
-        for (int di = lane; di < d; di += 32)
-            O[globalRow * d + di] = acc[localRow][di] * inv_l;
+        for (int di = lane; di < D; di += 32)
+            O[globalRow * D + di] = acc[localRow][di] * inv_l;
     }
 }
 
-// ===== fused 版（d != 64 回退，复用 §4.1）=====
+// ===== fused 版（d 非 32/64/128 时回退，复用 §4.1）=====
 #define BLOCK_SIZE 256
 #define WARP_SIZE 32
 #define NUM_WARPS (BLOCK_SIZE / WARP_SIZE)
@@ -1164,17 +1176,31 @@ __global__ void attention_fused_kernel(const float* __restrict__ Q, const float*
 // Q, K, V, output are device pointers
 extern "C" void solve(const float* Q, const float* K, const float* V, float* output, int M, int N, int d) {
     if (M <= 0 || N <= 0 || d <= 0) return;
-    if (d == 64) {
-        dim3 grid((M + BR - 1) / BR);
-        flash_attention_v2_kernel<<<grid, THREADS_TILING>>>(Q, K, V, output, M, N, d);
-    } else {
-        attention_fused_kernel<<<M, BLOCK_SIZE>>>(Q, K, V, output, M, N, d);
+    switch (d) {
+        case 32: { // SRAM=24KB，acc=8×32=256 floats/thread
+            dim3 grid((M + 63) / 64);
+            flash_attention_v2_kernel<64, 64, 32><<<grid, THREADS_PER_BLOCK>>>(Q, K, V, output, M, N);
+            break;
+        }
+        case 64: { // SRAM=48KB，acc=8×64=512 floats/thread
+            dim3 grid((M + 63) / 64);
+            flash_attention_v2_kernel<64, 64, 64><<<grid, THREADS_PER_BLOCK>>>(Q, K, V, output, M, N);
+            break;
+        }
+        case 128: { // Br/Bc 减半：SRAM=48KB，acc=4×128=512 floats/thread
+            dim3 grid((M + 31) / 32);
+            flash_attention_v2_kernel<32, 32, 128><<<grid, THREADS_PER_BLOCK>>>(Q, K, V, output, M, N);
+            break;
+        }
+        default: // 其他 d（≤ 128）回退 fused 版
+            attention_fused_kernel<<<M, BLOCK_SIZE>>>(Q, K, V, output, M, N, d);
+            break;
     }
     cudaDeviceSynchronize();
 }
 ```
 
-> ⚠️ **d=128 注意**：tiling 版当前固定 `D=64`（与 W5D3 README 一致）。`d=128` 时 SRAM 需 `(64+2×64)×128×4 = 96KB`（超过静态 `__shared__` 48KB 上限），需改用动态 shared memory + `cudaFuncSetAttribute` opt-in，且 `acc[8][128]=1024 floats/thread` register 压力极大。因此 `d != 64` 时回退到 §4.1 fused 版（支持 `d ≤ 128`）。如需 tiling 版支持 `d=128`，可减小 `Br=32, Bc=32` 使 SRAM 回到 48KB，但 `ROWS_PER_WARP` 降为 4、KV 循环翻倍。
+> ⚠️ **d=128 配置说明**：`d=128` 时若沿用 `Br=Bc=64`，SRAM 需 `(64+2×64)×128×4 = 96KB`，超过静态 `__shared__` 48KB 上限，得改用动态 shared memory + `cudaFuncSetAttribute` opt-in，且 `acc[8][128]=1024 floats/thread` 的 register 压力极大。通用版把 `Br/Bc` 减半为 32×32：SRAM 恰好 48KB、`acc[4][128]=512 floats/thread` 与 `d=64` 持平，代价是 `ROWS_PER_WARP` 降为 4、KV 循环轮数翻倍。若需 `Br=64, d=128` 的满血配置，再引入动态 shared memory 即可（见 §5.3 优化方向）。
 
 #### 4.3.4 Tiling 版循环数据流详解
 
