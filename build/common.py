@@ -62,7 +62,7 @@ def page_template(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{page_title}</title>
-    <link rel="stylesheet" href="{root_prefix}css/style.css?v=6">
+    <link rel="stylesheet" href="{root_prefix}css/style.css?v=7">
     <!-- Marked.js for Markdown rendering -->
     <script src="{root_prefix}js/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">

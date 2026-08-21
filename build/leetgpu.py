@@ -186,6 +186,178 @@ def _build_nav(
     return "\n".join(lines)
 
 
+def _difficulty_descriptions() -> Dict[str, str]:
+    return {
+        "easy": "基础并行入门 —— 向量/矩阵运算、Element-wise 激活、简单归约",
+        "medium": "工程进阶 —— 卷积/池化、扫描归约、归一化、Attention 变体、量化",
+        "hard": "系统级挑战 —— 排序/FFT、图算法、完整 Transformer Block",
+    }
+
+
+def _build_landing_page(
+    solutions: List[Dict],
+    diff_groups: Dict[str, List[Dict]],
+    difficulties: List[str],
+    problems_json: str,
+) -> str:
+    """Generate the landing page HTML (sidebar-less, hero + cards layout)."""
+
+    total = len(solutions)
+    counts = {d: len(diff_groups.get(d, [])) for d in difficulties}
+
+    diff_descs = _difficulty_descriptions()
+
+    def _render_problem_cards(items: List[Dict]) -> str:
+        cards = []
+        for s in sorted(items, key=lambda x: x["number"]):
+            cards.append(
+                f'<a class="problem-card" href="./{s["slug"]}.html">'
+                f'<span class="problem-card-badge">#{s["number"]}</span>'
+                f'<span class="problem-card-name">{s["display_title"]}</span>'
+                f'<span class="problem-card-arrow">→</span>'
+                f'</a>'
+            )
+        return "\n".join(cards)
+
+    difficulty_sections = []
+    for d in difficulties:
+        label = DIFFICULTY_LABELS.get(d, d)
+        desc = diff_descs.get(d, "")
+        count = counts.get(d, 0)
+        diff_class = f"diff-{d}" if d in DIFFICULTY_ORDER else ""
+        cards_html = _render_problem_cards(diff_groups.get(d, []))
+        difficulty_sections.append(
+            f'<div class="phase-group {diff_class}">\n'
+            f'  <div class="phase-header">\n'
+            f'    <span class="phase-no">{count} 题</span>\n'
+            f'    <span class="phase-name">{label}</span>\n'
+            f'    <span class="phase-desc">{desc}</span>\n'
+            f'  </div>\n'
+            f'  <div class="problem-grid">\n'
+            f'{cards_html}\n'
+            f'  </div>\n'
+            f'</div>'
+        )
+
+    difficulty_html = "\n".join(difficulty_sections)
+
+    return f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeetGPU 题解</title>
+    <meta name="description" content="LeetGPU 题解：从基础 Kernel 到 Attention/GEMM，手写 CUDA 算子全覆盖，涵盖向量/矩阵运算、归约/排序、Transformer 算子、量化推理等高频考点。">
+    <link rel="stylesheet" href="css/style.css?v=7">
+</head>
+<body class="landing">
+    <header class="landing-nav">
+        <a class="landing-nav-brand" href="./index.html">Leet<span>GPU</span></a>
+        <nav class="landing-nav-links">
+            <a href="#problems">题解</a>
+            <a href="./cuda-interview-notes.html">CUDA 手撕题</a>
+            <a class="landing-nav-github" href="https://github.com/hzchenxiaobin/leetgpu">GitHub ↗</a>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <div class="hero-inner">
+            <div class="hero-eyebrow">CUDA 工程实战 · 在线刷题</div>
+            <h1 class="hero-title">LeetGPU <span class="hero-title-accent">题解</span></h1>
+            <p class="hero-subtitle">从基础 Kernel 到 Attention/GEMM，手写 CUDA 算子全覆盖</p>
+            <p class="hero-meta">涵盖向量/矩阵运算、归约/排序、Transformer 算子、量化推理等高频考点 · 每题含思路分析、Naive → Optimized 实现、性能对比</p>
+            <div class="hero-actions">
+                <button id="random-pick-btn" class="btn btn-primary" data-problems='{problems_json}'>🎲 随机选一道题</button>
+                <a class="btn btn-secondary" href="#problems">📋 查看全部题解</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="stats-strip">
+        <div class="stat-item"><span class="stat-value">{total}</span><span class="stat-label">道题解</span></div>
+        <div class="stat-item"><span class="stat-value">{counts.get("easy", 0)}</span><span class="stat-label">Easy</span></div>
+        <div class="stat-item"><span class="stat-value">{counts.get("medium", 0)}</span><span class="stat-label">Medium</span></div>
+        <div class="stat-item"><span class="stat-value">{counts.get("hard", 0)}</span><span class="stat-label">Hard</span></div>
+    </section>
+
+    <main class="landing-main">
+        <section class="landing-section" id="problems">
+            <h2 class="section-title">题解列表</h2>
+            <p class="section-subtitle">按难度分组，点击卡片进入对应题解。每题包含思路拆解、Naive 实现、优化路径与 Profiling 对比。</p>
+{difficulty_html}
+        </section>
+
+        <section class="landing-section">
+            <h2 class="section-title">更多资源</h2>
+            <div class="resource-grid">
+                <a class="resource-card" href="./cuda-interview-notes.html">
+                    <span class="resource-card-icon">📝</span>
+                    <span class="resource-card-body">
+                        <span class="resource-card-name">CUDA 手撕题专题</span>
+                        <span class="resource-card-desc">面试高频 CUDA 手撕题与解析</span>
+                    </span>
+                </a>
+                <a class="resource-card" href="https://hzchenxiaobin.github.io/ai-infra-notes/index.html">
+                    <span class="resource-card-icon">📚</span>
+                    <span class="resource-card-body">
+                        <span class="resource-card-name">AI Infra 学习笔记</span>
+                        <span class="resource-card-desc">10 周从 Kernel 到系统优化（独立站点）</span>
+                    </span>
+                </a>
+                <a class="resource-card" href="https://hzchenxiaobin.github.io/leetcode/">
+                    <span class="resource-card-icon">🧩</span>
+                    <span class="resource-card-body">
+                        <span class="resource-card-name">LeetCode 题解</span>
+                        <span class="resource-card-desc">面试高频算法题解（独立站点）</span>
+                    </span>
+                </a>
+                <a class="resource-card" href="https://github.com/hzchenxiaobin/leetgpu">
+                    <span class="resource-card-icon">💻</span>
+                    <span class="resource-card-body">
+                        <span class="resource-card-name">GitHub 仓库</span>
+                        <span class="resource-card-desc">本站的全部源码与 Markdown 原文</span>
+                    </span>
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <footer class="landing-footer">
+        <span>LeetGPU 题解 · 由 <a href="https://github.com/hzchenxiaobin/leetgpu">GitHub</a> 驱动 · Deployed on GitHub Pages</span>
+    </footer>
+
+    <button class="back-to-top" aria-label="Back to top">↑</button>
+    <script>
+    (function() {{
+        var btn = document.getElementById('random-pick-btn');
+        if (btn) {{
+            btn.addEventListener('click', function() {{
+                try {{
+                    var problems = JSON.parse(btn.dataset.problems || '[]');
+                    if (!problems.length) return;
+                    var p = problems[Math.floor(Math.random() * problems.length)];
+                    if (p.slug) {{
+                        window.location.href = './leetgpu-' + p.slug + '-solution.html';
+                    }}
+                }} catch (e) {{}}
+            }});
+        }}
+        var backTop = document.querySelector('.back-to-top');
+        if (backTop) {{
+            window.addEventListener('scroll', function() {{
+                if (window.scrollY > 300) {{ backTop.classList.add('visible'); }}
+                else {{ backTop.classList.remove('visible'); }}
+            }});
+            backTop.addEventListener('click', function() {{
+                window.scrollTo({{ top: 0, behavior: 'smooth' }});
+            }});
+        }}
+    }})();
+    </script>
+</body>
+</html>"""
+
+
 def build(public_dir: Path) -> None:
     """Build the LeetGPU website into public_dir/ (root)."""
     output_dir = public_dir
@@ -265,36 +437,6 @@ def build(public_dir: Path) -> None:
     for s in solutions:
         s["markdown"] = _rewrite_challenge_links(s["markdown"], solution_slugs)
 
-    overview_markdown = f"""<div class="random-pick">
-  <button id="random-pick-btn" class="random-btn" data-problems='{problems_json}'>🎲 随机选一道题练习</button>
-</div>
-<style>
-.random-pick {{
-  margin: 1rem 0 1.5rem;
-  padding: 1rem;
-  background: #1f2937;
-  border: 1px solid #374151;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}}
-.random-btn {{
-  background: #2563eb;
-  color: #fff;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 6px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}}
-.random-btn:hover {{ background: #1d4ed8; }}
-</style>
-
-"""
-
     diff_groups: Dict[str, List[Dict]] = {}
     for s in solutions:
         d = s["difficulty"] or "未分组"
@@ -302,44 +444,9 @@ def build(public_dir: Path) -> None:
 
     difficulties = sorted(diff_groups.keys(), key=_difficulty_sort_key)
 
-    def render_diff_section(d: str) -> str:
-        items = sorted(diff_groups[d], key=lambda s: s["number"])
-        section = f'<div class="leetcode-section">\n'
-        section += f'  <div class="leetcode-section-title">{DIFFICULTY_LABELS.get(d, d)}</div>\n'
-        section += f'  <div class="leetcode-problem-list">\n'
-        for s in items:
-            section += (
-                f'    <a class="leetcode-problem-link" href="./{s["slug"]}.html">'
-                f'<span class="leetcode-problem-day">#{s["number"]}</span>'
-                f'<span class="leetcode-problem-title">{s["display_title"]}</span>'
-                f'</a>\n'
-            )
-        section += '  </div>\n'
-        section += '</div>\n\n'
-        return section
-
-    for i in range(0, len(difficulties), 3):
-        overview_markdown += '<div class="leetcode-overview-row">\n'
-        for j in range(3):
-            if i + j < len(difficulties):
-                col_cls = "leetcode-col-left" if j == 0 else "leetcode-col-middle" if j == 1 else "leetcode-col-right"
-                overview_markdown += f'  <div class="leetcode-col {col_cls}">\n'
-                overview_markdown += render_diff_section(difficulties[i + j])
-                overview_markdown += '  </div>\n'
-        overview_markdown += '</div>\n\n'
-
     root_prefix = ""
-    overview_html = page_template(
-        title="LeetGPU 题解",
-        nav_html=_build_nav(current_slug=None, solutions=solutions),
-        markdown=overview_markdown,
-        root_prefix=root_prefix,
-        sidebar_title="LeetGPU 题解",
-        sidebar_title_style="font-size: 1.5rem; margin-bottom: 0;",
-        sidebar_href="./index.html",
-        show_back_link=False,
-    )
-    (output_dir / "index.html").write_text(overview_html, encoding="utf-8")
+    landing_html = _build_landing_page(solutions, diff_groups, difficulties, problems_json)
+    (output_dir / "index.html").write_text(landing_html, encoding="utf-8")
     print(f"Generated: {output_dir / 'index.html'}")
 
     for s in solutions:
