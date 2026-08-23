@@ -248,7 +248,7 @@ def _build_landing_page(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LeetGPU 题解</title>
     <meta name="description" content="LeetGPU 题解：从基础 Kernel 到 Attention/GEMM，手写 CUDA 算子全覆盖，涵盖向量/矩阵运算、归约/排序、Transformer 算子、量化推理等高频考点。">
-    <link rel="stylesheet" href="css/style.css?v=7">
+    <link rel="stylesheet" href="css/style.css?v=8">
 </head>
 <body class="landing">
     <header class="landing-nav">

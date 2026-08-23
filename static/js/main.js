@@ -1,4 +1,10 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // Scroll the active day pill into view inside the top nav (mobile)
+    const activePill = document.querySelector('.landing-nav-pills .day-pill-active');
+    if (activePill) {
+        activePill.scrollIntoView({ inline: 'center', block: 'nearest' });
+    }
+
     // Mobile menu toggle
     const menuToggle = document.querySelector('.menu-toggle');
     const sidebar = document.querySelector('.sidebar');
@@ -53,6 +59,26 @@ document.addEventListener('DOMContentLoaded', function() {
         if (button) {
             button.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
         }
+        // Animate max-height with real measurements so long lists are never
+        // clipped by a fixed cap. After the expand transition finishes, the
+        // inline style is cleared and the CSS `max-height: none` rule applies.
+        const content = item.querySelector(':scope > .nav-accordion-content');
+        if (content) {
+            if (isExpanded) {
+                content.style.maxHeight = content.scrollHeight + 'px';
+                content.addEventListener('transitionend', function handler(e) {
+                    if (e.propertyName !== 'max-height') return;
+                    content.removeEventListener('transitionend', handler);
+                    if (item.classList.contains('is-expanded')) {
+                        content.style.maxHeight = '';
+                    }
+                });
+            } else {
+                content.style.maxHeight = content.scrollHeight + 'px';
+                void content.offsetHeight; // force reflow so the collapse animates
+                content.style.maxHeight = '0px';
+            }
+        }
         // When manually expanding a level, collapse its descendants so that
         // each level requires its own click to expand.
         if (willExpand) {
@@ -61,6 +87,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const childButton = child.querySelector('.nav-accordion-toggle');
                 if (childButton) {
                     childButton.setAttribute('aria-expanded', 'false');
+                }
+                const childContent = child.querySelector(':scope > .nav-accordion-content');
+                if (childContent) {
+                    childContent.style.maxHeight = '';
                 }
             });
         }
@@ -165,13 +195,27 @@ document.addEventListener('DOMContentLoaded', function() {
     // Enhance interview Q&A section into styled cards
     enhanceInterviewQA();
 
-    // Open all links in new tab, except sidebar links
+    // Open external links in new tab; on non-landing pages, open all non-sidebar
+    // links in new tab (existing behavior). On the landing page, only external
+    // links get target="_blank" so internal navigation stays in-tab.
     document.querySelectorAll('a').forEach(link => {
         if (link.closest('.sidebar')) {
             return;
         }
-        link.setAttribute('target', '_blank');
-        link.setAttribute('rel', 'noopener noreferrer');
+        if (document.body.classList.contains('landing')) {
+            const href = link.getAttribute('href') || '';
+            if (href.startsWith('http://') || href.startsWith('https://')) {
+                try {
+                    if (new URL(href).origin !== window.location.origin) {
+                        link.setAttribute('target', '_blank');
+                        link.setAttribute('rel', 'noopener noreferrer');
+                    }
+                } catch (e) {}
+            }
+        } else {
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+        }
     });
 });
 

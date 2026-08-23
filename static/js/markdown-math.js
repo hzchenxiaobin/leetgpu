@@ -2,6 +2,9 @@
  * markdown-math.js
  * 为 marked.js (v12.x) 增加 $...$ / $$...$$ 公式支持，并用 KaTeX 渲染。
  *
+ * 同时把删除线语法收紧为标准 GFM 的 ~~...~~：marked v12 默认把单个
+ * ~...~ 也解析成 <del>，会把正文里"~40 行 vs ~300 行"这类约数误加删除线。
+ *
  * 使用方式：在 marked.min.js 之后、调用 marked.parse() 之前加载本文件。
  * 本文件会注册 marked 扩展，将公式保留为 <span class="math-inline"> /
  * <div class="math-block"> 占位元素；页面加载完成后自动调用 KaTeX 渲染。
@@ -83,6 +86,28 @@
         };
 
         marked.use({ extensions: [mathBlock, mathInline] });
+
+        // marked v12 的 del 规则是 /^(~~?).../，单 ~ 也会生成 <del>。
+        // 覆盖为仅识别 ~~...~~；单个 ~ 按普通文本逐字符消费。
+        marked.use({
+            tokenizer: {
+                del(src) {
+                    const match = /^(~~)(?=[^\s~])([\s\S]*?[^\s~])\1(?=[^~]|$)/.exec(src);
+                    if (match) {
+                        return {
+                            type: 'del',
+                            raw: match[0],
+                            text: match[2],
+                            tokens: this.lexer.inline(match[2])
+                        };
+                    }
+                    if (src.charAt(0) === '~') {
+                        return { type: 'text', raw: '~', text: '~' };
+                    }
+                    return undefined;
+                }
+            }
+        });
     }
 
     /**
