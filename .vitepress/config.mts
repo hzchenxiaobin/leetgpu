@@ -49,10 +49,11 @@ export default defineConfig({
     languageAlias: { cuda: 'cpp' }
   },
 
-  // 无侧边栏：按题号顺序自动推导 上一题/下一题
+  // 无侧边栏 + 无右侧目录：题解页为纯单栏阅读；按题号顺序自动推导 上一题/下一题
   transformPageData(pageData) {
     const idx = order.findIndex(o => pageData.relativePath === o.link.slice(1) + '.md')
     if (idx >= 0) {
+      pageData.frontmatter.aside = false
       const prev = order[idx - 1]
       const next = order[idx + 1]
       pageData.frontmatter.prev = prev ? { text: prev.text, link: prev.link } : false
@@ -70,8 +71,6 @@ export default defineConfig({
     ],
 
     sidebar: false,
-
-    outline: { level: [2, 3], label: '本页目录' },
 
     search: {
       provider: 'local',
