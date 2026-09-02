@@ -11,3 +11,9 @@ public/
 .idea/
 .claude/
 .opencode/
+
+# Node / VitePress
+node_modules/
+dist/
+.vitepress/cache/
+.vitepress/.temp/

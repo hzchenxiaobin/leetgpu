@@ -4,15 +4,15 @@ on:
   push:
     branches: [main]
     paths:
-      - 'build.py'
-      - 'build/**'
-      - 'static/**'
-      - 'week*/**'
-      - 'images/**'
-      - 'easy/**'
-      - 'medium/**'
-      - 'hard/**'
-      - 'cuda-interview-notes.md'
+      - 'solutions/**'
+      - 'index.md'
+      - 'easy.md'
+      - 'medium.md'
+      - 'hard.md'
+      - 'public/**'
+      - '.vitepress/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
@@ -35,26 +35,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.11'
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build website (VitePress)
+        run: npm run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Build website
-        run: |
-          python3 build.py
-          echo "--- public directory structure ---"
-          ls -la public/
-          echo "--- file count ---"
-          find public -type f | wc -l
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: public
+          path: dist
 
       - name: Deploy to GitHub Pages
         id: deployment

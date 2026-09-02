@@ -1,0 +1,15 @@
+{
+  "name": "leetgpu-solutions",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3",
+    "markdown-it-katex": "^2.0.3",
+    "katex": "^0.16.11"
+  }
+}
