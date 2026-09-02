@@ -3,6 +3,7 @@ import { h } from 'vue'
 import ProblemList from './ProblemList.vue'
 import BackLink from './BackLink.vue'
 import 'katex/dist/katex.min.css'
+import './custom.css'
 
 export default {
   extends: DefaultTheme,

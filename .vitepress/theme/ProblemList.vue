@@ -33,7 +33,7 @@ const list = computed(() => data.filter(p => p.diff === props.diff))
 </template>
 
 <style scoped>
-.pl-wrap { max-width: 860px; margin: 0 auto; padding: 48px 24px 64px; }
+.pl-wrap { max-width: 1024px; margin: 0 auto; padding: 48px 24px 64px; }
 .pl-title { font-size: 2rem; font-weight: 700; margin: 0 0 8px; color: var(--vp-c-text-1); }
 .pl-desc { color: var(--vp-c-text-2); margin: 0 0 32px; }
 .pl-list { display: flex; flex-direction: column; gap: 10px; }

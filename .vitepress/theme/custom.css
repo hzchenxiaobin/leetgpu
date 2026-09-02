@@ -1,0 +1,19 @@
+/* 加宽正文阅读区（默认主题无侧栏时内容仅 ~780px） */
+
+/* 整体布局上限放宽 */
+:root {
+  --vp-layout-max-width: 1440px;
+}
+
+/* 题解正文：960px 以上屏幕加宽到 1080px */
+@media (min-width: 960px) {
+  .VPDoc:not(.has-sidebar) .content,
+  .VPDoc:not(.has-sidebar) .content-container {
+    max-width: 1080px !important;
+  }
+}
+
+/* 代码块在宽栏下允许更长的行 */
+.vp-doc div[class*='language-'] {
+  border-radius: 8px;
+}
