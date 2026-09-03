@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import katex from 'markdown-it-katex'
+import katex from '@traptitech/markdown-it-katex'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 

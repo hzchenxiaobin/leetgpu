@@ -9,10 +9,10 @@
   },
   "devDependencies": {
     "katex": "^0.16.11",
-    "markdown-it-katex": "^2.0.3",
     "vitepress": "^1.6.3"
   },
   "dependencies": {
+    "@traptitech/markdown-it-katex": "^3.6.0",
     "medium-zoom": "^1.1.0"
   }
 }
