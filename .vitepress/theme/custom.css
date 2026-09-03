@@ -17,3 +17,16 @@
 .vp-doc div[class*='language-'] {
   border-radius: 8px;
 }
+
+/* 内容区图片：可点击放大 */
+.vp-doc img {
+  cursor: zoom-in;
+}
+
+.medium-zoom-overlay {
+  z-index: 100;
+}
+
+.medium-zoom-image--opened {
+  z-index: 101;
+}
