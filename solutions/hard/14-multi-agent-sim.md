@@ -18,7 +18,7 @@
 数学上：
 
 $$
-\bar{v}_i = \begin{cases}\dfrac{\sum_{j\ne i,\;\lVert p_i-p_j\rVert^2 < r^2} v_j}{\sum_{j\ne i,\;\lVert p_i-p_j\rVert^2 < r^2} 1} & \text{if } |\mathcal{N}_i|>0 \$$4pt] v_i & \text{if } |\mathcal{N}_i|=0\end{cases},\quad v_i' = v_i + \alpha(\bar{v}_i - v_i),\quad p_i' = p_i + v_i'
+\bar{v}_i = \begin{cases}\dfrac{\sum_{j\ne i,\;\lVert p_i-p_j\rVert^2 < r^2} v_j}{\sum_{j\ne i,\;\lVert p_i-p_j\rVert^2 < r^2} 1} & \text{if } |\mathcal{N}_i|>0 \\[4pt] v_i & \text{if } |\mathcal{N}_i|=0\end{cases},\quad v_i' = v_i + \alpha(\bar{v}_i - v_i),\quad p_i' = p_i + v_i'
 $$
 
 **示例**（`two_agents_interacting`，`N=2`）：

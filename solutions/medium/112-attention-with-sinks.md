@@ -436,7 +436,7 @@ extern "C" void solve(const float* Q, const float* K, const float* V, float* out
 - `i = blockIdx.x` — block 到 query 行的映射（grid 共 $M$ 个 block）
 - `t = threadIdx.x` — thread 到 $d$ 维的映射（`BLOCK_SIZE=128`，`d≤128` 时一一对应）
 - `win_start = max(0, i - window_size + 1)` — 滑动窗口左端
-- `j` 遍历 $[0, i]$，跳过 $[\text{num\_sinks}, \text{win_start})$ 这段空洞
+- `j` 遍历 $[0, i]$，跳过 $[\text{num\_sinks}, \text{win\_start})$ 这段空洞
 
 ![Worked Example：query i=3 的 online softmax 逐步演算](/images/attention_with_sinks_worked.svg)
 

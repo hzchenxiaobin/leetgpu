@@ -697,7 +697,7 @@ ncu --set full \
 | **算术强度** | 单次 `mma`：`8192 FLOP / 1024B = 8 FLOP/B`（fragment 级），叠加 block/warp 级复用后远超带宽平衡点 → **compute-bound** |
 | **精度保证** | FP32 累加（accumulator fragment），满足题目要求；最终 `__float2half` 转回 FP16 |
 | **寄存器用量** | ~**96 regs/thread**（无 spill），占用率受寄存器限制约 25% |
-| **shared 占用** | `(128×16 + 16×128)×2\text{B} + 128×128×4\text{B} = 72\text{KB/block}$ |
+| **shared 占用** | $(128×16 + 16×128)×2\text{B} + 128×128×4\text{B} = 72\text{KB/block}$ |
 | **Tensor Core 加速** | WMMA 16×16×16 tile 每 cycle 1024 FLOP vs CUDA Core 128 FLOP → 理论 8× |
 | **瓶颈类型** | **compute-bound**：`sm__throughput ≫ dram__throughput`，Tensor Core 流水线是瓶颈 |
 

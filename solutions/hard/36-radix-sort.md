@@ -71,7 +71,7 @@ __global__ void naive_sort(unsigned int* data, int N) {
 每一趟（处理第 `b` 位）做的事情非常简单：把 `bit b == 0` 的元素**稳定地**搬到左侧 `[0, Z)`、`bit b == 1` 的元素搬到右侧 `[Z, N)`，其中 `Z` 是全局 0 的总数。这就是一次**稳定二分划分（stable binary partition）**。
 
 $$
-\text{pos}_i = \begin{cases} \text{excl}_0[\text{block}_i] + \text{rank0}_i & \text{bit}_i = 0 \$$2pt] Z + \big(\text{block}_i \cdot \text{TILE} - \text{excl}_0[\text{block}_i]\big) + (\text{tid} - \text{rank0}_i) & \text{bit}_i = 1 \end{cases}
+\text{pos}_i = \begin{cases} \text{excl}_0[\text{block}_i] + \text{rank0}_i & \text{bit}_i = 0 \\[2pt] Z + \big(\text{block}_i \cdot \text{TILE} - \text{excl}_0[\text{block}_i]\big) + (\text{tid} - \text{rank0}_i) & \text{bit}_i = 1 \end{cases}
 $$
 
 其中 `rank0_i` = 本 block 内、索引 `i` 之前 0 的个数 = `pred0` 的 exclusive prefix sum，`pred0 = (bit==0)`；`excl_0[block]` = 全局在此 block 之前的 0 总数；`Z` = 全局 0 总数。

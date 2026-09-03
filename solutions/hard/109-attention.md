@@ -572,8 +572,8 @@ ncu --kernel-name regex:flash_attention_kernel \
 
 ### 5.4 优化方向
 
-1. **按 `BLOCK_N` 分块而非逐 key**：当前每 key 一次块归约，$N$ 大时归约开销显著。改为每轮加载 `BLOCK_N`（如 16/32）个 key 到 shared，块内先算局部 max/sum 再做 online 合并，归约次数降到 $N/\text{BLOCK_N}$，算术强度提升。
-2. **Q tile 多行复用**：当前一个 block 只处理一行 query，$Q$ 行只被用一次。改为一个 block 处理 `BLOCK_M` 行 query（$Q$ tile 驻留 SRAM），让同一块 $K/V$ 被 `BLOCK_M` 行复用，$K/V$ 的 HBM 读降到 $1/\text{BLOCK_M}$——这是 [Multi-Head Attention #12](/solutions/hard/12-multi-head-attention) 的 tiling 思路。
+1. **按 `BLOCK_N` 分块而非逐 key**：当前每 key 一次块归约，$N$ 大时归约开销显著。改为每轮加载 `BLOCK_N`（如 16/32）个 key 到 shared，块内先算局部 max/sum 再做 online 合并，归约次数降到 $N/\text{BLOCK\_N}$，算术强度提升。
+2. **Q tile 多行复用**：当前一个 block 只处理一行 query，$Q$ 行只被用一次。改为一个 block 处理 `BLOCK_M` 行 query（$Q$ tile 驻留 SRAM），让同一块 $K/V$ 被 `BLOCK_M` 行复用，$K/V$ 的 HBM 读降到 $1/\text{BLOCK\_M}$——这是 [Multi-Head Attention #12](/solutions/hard/12-multi-head-attention) 的 tiling 思路。
 3. **`float4` 向量化加载**：$K/V$ 按 $d$ 连续，用 `float4` 一次读 16B，减少内存事务数与地址计算开销。
 4. **FP16/BF16 存储 + FP32 累加**：$Q/K/V$ 用 FP16 存储，HBM 流量减半、带宽翻倍；score 与 $(m,l,O)$ 累加必须 FP32 保精度（"FP16 进 → FP32 算 → FP16 出"），并可配合 Tensor Core 加速 $QK^{\top}$。
 5. **寄存器分块（register tiling）**：把 $O$ 的多个维度驻留寄存器、展开 $d$ 维内积循环，提升指令级并行（ILP）。
@@ -591,7 +591,7 @@ ncu --kernel-name regex:flash_attention_kernel \
 | **算术强度** | $\approx d/2$ FLOP/Byte（被 $S/P$ IO 拖低） | $\approx 2N$ FLOP/Byte（$N\gg d$ 时远高） |
 | **瓶颈类型** | memory-bound（HBM 往返主导） | 混合型，$N$ 大时趋 compute-bound |
 | **kernel 启动数** | 3 次（$S$ / softmax / $P\cdot V$） | 1 次（三步融合） |
-| **块归约次数** | softmax 行归约 $M$ 次 | 每 query 行 $N$ 次点积归约（优化后 $N/\text{BLOCK_N}$） |
+| **块归约次数** | softmax 行归约 $M$ 次 | 每 query 行 $N$ 次点积归约（优化后 $N/\text{BLOCK\_N}$） |
 
 > 💡 **一句话总结**：Attention 的瓶颈不在算力（计算量 $O(N^2 d)$ 不变），而在朴素实现把 $S/P$ 两个 $N\times N$ 矩阵反复写回 HBM。FlashAttention 用 **online softmax 的 $(m,l,O)$ 增量更新**把"算 score → softmax → 加权求和"三步融进单个 $k$ 循环，让 $S/P$ 永不物化——显存从 $O(N^2)$ 降到 $O(d)$，HBM IO 从 $O(N^2)$ 降到 $O(Nd)$。它是 [Softmax #5](/solutions/medium/5-softmax)（只融合 max/sum）的进阶——多维护一个 $O$ 累加器，把 $P\cdot V$ 也融进来。掌握这个骨架，[Causal Self-Attention](/solutions/hard/53-casual-attention)（加下三角 mask）和 [Multi-Head Attention](/solutions/hard/12-multi-head-attention)（加 head 并行 + Q tile 复用）都是它的直接延伸。
 
