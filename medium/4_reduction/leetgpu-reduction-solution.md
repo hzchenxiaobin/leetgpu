@@ -324,6 +324,75 @@ int main(int argc, char** argv) {
 
 > 💡 **关键洞察**：归约的本质是**用 $\log_2$ 层并行配对换取"唯一结果"的串行性**——朴素 `atomicAdd` 把所有竞争压到一个地址（O(N) 串行化），而树形归约让每层都有 $N/2^k$ 个独立加法并行执行。warp shuffle 把最内层 32 路归约从 shared memory（有 bank conflict 风险）移到寄存器（零冲突、零同步），这就是 GPU 归约的标准范式，也是 LayerNorm/Softmax 内部 reduction 的同款骨架。
 
+### 4.4 变体：二维矩阵的 reduction
+
+二维矩阵 reduction 和一维是**完全相同的归约骨架**，唯一区别在**索引映射**——把一个 `M × N` 矩阵当成长度为 `M*N` 的一维数组处理即可（行主序内存本来就是连续铺平的）。
+
+#### 全矩阵求和：flatten 成 1D
+
+GPU 内存中 `M × N` 的 row-major 矩阵就是 `input[row * N + col]` 连续排布，`gid` 遍历 `[0, M*N)` 天然覆盖全部元素，且访问依然**完全合并（coalesced）**。`reduce_kernel` / `final_reduce` / `warp_reduce` 原封不动，只需把 `solve` 的规模从 `N` 换成 `M * N`：
+
+```cuda
+extern "C" void solve(const float* input, float* output, int M, int N) {
+    int total = M * N;                                  // flatten: 矩阵即长度为 M*N 的一维数组
+    int gridSize = (total + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    float* partial = nullptr;
+    cudaMalloc(&partial, gridSize * sizeof(float));
+    reduce_kernel<<<gridSize, BLOCK_SIZE>>>(input, partial, total);
+    final_reduce<<<1, BLOCK_SIZE>>>(partial, output, gridSize);
+    cudaFree(partial);
+}
+```
+
+#### 行归约：每行一个和
+
+如果题目要求**每行一个和**（row reduction，如 Softmax 里每行求 max/sum），思路变成"**一行交给一个 block 归约**"，用 `blockIdx.x` 映射行号：
+
+```cuda
+__global__ void row_reduce_kernel(const float* input, float* row_sums, int M, int N) {
+    __shared__ float warp_sums[BLOCK_SIZE / WARP_SIZE];
+    int row = blockIdx.x;                    // 一个 block 负责一行
+    int tid = threadIdx.x;
+    int lane = tid % WARP_SIZE;
+    int warp_id = tid / WARP_SIZE;
+
+    // grid-stride 风格：行内 stride = BLOCK_SIZE 地累加
+    float val = 0.0f;
+    for (int col = tid; col < N; col += BLOCK_SIZE)
+        val += input[row * N + col];         // 行内连续线程读连续地址，依然合并
+
+    val = warp_reduce(val);                  // warp 内归约
+    if (lane == 0)
+        warp_sums[warp_id] = val;
+    __syncthreads();                         // warp 间屏障
+
+    if (warp_id == 0) {
+        val = (lane < BLOCK_SIZE / WARP_SIZE) ? warp_sums[lane] : 0.0f;
+        val = warp_reduce(val);
+        if (lane == 0)
+            row_sums[row] = val;             // 每行一个结果，无需 final kernel
+    }
+}
+
+extern "C" void solve_rows(const float* input, float* row_sums, int M, int N) {
+    row_reduce_kernel<<<M, BLOCK_SIZE>>>(input, row_sums, M, N);
+}
+```
+
+注意点：
+
+- 行 reduction 时 `row = blockIdx.x` 替代了原来的 `gid`，block 内线程只负责**行内列方向**的归约。
+- 因为每个 block 直接产出最终结果 `row_sums[row]`，**不再需要 `partial` 缓冲区和 `final_reduce`**，也绕开了 `output` 空间不足的问题（`row_sums` 有 `M` 个空间）。
+- 若行很短（`N < 32`），用一个 block 处理一行会浪费线程，可降级为**一个 warp 处理一行**：`int row = blockIdx.x * (BLOCK_SIZE/WARP_SIZE) + warp_id`，只用 `warp_reduce` 即可。
+
+| 场景 | 改动量 | 做法 |
+|------|--------|------|
+| 全矩阵求和 | 仅 `solve` | flatten 成 `M*N`，复用一维两阶段归约 |
+| 每行求和 | block 映射改行号 | 一行一 block，行内归约，省掉 final kernel |
+| 每行求和且行很短 | warp 映射行号 | 一行一 warp，只用 `warp_reduce` |
+
+本质不变：依然是 memory-bound、算术强度 `0.25 FLOP/B`，优化的关键始终是连续线程读连续地址，保持访存合并。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行
