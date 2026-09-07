@@ -622,7 +622,7 @@ ncu --kernel-name regex:softmax_kernel \
 
 ### 5.4 优化方向
 
-1. **online softmax 两遍扫描（性价比最高）**：**FlashAttention** 的核心思想，把 max 和 sum 合并到同一次扫描里用增量更新 $m_{\text{new}}=\max(m_{\text{old}},m_{\text{block}}),\ s_{\text{new}}=s_{\text{old}}\cdot e^{m_{\text{old}}-m_{\text{new}}}+s_{\text{block}}$，把 3 遍读降到 2 遍。
+1. **online softmax 两遍扫描（性价比最高）**：**FlashAttention** 的核心思想，把 max 和 sum 合并到同一次扫描里用增量更新 $m_{\text{new}}=\max(m_{\text{old}},m_{\text{block}}),\ s_{\text{new}}=s_{\text{old}}\cdot e^{m_{\text{old}}-m_{\text{new}}}+s_{\text{block}}$，把 3 遍读降到 2 遍。完整实现见 §4.3。
 
 ![online softmax：max 与 sum 单遍融合](/images/softmax_online_fused.svg)
 
