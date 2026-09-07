@@ -31,7 +31,7 @@ export default defineConfig({
   base: '/leetgpu/',
   // 文档不纳入站点构建（仅作为仓库文档保留）
   srcExclude: [
-    'README.md', 'SKILL.md', 'cuda-interview-notes.md'
+    'README.md', 'SKILL.md'
   ],
   outDir: './dist',
   ignoreDeadLinks: true, // 正文里有指向站外其他仓库的相对链接
@@ -84,6 +84,7 @@ export default defineConfig({
       { text: 'Easy', link: '/easy.html' },
       { text: 'Medium', link: '/medium.html' },
       { text: 'Hard', link: '/hard.html' },
+      { text: '面经', link: '/cuda-interview-notes.html' },
       { text: 'GitHub', link: 'https://github.com/hzchenxiaobin/leetgpu' }
     ],
 

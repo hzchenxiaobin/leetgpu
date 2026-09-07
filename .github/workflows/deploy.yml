@@ -9,6 +9,7 @@ on:
       - 'easy.md'
       - 'medium.md'
       - 'hard.md'
+      - 'cuda-interview-notes.md'
       - 'public/**'
       - '.vitepress/**'
       - 'package.json'
