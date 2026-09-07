@@ -104,6 +104,8 @@ extern "C" void solve(const float* input, float* output, float alpha, int N) {
 }
 ```
 
+> 📎 完整可编译代码已整理到 <a href="./110-scalar-multiply.cu" download><code>110-scalar-multiply.cu</code></a>（含 host 端测试 harness，编译与运行命令见文件头注释，用于本地自测与 profiling）。
+
 ### 4.2 代码详解
 
 `naive_scalar_multiply`（2.2 节）与 `scalar_multiply_kernel`（4.1 节提交版）逻辑完全相同——一 thread 一元素，做 `output[i] = input[i] * alpha`。区别仅在命名与是否有 host 包装。下面以提交版为例逐块拆解。

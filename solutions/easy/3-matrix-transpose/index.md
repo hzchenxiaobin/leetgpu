@@ -115,6 +115,8 @@ extern "C" void solve(const float* src, float* dst, int M, int N) {
 }
 ```
 
+> 📎 完整可编译代码已整理到 <a href="./3-matrix-transpose.cu" download><code>3-matrix-transpose.cu</code></a>（含 host 端测试 harness，编译与运行命令见文件头注释，用于本地自测与 profiling）。
+
 ### 4.2 索引计算详解
 
 `transpose_kernel` 的核心是**坐标变换**——同一个 thread 在"读阶段"和"写阶段"扮演不同的全局坐标角色，靠 shared memory 做中转完成转置。下面逐行拆解。

@@ -135,6 +135,8 @@ extern "C" void solve(const float* input, float* output, int N) {
 }
 ```
 
+> 📎 完整可编译代码已整理到 <a href="./4-reduction.cu" download><code>4-reduction.cu</code></a>（含 host 端测试 harness，编译与运行命令见文件头注释，用于本地自测与 profiling）。
+
 > 💡 **为什么两个阶段能共用同一个 kernel**：第二阶段的"每线程跨 stride 累加多个部分和"（grid-stride 循环）正是第一阶段"每线程读 1 个元素"的推广——stride 写成 `gridDim.x * BLOCK_SIZE` 后，第一阶段大 grid 下循环只迭代 0/1 次（越界线程不进循环，`val` 保持 0，与 `gid < N` 判断等价），第二阶段 `gridDim.x == 1` 时 stride 自动退化为 `BLOCK_SIZE`。两阶段的访存地址序列完全一致（连续线程读连续地址），合并后性能差异在测量噪声内；grid-stride 形式还顺带保留了调小 grid、让每线程累加多元素的优化空间（见 §5.4）。
 
 > ⚠️ **为什么不能直接把部分和写进 `output`**：LeetGPU 评测端只为 `output` 分配 **1 个 float** 的空间。第一阶段若写 `output[blockIdx.x]`，`blockIdx.x > 0` 时就是越界写，提交会报 `Out of bounds write detected`。必须另开一块 `gridSize` 大小的中间缓冲区 `partial` 暂存部分和，最终结果才写 `output[0]`。

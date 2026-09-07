@@ -64,6 +64,8 @@ def solve(input: torch.Tensor, model: nn.Module, output: torch.Tensor):
         output.copy_(model(input))
 ```
 
+> 📎 本地自测脚本已整理到 <a href="./41-simple-inference.py" download><code>41-simple-inference.py</code></a>（含正确性验证与 batch_size 性能扫描；本题用 PyTorch，无手写 CUDA kernel）。
+
 > 💡 PyTorch 的 `nn.Linear` 底层调用 cuBLAS GEMM（`cublasSgemm`），已自动利用 Tensor Core。本题的"优化"不在 kernel 层面，而在**系统层面**——Dynamic Batcher 确保传入的 `batch_size` 足够大。
 
 ### 4.1 LeetGPU 提交版本

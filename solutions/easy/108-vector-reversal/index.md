@@ -101,6 +101,8 @@ extern "C" void solve(const float* input, float* output, int N) {
 }
 ```
 
+> 📎 完整可编译代码已整理到 <a href="./108-vector-reversal.cu" download><code>108-vector-reversal.cu</code></a>（含 host 端测试 harness，编译与运行命令见文件头注释，用于本地自测与 profiling）。
+
 ### 4.2 代码详解
 
 `naive_reverse`（2.2 节）与 `reverse_kernel`（4.1 节提交版）逻辑完全相同——一 thread 一元素，做 `output[i] = input[N-1-i]` 的逆序索引映射。区别仅在命名与是否有 host 包装。下面以提交版 `reverse_kernel` 为例逐块拆解。

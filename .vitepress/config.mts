@@ -58,7 +58,7 @@ export default defineConfig({
     }
   },
 
-  // 题解目录下的 .cu 源码复制进构建产物，正文用相对链接 <a href="./xxx.cu" download> 引用
+  // 题解目录下的 .cu 源码 / .py 自测脚本复制进构建产物，正文用相对链接 <a href="./xxx" download> 引用
   buildEnd() {
     const outRoot = path.resolve(root, '../dist')
     for (const diff of ['easy', 'medium', 'hard']) {
@@ -68,7 +68,7 @@ export default defineConfig({
         const probDir = path.join(dir, prob)
         if (!fs.statSync(probDir).isDirectory()) continue
         for (const f of fs.readdirSync(probDir)) {
-          if (f.endsWith('.cu')) {
+          if (f.endsWith('.cu') || f.endsWith('.py')) {
             const dest = path.join(outRoot, 'solutions', diff, prob, f)
             fs.mkdirSync(path.dirname(dest), { recursive: true })
             fs.copyFileSync(path.join(probDir, f), dest)
