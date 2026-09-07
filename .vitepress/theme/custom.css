@@ -34,10 +34,7 @@
   cursor: zoom-in;
 }
 
-.medium-zoom-overlay {
-  z-index: 100;
-}
-
-.medium-zoom-image--opened {
-  z-index: 101;
+/* 图片查看器打开时锁定页面滚动 */
+html.lightbox-open {
+  overflow: hidden;
 }
