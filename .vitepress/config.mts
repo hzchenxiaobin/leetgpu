@@ -6,18 +6,18 @@ import katex from '@traptitech/markdown-it-katex'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 
-/** 从 solutions/<diff>/ 目录读取题目列表：题号排序，标题取自每篇 H1 */
+/** 从 solutions/<diff>/<题号>-<名称>/ 目录读取题目列表：题号排序，标题取自每篇 H1 */
 function loadGroup(diff: string) {
   const abs = path.resolve(root, '../solutions', diff)
   if (!fs.existsSync(abs)) return []
   return fs.readdirSync(abs)
-    .filter(f => f.endsWith('.md'))
+    .filter(f => fs.existsSync(path.join(abs, f, 'index.md')))
     .sort((a, b) => parseInt(a) - parseInt(b))
     .map(f => {
       const num = f.match(/^(\d+)-/)?.[1] ?? ''
-      const h1 = fs.readFileSync(path.join(abs, f), 'utf-8').match(/^#\s+(.+)$/m)?.[1] ?? f
+      const h1 = fs.readFileSync(path.join(abs, f, 'index.md'), 'utf-8').match(/^#\s+(.+)$/m)?.[1] ?? f
       const title = h1.replace(/^LeetGPU\s*/i, '').replace(/\s*题解\s*$/, '')
-      return { text: `#${num} ${title}`, link: `/solutions/${diff}/${f.replace(/\.md$/, '')}` }
+      return { text: `#${num} ${title}`, link: `/solutions/${diff}/${f}/` }
     })
 }
 
@@ -49,7 +49,7 @@ export default defineConfig({
 
   // 无侧边栏：题解页为 正文 + 右侧本页目录；按题号顺序自动推导 上一题/下一题
   transformPageData(pageData) {
-    const idx = order.findIndex(o => pageData.relativePath === o.link.slice(1) + '.md')
+    const idx = order.findIndex(o => pageData.relativePath === o.link.slice(1) + 'index.md')
     if (idx >= 0) {
       const prev = order[idx - 1]
       const next = order[idx + 1]
@@ -58,17 +58,21 @@ export default defineConfig({
     }
   },
 
-  // 题解旁的 .cu 源码复制进构建产物，正文用相对链接 <a href="./xxx.cu" download> 引用
+  // 题解目录下的 .cu 源码复制进构建产物，正文用相对链接 <a href="./xxx.cu" download> 引用
   buildEnd() {
     const outRoot = path.resolve(root, '../dist')
     for (const diff of ['easy', 'medium', 'hard']) {
       const dir = path.resolve(root, '../solutions', diff)
       if (!fs.existsSync(dir)) continue
-      for (const f of fs.readdirSync(dir)) {
-        if (f.endsWith('.cu')) {
-          const dest = path.join(outRoot, 'solutions', diff, f)
-          fs.mkdirSync(path.dirname(dest), { recursive: true })
-          fs.copyFileSync(path.join(dir, f), dest)
+      for (const prob of fs.readdirSync(dir)) {
+        const probDir = path.join(dir, prob)
+        if (!fs.statSync(probDir).isDirectory()) continue
+        for (const f of fs.readdirSync(probDir)) {
+          if (f.endsWith('.cu')) {
+            const dest = path.join(outRoot, 'solutions', diff, prob, f)
+            fs.mkdirSync(path.dirname(dest), { recursive: true })
+            fs.copyFileSync(path.join(probDir, f), dest)
+          }
         }
       }
     }

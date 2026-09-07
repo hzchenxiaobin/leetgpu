@@ -25,7 +25,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | **配合每日教程** | LeetGPU 题解作为每日教程（`aiinfra/daily/weekN/dayM/`）Coding 任务的"任务 4"实战检验，选题应与当日主题强相关 |
 | **性能导向** | 优先选能体现 ncu profiling 价值的题（有明确瓶颈指标可观察、可优化） |
 
-**slug 推导规则**：`<slug>` = 平台 URL slug，由 `challenge.py` 的 `name` 经「小写化 → 空格转 `-` → 去括号/斜杠」得到（如 `"General Matrix Multiplication (GEMM)"` → `general-matrix-multiplication-gemm`，`"1D Convolution"` → `1d-convolution`）。题解文件名为 `solutions/<difficulty>/<编号>-<name>.md`。下表「编号」列与 `leetgpu-challenges` 的题目编号对应，便于定位题目源码。
+**slug 推导规则**：`<slug>` = 平台 URL slug，由 `challenge.py` 的 `name` 经「小写化 → 空格转 `-` → 去括号/斜杠」得到（如 `"General Matrix Multiplication (GEMM)"` → `general-matrix-multiplication-gemm`，`"1D Convolution"` → `1d-convolution`）。题解目录为 `solutions/<difficulty>/<编号>-<name>/`（内含 `index.md` 与同名 `.cu`）。下表「编号」列与 `leetgpu-challenges` 的题目编号对应，便于定位题目源码。
 
 ### 1.2 推荐选题路径（按概念分组）
 
@@ -500,14 +500,16 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 
 ## 2. 目录组织
 
-LeetGPU 题解按 **难度** 组织，存放于 `solutions/<difficulty>/` 目录，`<difficulty>` ∈ {`easy`, `medium`, `hard`}。文件名为 `<编号>-<name>.md`，`<编号>` 与 `<name>` 对齐 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库的 `challenges/<difficulty>/<编号>_<name>/`（如 `1_vector_add` → `solutions/easy/1-vector-add.md`、`22_gemm` → `solutions/medium/22-gemm.md`）。题解系列可以独立扩展，只要编号唯一即可：
+LeetGPU 题解按 **难度** 组织，每道题一个目录，存放于 `solutions/<difficulty>/<编号>-<name>/`，`<difficulty>` ∈ {`easy`, `medium`, `hard`}。目录内含 `index.md`（题解）与同名 `.cu` 文件（完整可编译代码），`<编号>` 与 `<name>` 对齐 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库的 `challenges/<difficulty>/<编号>_<name>/`（如 `1_vector_add` → `solutions/easy/1-vector-add/`、`22_gemm` → `solutions/medium/22-gemm/`）。题解系列可以独立扩展，只要编号唯一即可：
 
 ```
 leetgpu/
-├── solutions/                               # 题解（按难度分组）
+├── solutions/                               # 题解（按难度分组，每题一目录）
 │   ├── easy/
-│   │   ├── 1-vector-add.md                  # #1: grid-stride
-│   │   ├── 21-relu.md                       # #21: coalesced access
+│   │   ├── 1-vector-add/                    # #1: grid-stride
+│   │   │   ├── index.md                     # 题解（含 LeetGPU 提交版代码）
+│   │   │   └── 1-vector-add.cu              # 完整可编译代码（含 main() 测试 harness）
+│   │   ├── 21-relu/
 │   │   └── ...
 │   ├── medium/
 │   └── hard/
@@ -523,10 +525,10 @@ leetgpu/
 **规则**：
 
 1. **题解根目录**：`solutions/`，不要写到其他位置。
-2. **按难度组织**：题解 `.md` 放在 `solutions/<difficulty>/` 下（如 Day1 的 Vector Addition → `solutions/easy/1-vector-add.md`）。难度以 `leetgpu-challenges` 仓库为准；新增题解时优先从 `challenges/<difficulty>/*/challenge.py` 取编号与目录名。
-3. **题解文件名**：`<编号>-<name>.md`（如 `1-vector-add.md`、`16-prefix-sum.md`），`<name>` 取自 `leetgpu-challenges` 目录名（下划线转连字符），编号即唯一标识。
+2. **按难度组织，每题一目录**：题解放在 `solutions/<difficulty>/<编号>-<name>/index.md`（如 Day1 的 Vector Addition → `solutions/easy/1-vector-add/index.md`）。难度以 `leetgpu-challenges` 仓库为准；新增题解时优先从 `challenges/<difficulty>/*/challenge.py` 取编号与目录名。
+3. **代码文件**：完整可编译代码（含 host 端测试 harness）放同目录 `<编号>-<name>.cu`；题解正文只保留 LeetGPU 提交版（kernel + `solve`），完整代码处用 `📎 <a href="./xxx.cu" download>` 指引链接引用。一篇题解有多个完整程序时按变体命名（如 `2-matrix-multiplication-tf32-wmma.cu`）。
 4. **图片目录**：`images/`，所有题解共享（不按难度/题分散）。图片在题解中用 `/images/xxx.svg` 站点根绝对路径引用（VitePress 部署 base `/leetgpu/` 自动处理）。
-5. **未收录进 leetgpu-challenges 的题**：若题解对应的题目暂不在 `leetgpu-challenges` 仓库中（如 Argmax、Vector Reversal、Attention、Scalar Multiply、Element Reversal），则在对应难度目录下顺延分配编号（`107-argmax.md`、`108-vector-reversal.md`、`109-attention.md`、`110-scalar-multiply.md`、`111-element-reversal.md`），并在 README 与本节注明。
+5. **未收录进 leetgpu-challenges 的题**：若题解对应的题目暂不在 `leetgpu-challenges` 仓库中（如 Argmax、Vector Reversal、Attention、Scalar Multiply、Element Reversal），则在对应难度目录下顺延分配编号（`107-argmax/`、`108-vector-reversal/`、`109-attention/`、`110-scalar-multiply/`、`111-element-reversal/`），并在 README 与本节注明。
 6. **选题与每日教程对齐（推荐但非强制）**：题解尽量与 `aiinfra/daily/weekN/dayM/` 每日教程的「任务 4」LeetGPU 在线题目主题保持一致，便于读者按周学习；但 LeetGPU 题解按难度独立归类，不强制与教程周/日一一对应。
 
 ## 3. 题解文档结构
@@ -765,7 +767,7 @@ npm run build         # 构建静态站点到 dist/
 
 **自检清单**：
 
-- [ ] 题解位于 `solutions/<difficulty>/<编号>-<name>.md`（编号唯一）
+- [ ] 题解位于 `solutions/<difficulty>/<编号>-<name>/index.md`（编号唯一），完整可编译代码位于同目录 `<编号>-<name>.cu`
 - [ ] 一级标题 `# LeetGPU <题目名> 题解`
 - [ ] 含 6 段结构（题目概述/CPU基线/GPU设计/Kernel实现/性能分析/复杂度分析）
 - [ ] Kernel 代码完整可编译（含 main、cudaMalloc、验证、cudaFree）

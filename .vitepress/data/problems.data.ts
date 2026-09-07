@@ -11,12 +11,12 @@ export interface Problem {
 declare const data: Problem[]
 export { data }
 
-export default createContentLoader('solutions/*/*.md', {
+export default createContentLoader('solutions/*/*/index.md', {
   includeSrc: true,
   transform(raw): Problem[] {
     return raw
       .map(page => {
-        const m = page.url.match(/\/solutions\/(easy|medium|hard)\/(\d+)-(.+)/)
+        const m = page.url.match(/\/solutions\/(easy|medium|hard)\/(\d+)-([^/]+)/)
         if (!m) return null
         const src = page.src ?? ''
         const h1 = src.match(/^#\s+(.+)$/m)?.[1] ?? m[3]
