@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 720" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+    <marker id="arro" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#d6a040"/>
+    </marker>
+  </defs>
+
+  <rect width="560" height="720" fill="#fafafa"/>
+
+  <text x="280" y="26" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">DiT Block 架构（adaLN-Zero 调制）</text>
+  <text x="280" y="44" text-anchor="middle" font-size="11" fill="#888">d=512, 8 heads (head_dim=64), MLP=2048, LN 无仿射参数</text>
+
+  <!-- ================= 左侧：条件分支 ================= -->
+  <text x="105" y="72" text-anchor="middle" font-size="11" fill="#b07818" font-family="monospace">c (B, 512)</text>
+  <text x="105" y="84" text-anchor="middle" font-size="8" fill="#999">timestep + class/text embedding</text>
+  <line x1="105" y1="90" x2="105" y2="102" stroke="#d6a040" stroke-width="1.5" marker-end="url(#arro)" filter="url(#rough2)"/>
+
+  <rect x="30" y="104" width="150" height="26" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="105" y="121" text-anchor="middle" font-size="11" fill="#b07818" font-weight="bold">SiLU(c)</text>
+  <line x1="105" y1="130" x2="105" y2="142" stroke="#d6a040" stroke-width="1.5" marker-end="url(#arro)" filter="url(#rough2)"/>
+
+  <rect x="30" y="144" width="150" height="34" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="105" y="159" text-anchor="middle" font-size="11" fill="#b07818" font-weight="bold">Linear 512 → 3072</text>
+  <text x="105" y="172" text-anchor="middle" font-size="8" fill="#999">W_ada (3072,512) + b_ada</text>
+  <line x1="105" y1="178" x2="105" y2="190" stroke="#d6a040" stroke-width="1.5" marker-end="url(#arro)" filter="url(#rough2)"/>
+
+  <rect x="30" y="192" width="150" height="58" fill="#fdf3d7" stroke="#d6a040" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="105" y="207" text-anchor="middle" font-size="9" fill="#b07818" font-family="monospace">shift_msa | scale_msa | gate_msa</text>
+  <text x="105" y="220" text-anchor="middle" font-size="9" fill="#b07818" font-family="monospace">shift_mlp | scale_mlp | gate_mlp</text>
+  <text x="105" y="238" text-anchor="middle" font-size="8" fill="#999">6 个 (B,512) 向量，逐样本预测</text>
+
+  <!-- 调制总线 -->
+  <path d="M 180 214 L 205 214" stroke="#d6a040" stroke-width="1.5" fill="none" filter="url(#rough2)"/>
+  <path d="M 205 214 L 205 560" stroke="#d6a040" stroke-width="1.5" stroke-dasharray="5 4" fill="none" filter="url(#rough2)"/>
+  <line x1="205" y1="214" x2="232" y2="214" stroke="#d6a040" stroke-width="1.5" marker-end="url(#arro)" filter="url(#rough2)"/>
+  <text x="215" y="205" font-size="8" fill="#d6a040">调制总线</text>
+
+  <!-- ================= 右侧：主分支 ================= -->
+  <text x="390" y="72" text-anchor="middle" font-size="11" fill="#446688" font-family="monospace">x (B, T, 512)</text>
+  <line x1="390" y1="78" x2="390" y2="92" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- 残差 1 -->
+  <path d="M 390 82 L 520 82 L 520 318 L 405 318" stroke="#b85450" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="524" y="200" font-size="9" fill="#b85450" transform="rotate(90 524 200)">residual</text>
+
+  <rect x="240" y="94" width="180" height="28" fill="#f0f0f0" stroke="#888" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="330" y="112" text-anchor="middle" font-size="11" fill="#555" font-weight="bold">LayerNorm（无仿射）</text>
+  <line x1="330" y1="122" x2="330" y2="134" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="240" y="136" width="180" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="330" y="154" text-anchor="middle" font-size="11" fill="#b07818" font-weight="bold">Modulate：⊙(1+scale_msa) + shift_msa</text>
+  <line x1="330" y1="164" x2="330" y2="176" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="240" y="178" width="180" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="330" y="196" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">QKV Projection</text>
+  <text x="330" y="204" text-anchor="middle" font-size="8" fill="#888">W_qkv (1536,512)，输出 (B,T,1536)</text>
+  <line x1="330" y1="210" x2="330" y2="222" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="240" y="224" width="180" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="330" y="242" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">双向 Self-Attention（8 heads）</text>
+  <text x="330" y="250" text-anchor="middle" font-size="8" fill="#888">softmax(QKᵀ/√64)·V，无 causal mask</text>
+  <line x1="330" y1="256" x2="330" y2="268" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="240" y="270" width="180" height="28" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="330" y="288" text-anchor="middle" font-size="11" fill="#446688" font-weight="bold">Output Projection</text>
+  <text x="330" y="296" text-anchor="middle" font-size="8" fill="#888">W_o (512,512)</text>
+  <line x1="330" y1="302" x2="330" y2="312" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- gate_msa ⊙ -->
+  <circle cx="330" cy="326" r="12" fill="#fdf3d7" stroke="#d6a040" stroke-width="2" filter="url(#rough2)"/>
+  <text x="330" y="331" text-anchor="middle" font-size="14" fill="#b07818" font-weight="bold">⊙</text>
+  <line x1="205" y1="326" x2="315" y2="326" stroke="#d6a040" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arro)" filter="url(#rough2)"/>
+  <text x="255" y="318" font-size="8" fill="#d6a040">gate_msa</text>
+  <line x1="330" y1="338" x2="330" y2="350" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- + -->
+  <circle cx="330" cy="362" r="12" fill="#fafafa" stroke="#b85450" stroke-width="2" filter="url(#rough2)"/>
+  <text x="330" y="367" text-anchor="middle" font-size="14" fill="#b85450" font-weight="bold">+</text>
+  <text x="350" y="366" font-size="9" fill="#b85450">x' = x + gate_msa ⊙ Attn</text>
+  <line x1="330" y1="374" x2="330" y2="388" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- 残差 2 -->
+  <path d="M 390 382 L 535 382 L 535 628 L 405 628" stroke="#b85450" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#arr)" filter="url(#rough2)"/>
+  <text x="539" y="505" font-size="9" fill="#b85450" transform="rotate(90 539 505)">residual</text>
+
+  <rect x="240" y="390" width="180" height="28" fill="#f0f0f0" stroke="#888" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="330" y="408" text-anchor="middle" font-size="11" fill="#555" font-weight="bold">LayerNorm（无仿射）</text>
+  <line x1="330" y1="418" x2="330" y2="430" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="240" y="432" width="180" height="28" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="330" y="450" text-anchor="middle" font-size="11" fill="#b07818" font-weight="bold">Modulate：⊙(1+scale_mlp) + shift_mlp</text>
+  <line x1="205" y1="446" x2="232" y2="446" stroke="#d6a040" stroke-width="1.5" marker-end="url(#arro)" filter="url(#rough2)"/>
+  <line x1="330" y1="460" x2="330" y2="472" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="240" y="474" width="180" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="330" y="492" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">Linear 512 → 2048</text>
+  <text x="330" y="500" text-anchor="middle" font-size="8" fill="#888">W_fc1 (2048,512) + b_fc1</text>
+  <line x1="330" y1="506" x2="330" y2="518" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="240" y="520" width="180" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="330" y="538" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">GELU（tanh 近似）</text>
+  <text x="330" y="546" text-anchor="middle" font-size="8" fill="#888">0.5x(1+tanh(√(2/π)(x+0.044715x³)))</text>
+  <line x1="330" y1="552" x2="330" y2="564" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <rect x="240" y="566" width="180" height="28" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="330" y="584" text-anchor="middle" font-size="11" fill="#4a7a3a" font-weight="bold">Linear 2048 → 512</text>
+  <text x="330" y="592" text-anchor="middle" font-size="8" fill="#888">W_fc2 (512,2048) + b_fc2</text>
+  <line x1="330" y1="598" x2="330" y2="608" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- gate_mlp ⊙ -->
+  <circle cx="330" cy="622" r="12" fill="#fdf3d7" stroke="#d6a040" stroke-width="2" filter="url(#rough2)"/>
+  <text x="330" y="627" text-anchor="middle" font-size="14" fill="#b07818" font-weight="bold">⊙</text>
+  <line x1="205" y1="622" x2="315" y2="622" stroke="#d6a040" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arro)" filter="url(#rough2)"/>
+  <text x="255" y="614" font-size="8" fill="#d6a040">gate_mlp</text>
+  <line x1="330" y1="634" x2="330" y2="646" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- + -->
+  <circle cx="330" cy="658" r="12" fill="#fafafa" stroke="#b85450" stroke-width="2" filter="url(#rough2)"/>
+  <text x="330" y="663" text-anchor="middle" font-size="14" fill="#b85450" font-weight="bold">+</text>
+  <line x1="330" y1="670" x2="330" y2="682" stroke="#666" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <text x="330" y="700" text-anchor="middle" font-size="11" fill="#446688" font-family="monospace">output (B, T, 512)</text>
+
+  <!-- 底部注释 -->
+  <text x="105" y="300" text-anchor="middle" font-size="9" fill="#888">与 Llama/GPT-2 block 的区别：</text>
+  <text x="105" y="316" text-anchor="middle" font-size="9" fill="#888">· LN 无 γ/β，调制参数由 c 预测</text>
+  <text x="105" y="332" text-anchor="middle" font-size="9" fill="#888">· 每个样本 6 个独立调制向量</text>
+  <text x="105" y="348" text-anchor="middle" font-size="9" fill="#888">· attention 双向（无 causal mask）</text>
+  <text x="105" y="364" text-anchor="middle" font-size="9" fill="#888">· MLP 为 GELU（非 SwiGLU）</text>
+  <text x="105" y="380" text-anchor="middle" font-size="9" fill="#888">· adaLN-Zero：gate 初始化为 0</text>
+  <text x="105" y="396" text-anchor="middle" font-size="9" fill="#888">  时整个子层输出为 0（恒等映射）</text>
+</svg>

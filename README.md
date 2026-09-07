@@ -1,6 +1,6 @@
 # LeetGPU 题解
 
-> 90 道 [LeetGPU](https://leetgpu.com/) CUDA 挑战题解 —— 每道含完整可编译 kernel + ncu profiling + 手绘 sketch 风 SVG 图解，按 CUDA 概念覆盖选题、按难度归档。
+> 106 道 [LeetGPU](https://leetgpu.com/) CUDA 挑战题解 —— 每道含完整可编译 kernel + ncu profiling + 手绘 sketch 风 SVG 图解，按 CUDA 概念覆盖选题、按难度归档。
 
 📚 **在线网站**：https://hzchenxiaobin.github.io/leetgpu/
 
@@ -19,7 +19,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 
 ## 题解列表
 
-共 **105 道**（简单 22 / 中等 68 / 困难 15），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention、Linear Attention、K-Means、Bitonic Sort、Radix Sort、Multi-Agent Simulation、BFS、Floyd-Warshall、GRPO、StreamingLLM 等。
+共 **106 道**（简单 22 / 中等 68 / 困难 16），覆盖 Vector Addition、GEMM、Softmax、Attention、Prefix Sum、PagedAttention、GQA、Speculative Decoding、GPT-2 Block、FlashAttention、Linear Attention、K-Means、Bitonic Sort、Radix Sort、Multi-Agent Simulation、BFS、Floyd-Warshall、GRPO、StreamingLLM、DiT Block（adaLN-Zero）等。
 
 ### Easy · 简单（22 道）
 
@@ -121,7 +121,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 115 | [Layer Normalization](solutions/medium/115-layer-normalization/index.md) | 两次串行归约、mean-centering、数值稳定 |
 | 116 | [Fused Add and RMSNorm](solutions/medium/116-fused-add-rmsnorm/index.md) | kernel fusion、RMSNorm、residual、memory-bound |
 
-### Hard · 困难（15 道）
+### Hard · 困难（16 道）
 
 | # | 题目 | 核心概念 |
 |---|------|----------|
@@ -140,12 +140,13 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 74 | [GPT-2 Transformer Block](solutions/hard/74-gpt2-block/index.md) | Transformer、FlashAttention、LayerNorm、GEMM 端到端 |
 | 93 | [Llama Transformer Block](solutions/hard/93-llama-transformer-block/index.md) | RMSNorm+RoPE+GQA+SwiGLU、multi-kernel pipeline、算子融合 |
 | 109 | [Attention](solutions/hard/109-attention/index.md) | online softmax、FlashAttention、分块计算 |
+| 116 | [Diffusion Transformer Block](solutions/hard/116-diffusion-transformer-block/index.md) | DiT、adaLN-Zero、逐样本调制、双向 MHA、GELU、multi-kernel pipeline |
 
 > 编号对齐 `leetgpu-challenges` 仓库的 `challenges/<difficulty>/<编号>_<name>/`。其中 `#107 Argmax`、`#108 Vector Reversal`、`#109 Attention`、`#110 Scalar Multiply`、`#111 Element Reversal` 暂未收录进 `leetgpu-challenges`，编号为本仓库顺延分配。
 
 ## leetgpu-challenges 题目完成情况
 
-下表对照 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库 `challenges/<difficulty>/<编号>_<name>/` 的 **全部 96 道题**，标注本仓库题解完成情况：✅ 已完成 96 道 / ⬜ 未完成 0 道。已完成题目链接到本仓库题解，未完成题目链接到 LeetGPU 在线题目。
+下表对照 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库 `challenges/<difficulty>/<编号>_<name>/` 的 **全部 99 道题**，标注本仓库题解完成情况：✅ 已完成 99 道 / ⬜ 未完成 0 道。已完成题目链接到本仓库题解，未完成题目链接到 LeetGPU 在线题目。
 
 
 ### Easy · 简单（19/19）
@@ -172,7 +173,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 66 | RGB to Grayscale | ✅ | [题解](solutions/easy/66-rgb-to-grayscale/index.md) |
 | 68 | Sigmoid Activation | ✅ | [题解](solutions/easy/68-sigmoid/index.md) |
 
-### Medium · 中等（64/64）
+### Medium · 中等（65/65）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -224,6 +225,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 80 | Grouped Query Attention | ✅ | [题解](solutions/medium/80-grouped-query-attention/index.md) |
 | 81 | INT4 Weight-Only Quantized MatMul | ✅ | [题解](solutions/medium/81-int4-matmul/index.md) |
 | 82 | Linear Recurrence | ✅ | [题解](solutions/medium/82-linear-recurrence/index.md) |
+| 83 | Fused Residual Add and RMS Norm | ✅ | [题解](solutions/medium/116-fused-add-rmsnorm/index.md) |
 | 84 | SwiGLU MLP Block | ✅ | [题解](solutions/medium/84-swiglu-mlp-block/index.md) |
 | 85 | LoRA Linear | ✅ | [题解](solutions/medium/85-lora-linear/index.md) |
 | 87 | Speculative Decoding Verification | ✅ | [题解](solutions/medium/87-speculative-decoding-verification/index.md) |
@@ -233,15 +235,15 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 96 | INT8 KV-Cache Attention | ✅ | [题解](solutions/medium/96-int8-kv-cache-attention/index.md) |
 | 105 | Group Normalization | ✅ | [题解](solutions/medium/105-group-normalization/index.md) |
 | 106 | Token Embedding Layer | ✅ | [题解](solutions/medium/106-token-embedding-layer/index.md) |
+| 107 | PPO Clipped Surrogate Loss | ✅ | [题解](solutions/medium/107-ppo-clipped-surrogate-loss/index.md) |
+| 108 | DPO Sequence Loss | ✅ | [题解](solutions/medium/108-dpo-sequence-loss/index.md) |
 | 109 | GRPO Surrogate Loss | ✅ | [题解](solutions/medium/109-grpo-surrogate-loss/index.md) |
 | 110 | Parallel Reverse Scan (GAE) | ✅ | [题解](solutions/medium/110-gae-reverse-scan/index.md) |
+| 111 | Softmax Attention Backward | ✅ | [题解](solutions/medium/111-softmax-attention-backward/index.md) |
 | 112 | Attention with Sinks | ✅ | [题解](solutions/medium/112-attention-with-sinks/index.md) |
-| 113 | Fused QKV Projection | ✅ | [题解](solutions/medium/113-fused-qkv-projection/index.md) |
-| 114 | GEMV | ✅ | [题解](solutions/medium/114-gemv/index.md) |
-| 115 | Layer Normalization | ✅ | [题解](solutions/medium/115-layer-normalization/index.md) |
-| 116 | Fused Add and RMSNorm | ✅ | [题解](solutions/medium/116-fused-add-rmsnorm/index.md) |
+| 113 | Layer Normalization | ✅ | [题解](solutions/medium/115-layer-normalization/index.md) |
 
-### Hard · 困难（13/13）
+### Hard · 困难（15/15）
 
 | # | 题目 | 状态 | 题解 / 链接 |
 |---|------|:----:|------------|
@@ -249,6 +251,7 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 14 | Multi-Agent Simulation | ✅ | [题解](solutions/hard/14-multi-agent-sim/index.md) |
 | 15 | Sorting | ✅ | [题解](solutions/hard/15-sorting/index.md) |
 | 20 | K-Means Clustering | ✅ | [题解](solutions/hard/20-kmeans-clustering/index.md) |
+| 26 | Multi-Head Cross-Attention | ✅ | [题解](solutions/hard/26-multi-head-cross-attention/index.md) |
 | 36 | Radix Sort | ✅ | [题解](solutions/hard/36-radix-sort/index.md) |
 | 39 | Fast Fourier Transform | ✅ | [题解](solutions/hard/39-fast-fourier-transform/index.md) |
 | 46 | BFS Shortest Path | ✅ | [题解](solutions/hard/46-bfs-shortest-path/index.md) |
@@ -258,10 +261,11 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 73 | All-Pairs Shortest Paths | ✅ | [题解](solutions/hard/73-all-pairs-shortest-paths/index.md) |
 | 74 | GPT-2 Transformer Block | ✅ | [题解](solutions/hard/74-gpt2-block/index.md) |
 | 93 | Llama Transformer Block | ✅ | [题解](solutions/hard/93-llama-transformer-block/index.md) |
+| 116 | Diffusion Transformer Block | ✅ | [题解](solutions/hard/116-diffusion-transformer-block/index.md) |
 
 ### 补充题解（未收录在 leetgpu-challenges）
 
-以下 5 道题暂未收录进 `leetgpu-challenges` 仓库，编号为本仓库顺延分配（与下表 challenges 编号无对应关系）：
+以下 7 道题暂未收录进 `leetgpu-challenges` 仓库，编号为本仓库顺延分配（与上表 challenges 编号无对应关系）：
 
 | # | 难度 | 题目 | 题解 |
 |---|------|------|------|
@@ -270,8 +274,10 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 109 | hard | [Attention](https://leetgpu.com/challenges/attention) | [题解](solutions/hard/109-attention/index.md) |
 | 110 | easy | [Scalar Multiply](https://leetgpu.com/challenges/scalar-multiply) | [题解](solutions/easy/110-scalar-multiply/index.md) |
 | 111 | easy | [Element Reversal](https://leetgpu.com/challenges/element-reversal) | [题解](solutions/easy/111-element-reversal/index.md) |
+| 113 | medium | [Fused QKV Projection](https://leetgpu.com/challenges/fused-qkv-projection) | [题解](solutions/medium/113-fused-qkv-projection/index.md) |
+| 114 | medium | [GEMV](https://leetgpu.com/challenges/gemv) | [题解](solutions/medium/114-gemv/index.md) |
 
-> ⚠️ **编号冲突待修正**：本仓库此前顺延分配的 `hard #109 Attention` 与 `easy #110 Scalar Multiply`，与 `leetgpu-challenges` 新增的 `medium #109 GRPO Surrogate Loss`、`medium #110 GAE Reverse Scan` 编号冲突。上述 5 道补充题解（#107–#111）的编号需重新分配以避免与 challenges 实际编号重叠。
+> ⚠️ **编号冲突待修正**：本仓库此前顺延分配的 `hard #109 Attention`、`easy #110 Scalar Multiply`，与 `leetgpu-challenges` 新增的 `medium #109 GRPO Surrogate Loss`、`medium #110 GAE Reverse Scan` 编号冲突；`medium #113 Fused QKV Projection`、`#114 GEMV` 与 challenges 的 `#113 Layer Normalization` 也存在编号重叠（challenges 的 Layer Normalization 题解归档在 `115-layer-normalization/`、Fused Add and RMSNorm 归档在 `116-fused-add-rmsnorm/`）。上述补充题解的编号需重新分配以避免与 challenges 实际编号重叠。
 
 ## 题解结构
 

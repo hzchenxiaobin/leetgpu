@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 480" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#666"/>
+    </marker>
+    <marker id="arro" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#d6a040"/>
+    </marker>
+  </defs>
+
+  <rect width="560" height="480" fill="#fafafa"/>
+
+  <text x="280" y="24" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">adaLN-Zero 调制：mod 缓冲布局与广播</text>
+  <text x="280" y="42" text-anchor="middle" font-size="10" fill="#888">mod = SiLU(c) @ W_adaᵀ + b_ada ∈ (B, 6, 512)，unbind(dim=1) 拆 6 个向量</text>
+
+  <!-- mod 缓冲布局 -->
+  <text x="60" y="74" font-size="11" fill="#666" font-weight="bold">mod 缓冲（B, 6, D）行主序展开：</text>
+  <rect x="40" y="86" width="96" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="88" y="105" text-anchor="middle" font-size="9" fill="#b85450" font-family="monospace">shift_msa</text>
+  <rect x="136" y="86" width="96" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="184" y="105" text-anchor="middle" font-size="9" fill="#446688" font-family="monospace">scale_msa</text>
+  <rect x="232" y="86" width="96" height="30" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="280" y="105" text-anchor="middle" font-size="9" fill="#b07818" font-family="monospace">gate_msa</text>
+  <rect x="328" y="86" width="96" height="30" fill="#fce4ec" stroke="#b85450" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="376" y="105" text-anchor="middle" font-size="9" fill="#b85450" font-family="monospace">shift_mlp</text>
+  <rect x="424" y="86" width="96" height="30" fill="#e8f0fe" stroke="#446688" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="472" y="105" text-anchor="middle" font-size="9" fill="#446688" font-family="monospace">scale_mlp</text>
+  <rect x="424" y="120" width="96" height="30" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="472" y="139" text-anchor="middle" font-size="9" fill="#b07818" font-family="monospace">gate_mlp</text>
+  <text x="40" y="143" font-size="9" fill="#888">每格 512 float，样本 b 的第 i 个向量在</text>
+  <text x="40" y="158" font-size="9" fill="#555" font-family="monospace">mod[b·6D + i·D + d]</text>
+
+  <!-- worked example -->
+  <text x="60" y="196" font-size="11" fill="#666" font-weight="bold">Worked Example（D=4 演示，实际 D=512）：</text>
+  <text x="60" y="218" font-size="9" fill="#555" font-family="monospace">c        = [ 2.0,  0.0, -1.0,  0.5 ]</text>
+  <text x="60" y="234" font-size="9" fill="#555" font-family="monospace">SiLU(c)  = [ 1.76,  0.0, -0.27,  0.31 ]   ← c·σ(c)，负值被压小</text>
+  <text x="60" y="250" font-size="9" fill="#555" font-family="monospace">mod(b=0) = SiLU(c) @ W_adaᵀ + b_ada → 6×4 向量组（值随权重变化）</text>
+
+  <!-- 调制公式 -->
+  <rect x="40" y="268" width="230" height="76" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="155" y="290" text-anchor="middle" font-size="10" fill="#b07818" font-weight="bold">子块入口调制</text>
+  <text x="155" y="310" text-anchor="middle" font-size="10" fill="#555" font-family="monospace">h = LN(x) ⊙ (1 + scale) + shift</text>
+  <text x="155" y="330" text-anchor="middle" font-size="9" fill="#888">scale 控幅、shift 控零点；1+ 保证零初始化时不缩放</text>
+
+  <rect x="290" y="268" width="230" height="76" fill="#e6f4ea" stroke="#4a7a3a" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="405" y="290" text-anchor="middle" font-size="10" fill="#4a7a3a" font-weight="bold">子块出口门控</text>
+  <text x="405" y="310" text-anchor="middle" font-size="10" fill="#555" font-family="monospace">x' = x + gate ⊙ SubLayer(h)</text>
+  <text x="405" y="330" text-anchor="middle" font-size="9" fill="#888">gate=0 时子层被旁路（adaLN-Zero 恒等初始化）</text>
+
+  <line x1="155" y1="344" x2="155" y2="360" stroke="#d6a040" stroke-width="1.5" marker-end="url(#arro)" filter="url(#rough2)"/>
+  <line x1="405" y1="344" x2="405" y2="360" stroke="#4a7a3a" stroke-width="1.5" marker-end="url(#arr)" filter="url(#rough2)"/>
+
+  <!-- 广播示意 -->
+  <rect x="40" y="362" width="480" height="96" fill="#fdfdf7" stroke="#888" stroke-width="1" rx="6" filter="url(#rough2)"/>
+  <text x="280" y="384" text-anchor="middle" font-size="11" fill="#666" font-weight="bold">逐样本广播：6 个调制向量在 seq 维 broadcast</text>
+  <rect x="70" y="398" width="70" height="22" fill="#fff8e1" stroke="#d6a040" stroke-width="1.2" rx="4" filter="url(#rough2)"/>
+  <text x="105" y="413" text-anchor="middle" font-size="9" fill="#b07818">mod[b] (6,512)</text>
+  <line x1="140" y1="409" x2="180" y2="398" stroke="#d6a040" stroke-width="1.2" marker-end="url(#arro)" filter="url(#rough2)"/>
+  <line x1="140" y1="409" x2="180" y2="414" stroke="#d6a040" stroke-width="1.2" marker-end="url(#arro)" filter="url(#rough2)"/>
+  <line x1="140" y1="409" x2="180" y2="430" stroke="#d6a040" stroke-width="1.2" marker-end="url(#arro)" filter="url(#rough2)"/>
+  <rect x="184" y="390" width="120" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="244" y="404" text-anchor="middle" font-size="8" fill="#446688">token t=0 (512,)</text>
+  <rect x="184" y="414" width="120" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="244" y="428" text-anchor="middle" font-size="8" fill="#446688">token t=1 (512,)</text>
+  <rect x="184" y="438" width="120" height="20" fill="#e8f0fe" stroke="#446688" stroke-width="1" rx="3" filter="url(#rough2)"/>
+  <text x="244" y="452" text-anchor="middle" font-size="8" fill="#446688">…  token t=T−1</text>
+  <text x="340" y="412" font-size="9" fill="#555">同一 batch 内不同样本 b₀/b₁ 的</text>
+  <text x="340" y="428" font-size="9" fill="#555">调制向量完全不同 → LN kernel 需要</text>
+  <text x="340" y="444" font-size="9" fill="#555">按行查 b = row / T 取本样本参数</text>
+</svg>

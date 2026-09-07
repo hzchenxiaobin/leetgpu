@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 660" font-family="'Comic Sans MS', 'Segoe UI', 'Kaiti SC', 楷体, cursive">
+  <defs>
+    <filter id="rough2">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+  </defs>
+
+  <rect width="560" height="660" fill="#fafafa"/>
+
+  <text x="280" y="24" text-anchor="middle" font-size="15" fill="#444" font-weight="bold">11 步 Kernel Pipeline 与 HBM IO</text>
+  <text x="280" y="42" text-anchor="middle" font-size="10" fill="#888">N = B·T 行，d = 512，F = 2048；读写量按 float 元素计</text>
+
+  <!-- 表格 -->
+  <rect x="20" y="54" width="520" height="376" fill="none" stroke="#bbb" stroke-width="1" rx="4" filter="url(#rough2)"/>
+  <line x1="20" y1="80" x2="540" y2="80" stroke="#bbb" stroke-width="1" filter="url(#rough2)"/>
+  <text x="34" y="72" font-size="10" fill="#666" font-weight="bold">#</text>
+  <text x="58" y="72" font-size="10" fill="#666" font-weight="bold">Kernel</text>
+  <text x="200" y="72" font-size="10" fill="#666" font-weight="bold">输入 → 输出</text>
+  <text x="408" y="72" font-size="10" fill="#666" font-weight="bold">HBM 读/写</text>
+  <text x="490" y="72" font-size="10" fill="#666" font-weight="bold">融合点</text>
+
+  <text x="34" y="98" font-size="9" fill="#888">1</text>
+  <text x="58" y="98" font-size="9" fill="#b07818">silu</text>
+  <text x="200" y="98" font-size="9" fill="#555" font-family="monospace">c → sbuf (B·d)</text>
+  <text x="408" y="98" font-size="9" fill="#555" font-family="monospace">Bd / Bd</text>
+  <text x="490" y="98" font-size="8" fill="#4a7a3a">—</text>
+
+  <text x="34" y="118" font-size="9" fill="#888">2</text>
+  <text x="58" y="118" font-size="9" fill="#446688">gemm+ bias</text>
+  <text x="200" y="118" font-size="9" fill="#555" font-family="monospace">sbuf → mod (B,6,d)</text>
+  <text x="408" y="118" font-size="9" fill="#555" font-family="monospace">3Bd²+Bd / 6Bd</text>
+  <text x="490" y="118" font-size="8" fill="#4a7a3a">①epilogue</text>
+
+  <text x="34" y="138" font-size="9" fill="#888">3</text>
+  <text x="58" y="138" font-size="9" fill="#888">ln_modulate</text>
+  <text x="200" y="138" font-size="9" fill="#555" font-family="monospace">x → h (N,d)</text>
+  <text x="408" y="138" font-size="9" fill="#555" font-family="monospace">Nd / Nd</text>
+  <text x="490" y="138" font-size="8" fill="#4a7a3a">②LN+mod 融合</text>
+
+  <text x="34" y="158" font-size="9" fill="#888">4</text>
+  <text x="58" y="158" font-size="9" fill="#446688">gemm+ bias</text>
+  <text x="200" y="158" font-size="9" fill="#555" font-family="monospace">h → qkv (N,3d)</text>
+  <text x="408" y="158" font-size="9" fill="#555" font-family="monospace">3d²+3d² / 3Nd</text>
+  <text x="490" y="158" font-size="8" fill="#4a7a3a">③head 分离免转置</text>
+
+  <text x="34" y="178" font-size="9" fill="#888">5</text>
+  <text x="58" y="178" font-size="9" fill="#446688">attention</text>
+  <text x="200" y="178" font-size="9" fill="#555" font-family="monospace">qkv → attn (N,d)</text>
+  <text x="408" y="178" font-size="9" fill="#555" font-family="monospace">~T·3Nd / Nd</text>
+  <text x="490" y="178" font-size="8" fill="#4a7a3a">④online softmax</text>
+
+  <text x="34" y="198" font-size="9" fill="#888">6</text>
+  <text x="58" y="198" font-size="9" fill="#446688">gemm+ bias</text>
+  <text x="200" y="198" font-size="9" fill="#555" font-family="monospace">attn → proj (N,d)</text>
+  <text x="408" y="198" font-size="9" fill="#555" font-family="monospace">d²+d² / Nd</text>
+  <text x="490" y="198" font-size="8" fill="#4a7a3a">—</text>
+
+  <text x="34" y="218" font-size="9" fill="#888">7</text>
+  <text x="58" y="218" font-size="9" fill="#b07818">gated_residual</text>
+  <text x="200" y="218" font-size="9" fill="#555" font-family="monospace">x,proj → x1</text>
+  <text x="408" y="218" font-size="9" fill="#555" font-family="monospace">2Nd / Nd</text>
+  <text x="490" y="218" font-size="8" fill="#4a7a3a">⑤gate⊙+res 融合</text>
+
+  <text x="34" y="238" font-size="9" fill="#888">8</text>
+  <text x="58" y="238" font-size="9" fill="#888">ln_modulate</text>
+  <text x="200" y="238" font-size="9" fill="#555" font-family="monospace">x1 → h2 (N,d)</text>
+  <text x="408" y="238" font-size="9" fill="#555" font-family="monospace">Nd / Nd</text>
+  <text x="490" y="238" font-size="8" fill="#4a7a3a">复用 h 缓冲</text>
+
+  <text x="34" y="258" font-size="9" fill="#888">9</text>
+  <text x="58" y="258" font-size="9" fill="#4a7a3a">gemm+bias+gelu</text>
+  <text x="200" y="258" font-size="9" fill="#555" font-family="monospace">h2 → fc1 (N,F)</text>
+  <text x="408" y="258" font-size="9" fill="#555" font-family="monospace">Fd²+Fd / NF</text>
+  <text x="490" y="258" font-size="8" fill="#4a7a3a">⑥GELU epilogue</text>
+
+  <text x="34" y="278" font-size="9" fill="#888">10</text>
+  <text x="58" y="278" font-size="9" fill="#446688">gemm+ bias</text>
+  <text x="200" y="278" font-size="9" fill="#555" font-family="monospace">fc1 → fc2 (N,d)</text>
+  <text x="408" y="278" font-size="9" fill="#555" font-family="monospace">dF+dF / Nd</text>
+  <text x="490" y="278" font-size="8" fill="#4a7a3a">复用 proj 缓冲</text>
+
+  <text x="34" y="298" font-size="9" fill="#888">11</text>
+  <text x="58" y="298" font-size="9" fill="#b07818">gated_residual</text>
+  <text x="200" y="298" font-size="9" fill="#555" font-family="monospace">x1,fc2 → output</text>
+  <text x="408" y="298" font-size="9" fill="#555" font-family="monospace">2Nd / Nd</text>
+  <text x="490" y="298" font-size="8" fill="#4a7a3a">同 ⑤</text>
+
+  <line x1="20" y1="310" x2="540" y2="310" stroke="#bbb" stroke-width="1" stroke-dasharray="4 3" filter="url(#rough2)"/>
+  <text x="34" y="330" font-size="9" fill="#666" font-weight="bold">融合小结</text>
+  <text x="58" y="330" font-size="9" fill="#555">①②⑤⑥ 已融合；③④ 是布局技巧（(B,T,3D) 直读 head，免 transpose kernel）</text>
+  <text x="34" y="350" font-size="9" fill="#666" font-weight="bold">激活 IO</text>
+  <text x="58" y="350" font-size="9" fill="#555">朴素（LN、modulate、gate、res、GELU 各自独立 kernel）读 ~15Nd 写 ~10Nd；</text>
+  <text x="58" y="366" font-size="9" fill="#555">本实现读 ~10Nd 写 ~6Nd；全融合（GEMM epilogue 化）可再降至读 ~4Nd 写 ~Nd</text>
+  <text x="34" y="388" font-size="9" fill="#666" font-weight="bold">权重 IO</text>
+  <text x="58" y="388" font-size="9" fill="#555">6 个 GEMM 共 ~4.7M 权重 float，每 kernel 一次性读入（与 N 无关，N 大时摊薄）</text>
+  <text x="58" y="408" font-size="9" fill="#555">性能测试 B=4,T=1024 → N=4096：GEMM 主导，权重 IO 占比 &lt; 5%</text>
+
+  <!-- attention kernel 设计 -->
+  <rect x="20" y="446" width="520" height="190" fill="#fdfdf7" stroke="#d6a040" stroke-width="1.2" rx="6" filter="url(#rough2)"/>
+  <text x="280" y="468" text-anchor="middle" font-size="12" fill="#b07818" font-weight="bold">Kernel 5：warp 级 online softmax attention</text>
+  <text x="36" y="490" font-size="9" fill="#555">· 一个 warp 负责一个 (b, h, t)：B·H·T 个 warp，block=128 threads（4 warp）</text>
+  <text x="36" y="508" font-size="9" fill="#555">· lane 持有 head_dim 的 2 个分量：q0=q[lane]、q1=q[lane+32]（寄存器常驻）</text>
+  <text x="36" y="526" font-size="9" fill="#555">· 每个 j：s = (q0·k[lane] + q1·k[lane+32]) / √64 → 蝶形 __shfl_xor 32 lane 全员同步</text>
+  <text x="36" y="544" font-size="9" fill="#555">· online softmax 三状态：m（运行 max）、l（运行分母）、o（运行输出）——单遍扫描：</text>
+  <text x="52" y="562" font-size="9" fill="#446688" font-family="monospace">m' = max(m, s);  p = exp(s−m');  corr = exp(m−m')</text>
+  <text x="52" y="578" font-size="9" fill="#446688" font-family="monospace">o = o·corr + p·v;  l = l·corr + p;  m = m'</text>
+  <text x="36" y="598" font-size="9" fill="#555">· 无需 materialize T×T scores 矩阵（朴素 PyTorch 版需 B·H·T² 显存），T=4096 时省 2GB</text>
+  <text x="36" y="616" font-size="9" fill="#555">· K/V 每 warp 重复读 T·64 float：靠 L2 命中（每个 (b,h) 的 K/V 共 256KB &gt; L2 单块），</text>
+  <text x="36" y="632" font-size="9" fill="#555">  优化方向：KV 分块进 shared memory（FlashAttention 式两遍在线重算）</text>
+</svg>

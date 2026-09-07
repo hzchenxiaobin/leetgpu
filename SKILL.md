@@ -11,7 +11,7 @@ description: 用于在 leetgpu/ 下编写 LeetGPU (https://leetgpu.com) CUDA 挑
 
 LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用最少的题覆盖 GPU 编程核心概念**。
 
-> 📌 **题库来源**：题目元数据同步自 `leetgpu-challenges` 仓库（`challenges/<difficulty>/<number>_<name>/`）。截至本次更新共 **96 道**（简单 19 / 中等 64 / 困难 13），全部 `access_tier = "free"`。每道题的 `challenge.py` 中 `name` 字段即平台展示名，也用于生成 URL slug。
+> 📌 **题库来源**：题目元数据同步自 `leetgpu-challenges` 仓库（`challenges/<difficulty>/<number>_<name>/`）。截至本次更新共 **99 道**（简单 19 / 中等 65 / 困难 15），全部 `access_tier = "free"`。每道题的 `challenge.py` 中 `name` 字段即平台展示名，也用于生成 URL slug。
 >
 > 📁 **本地参考仓库**：`/mnt/workspace/code/github/leetgpu-challenges`
 
@@ -87,7 +87,9 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 
 ### 1.4 完整题目清单（参考，用于扩展选题）
 
-下表为 `leetgpu-challenges` 仓库的**全部 96 道题**，按难度分组，便于在推荐路径之外按概念扩展选题。每行的「编号」对应仓库目录 `challenges/<difficulty>/<编号>_<name>/`。
+下表为 `leetgpu-challenges` 仓库的**全部 99 道题**，按难度分组，便于在推荐路径之外按概念扩展选题。每行的「编号」对应仓库目录 `challenges/<difficulty>/<编号>_<name>/`。
+
+> ⚠️ **编号错位提示**：部分较新题解目录沿用平台早期编号，与 challenges 仓库目录号不一致：`solutions/medium/115-layer-normalization/` ↔ challenges `113_layer_normalization`、`solutions/medium/116-fused-add-rmsnorm/` ↔ challenges `83_fused_residual_add_rms_norm`；`113-fused-qkv-projection/`、`114-gemv/` 对应的题目暂未收录进 challenges 仓库。
 
 #### 简单（Easy，19 道）
 
@@ -165,6 +167,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | 80 | grouped-query-attention | Grouped Query Attention (GQA) | KV head 复用 |
 | 81 | int4-matmul | INT4 Weight-Only Quantized MatMul | int4 量化 |
 | 82 | linear-recurrence | Linear Recurrence | scan、并行前缀 |
+| 83 | fused-residual-add-rms-norm | Fused Residual Add and RMS Norm | kernel fusion、RMSNorm、residual、memory-bound |
 | 84 | swiglu-mlp-block | SwiGLU MLP Block | 融合 MLP |
 | 85 | lora-linear | LoRA Linear | 低秩、融合 |
 | 87 | speculative-decoding-verification | Speculative Decoding Verification | 验证、scan |
@@ -174,15 +177,15 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | 96 | int8-kv-cache-attention | INT8 KV-Cache Attention | 量化 attention |
 | 105 | group-normalization | Group Normalization | 归一化、分组归约 |
 | 106 | token-embedding-layer | Token Embedding Layer | gather、embedding |
+| 107 | ppo-clipped-surrogate-loss | PPO Clipped Surrogate Loss | reduction、kernel fusion、PPO clip |
+| 108 | dpo-sequence-loss | DPO Sequence Loss | reduction、kernel fusion、DPO、softplus |
 | 109 | grpo-surrogate-loss | GRPO Surrogate Loss | kernel fusion、两级归约、PPO clip、KL 惩罚 |
 | 110 | gae-reverse-scan | Parallel Reverse Scan (GAE) | scan、reverse scan、GAE |
+| 111 | softmax-attention-backward | Softmax Attention Backward | attention backward、softmax 反向、GEMM |
 | 112 | attention-with-sinks | Attention with Sinks | sink token、sliding window、复合掩码、online softmax |
-| 113 | fused-qkv-projection | Fused QKV Projection | kernel fusion、GEMM epilogue、reshape 融合 |
-| 114 | gemv | GEMV (Matrix-Vector Multiplication) | memory-bound、合并访存、block 归约、float4 |
-| 115 | layer-normalization | Layer Normalization | 两次串行归约、mean-centering、数值稳定 |
-| 116 | fused-add-rmsnorm | Fused Residual Add and RMSNorm | kernel fusion、RMSNorm、residual、memory-bound |
+| 113 | layer-normalization | Layer Normalization | 两次串行归约、mean-centering、数值稳定 |
 
-#### 困难（Hard，13 道）
+#### 困难（Hard，15 道）
 
 | 编号 | slug | 题目 | 核心概念 |
 |------|------|------|----------|
@@ -190,6 +193,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | 14 | multi-agent-simulation | Multi-Agent Simulation | agent 并行、交互（✅ 已完成） |
 | 15 | sorting | Sorting | 并行排序 |
 | 20 | kmeans-clustering | K-Means Clustering | 迭代、归约 |
+| 26 | multi-head-cross-attention | Multi-Head Cross-Attention | 跨序列 attention、Q/KV 异源、batched launch |
 | 36 | radix-sort | Radix Sort | 基数排序、histogram |
 | 39 | fast-fourier-transform | Fast Fourier Transform | FFT、蝶形 |
 | 46 | bfs-shortest-path | BFS Shortest Path | 图并行、frontier |
@@ -199,6 +203,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | 73 | all-pairs-shortest-paths | All-Pairs Shortest Paths | Floyd、图算法 |
 | 74 | gpt-2-transformer-block | GPT-2 Transformer Block | 综合模块 |
 | 93 | llama-transformer-block | Llama Transformer Block | RMSNorm+RoPE+SwiGLU |
+| 116 | diffusion-transformer-block | Diffusion Transformer Block | adaLN-Zero、逐样本调制、双向 MHA、GELU MLP |
 
 > ⚠️ **同步提示**：`leetgpu-challenges` 仓库会持续新增题目。当需要扩展选题时，重新扫描 `challenges/<difficulty>/*/challenge.py` 的 `name` 字段并更新本节清单，保持与上游一致。
 
@@ -290,6 +295,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 | speculative decoding | draft token 验证 | #87 Speculative Decoding Verification |
 | GPT-2 block | LN + attn + MLP 综合 | #74 GPT-2 Transformer Block |
 | Llama block | RMSNorm + RoPE + SwiGLU + GQA | #93 Llama Transformer Block |
+| DiT block（adaLN-Zero） | 逐样本调制 + 双向 attention + GELU MLP | #116 Diffusion Transformer Block |
 | Adder Transformer | 加法注意力替代 | #76 Adder Transformer Inference |
 
 #### H. 量化与低精度（Quantization）
@@ -460,6 +466,7 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 |-------------|------------------------|----------|
 | `gpt-2-transformer-block` | #12 Multi-Head Attention（block 的核心组件）· #50 RMS Norm（归一化组件）· #54 SwiGLU（激活/MLP 组件）· #85 LoRA Linear（低秩线性层变体） | LN + Attention + MLP 综合模块，练习多 kernel 流水线与模块融合 |
 | `llama-transformer-block` | #74 GPT-2 Transformer Block（GPT-2 block，LayerNorm+MHA+GELU 对比 Llama 的 RMSNorm+GQA+SwiGLU）· #80 Grouped Query Attention (GQA)（GQA 独立实现，本题 attention 子模块的组件）· #61 Rotary Positional Embedding（RoPE 独立实现，本题位置编码组件）· #50 RMS Normalization（RMSNorm 独立实现，本题归一化组件） | RMSNorm + RoPE + GQA + SwiGLU 综合模块，练习 multi-kernel pipeline 编排与算子融合策略 |
+| `diffusion-transformer-block` | #74 GPT-2 Transformer Block（结构最接近的 decoder 版 block：LayerNorm+MHA+GELU，对比 adaLN-Zero 调制与标准 affine LN）· #93 Llama Transformer Block（另一个 block 变种（RMSNorm+GQA+SwiGLU），对比组件取舍与 kernel 编排差异）· #115 Layer Normalization（LN 组件独立实现，本题「无仿射 LN + 调制包裹」的直接前驱）· #12 Multi-Head Attention（MHA 组件独立实现，本题 attention 为无 mask 双向版，online softmax 同源） | adaLN-Zero 调制 + 双向 MHA + GELU MLP 的 DiT block 综合模块，练习 per-sample 参数广播与 multi-kernel pipeline 编排 |
 | `swiglu` | #52 SiLU（SwiGLU 的激活组件）· #21 ReLU（最简激活对比）· #65 GeGLU（GELU 门控变体）· #84 SwiGLU MLP Block（SwiGLU 的完整 MLP 应用） | 融合激活 + 门控乘法，练习 fused MLP 组件 kernel |
 | `swiglu-mlp-block` | #54 SwiGLU（SwiGLU 激活组件，本 block 的核心 elementwise）· #22 GEMM（GEMM tiling，3 个 matmul 的基础组件）· #74 GPT-2 Transformer Block（更大的 transformer block 综合）· #52 SiLU（SiLU 激活，SwiGLU 的子组件） | 融合 MLP block，SwiGLU 的完整应用 |
 | `silu` | #21 ReLU（最简激活函数对比）· #68 Sigmoid（silu 的组件）· #54 SwiGLU（融合激活 + 门控进阶）· #23 Leaky ReLU（分支激活对比） | 融合 sigmoid + mul 逐元素，练习 fused activation kernel |
