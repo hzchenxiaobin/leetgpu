@@ -11,6 +11,7 @@ public/
 .idea/
 .claude/
 .opencode/
+.arts/
 
 # Node / VitePress
 node_modules/

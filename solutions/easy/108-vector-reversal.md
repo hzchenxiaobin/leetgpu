@@ -101,83 +101,7 @@ extern "C" void solve(const float* input, float* output, int N) {
 }
 ```
 
-### 4.2 完整自测版（含 Host）
-
-```cuda
-// vector_reversal_full.cu —— 含验证和带宽测量
-    #include <cstdio>
-    #include <cstdlib>
-    #include <cmath>
-    #include <cuda_runtime.h>
-
-    #define CHECK_CUDA(call)                                                                                               \
-    do {                                                                                                               \
-        cudaError_t e = (call);                                                                                        \
-        if (e != cudaSuccess) {                                                                                        \
-            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
-            exit(EXIT_FAILURE);                                                                                        \
-        }                                                                                                              \
-    } while (0)
-
-__global__ void reverse_kernel(const float* input, float* output, int N) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < N)
-        output[i] = input[N - 1 - i];
-}
-
-int main(int argc, char** argv) {
-    int N = (argc > 1) ? atoi(argv[1]) : 10000000;
-    size_t bytes = (size_t)N * sizeof(float);
-    printf("N = %d  (%.1f MB)\n", N, bytes / 1e6);
-
-    float* hIn = (float*)malloc(bytes);
-    float* hOut = (float*)malloc(bytes);
-    srand(42);
-    for (int i = 0; i < N; i++)
-        hIn[i] = (float)(rand() % 1000) / 10.0f;
-
-    float *dIn, *dOut;
-    CHECK_CUDA(cudaMalloc(&dIn, bytes));
-    CHECK_CUDA(cudaMalloc(&dOut, bytes));
-    CHECK_CUDA(cudaMemcpy(dIn, hIn, bytes, cudaMemcpyHostToDevice));
-
-    int blockSize = 256;
-    int gridSize = (N + blockSize - 1) / blockSize;
-
-    cudaEvent_t t0, t1;
-    cudaEventCreate(&t0);
-    cudaEventCreate(&t1);
-    cudaEventRecord(t0);
-    reverse_kernel<<<gridSize, blockSize>>>(dIn, dOut, N);
-    cudaEventRecord(t1);
-    CHECK_CUDA(cudaDeviceSynchronize());
-
-    float ms = 0;
-    cudaEventElapsedTime(&ms, t0, t1);
-    printf("kernel time: %.3f ms\n", ms);
-    printf("I/O bandwidth: %.1f GB/s\n", (2.0 * bytes / 1e9) / (ms / 1e3));
-
-    CHECK_CUDA(cudaMemcpy(hOut, dOut, bytes, cudaMemcpyDeviceToHost));
-
-    int fail = 0;
-    for (int i = 0; i < N; i++) {
-        if (fabsf(hOut[i] - hIn[N - 1 - i]) > 1e-5f) {
-            printf("FAIL at i=%d: got %f, expected %f\n", i, hOut[i], hIn[N - 1 - i]);
-            fail = 1;
-            break;
-        }
-    }
-    printf("%s\n", fail ? "FAIL" : "PASS");
-
-    CHECK_CUDA(cudaFree(dIn));
-    CHECK_CUDA(cudaFree(dOut));
-    free(hIn);
-    free(hOut);
-    return 0;
-}
-```
-
-### 4.3 代码详解
+### 4.2 代码详解
 
 `naive_reverse`（2.2 节）与 `reverse_kernel`（4.1 节提交版）逻辑完全相同——一 thread 一元素，做 `output[i] = input[N-1-i]` 的逆序索引映射。区别仅在命名与是否有 host 包装。下面以提交版 `reverse_kernel` 为例逐块拆解。
 
@@ -202,12 +126,7 @@ int main(int argc, char** argv) {
 
 ## 5. 性能分析
 
-### 5.1 编译与运行
-
-```bash
-nvcc -O3 -arch=sm_120 vector_reversal_full.cu -o vector_reversal
-./vector_reversal 10000000
-```
+### 5.1 参考性能
 
 典型输出（RTX 5090）：
 
