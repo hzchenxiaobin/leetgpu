@@ -143,16 +143,13 @@ __global__ void naive_ce(const float* logits, const int* true_labels,
 
 ## 4. Kernel 实现
 
-### 4.1 完整可编译 CUDA 代码
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本，一个 block 协作处理一行 logits，两遍扫描（求行 max → 求 Σexp）经 warp shuffle 归约融合 log-sum-exp，每 block 一次 atomicAdd 累加出平均损失。
 
 ```cuda
-// categorical_cross_entropy.cu —— Cross Entropy Loss: 一 block 一行 + 两遍扫描 + warp shuffle
-// 编译命令: nvcc -O3 -arch=sm_80 categorical_cross_entropy.cu -o categorical_cross_entropy
-
 #include <cuda_runtime.h>
 #include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 #define WARP 32
 #define BLOCK_SIZE 256
@@ -245,98 +242,16 @@ __global__ void cross_entropy_kernel(const float* __restrict__ logits,
     }
 }
 
-// ===== Host 端：分配、launch、验证 =====
-int main() {
-    // 测试数据: N=2, C=3, true_labels=[1,1]
-    int N = 2, C = 3;
-    float h_logits[] = {1.0f, 2.0f, 0.5f, 0.1f, 3.0f, 1.5f};
-    int h_labels[] = {1, 1};
-    float h_loss = 0.0f;
-
-    // CPU 参考计算
-    float ref_loss = 0.0f;
-    for (int j = 0; j < N; j++) {
-        float m = h_logits[j * C];
-        for (int k = 1; k < C; k++) m = fmaxf(m, h_logits[j * C + k]);
-        float s = 0.0f;
-        for (int k = 0; k < C; k++) s += expf(h_logits[j * C + k] - m);
-        ref_loss += (m + logf(s)) - h_logits[j * C + h_labels[j]];
-    }
-    ref_loss /= N;
-
-    // GPU 分配
-    float *d_logits, *d_loss;
-    int *d_labels;
-    cudaMalloc(&d_logits, N * C * sizeof(float));
-    cudaMalloc(&d_labels, N * sizeof(int));
-    cudaMalloc(&d_loss, sizeof(float));
-
-    cudaMemcpy(d_logits, h_logits, N * C * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_labels, h_labels, N * sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemset(d_loss, 0, sizeof(float));
-
-    // launch: N 个 block，每个 block 256 threads
-    cross_entropy_kernel<<<N, BLOCK_SIZE>>>(d_logits, d_labels, d_loss, N, C);
+// logits, true_labels, loss are device pointers
+extern "C" void solve(const float* logits, const int* true_labels, float* loss,
+                      int N, int C) {
+    cudaMemset(loss, 0, sizeof(float));
+    cross_entropy_kernel<<<N, BLOCK_SIZE>>>(logits, true_labels, loss, N, C);
     cudaDeviceSynchronize();
-
-    cudaMemcpy(&h_loss, d_loss, sizeof(float), cudaMemcpyDeviceToHost);
-
-    // 验证
-    printf("CPU ref loss = %.7f\n", ref_loss);
-    printf("GPU     loss = %.7f\n", h_loss);
-    float diff = fabsf(ref_loss - h_loss);
-    printf("diff = %.7e  %s\n", diff, diff < 1e-5 ? "✅ PASS" : "❌ FAIL");
-
-    // ===== 性能测试: N=10000, C=1000 =====
-    int N2 = 10000, C2 = 1000;
-    float *d_logits2, *d_loss2;
-    int *d_labels2;
-    cudaMalloc(&d_logits2, (size_t)N2 * C2 * sizeof(float));
-    cudaMalloc(&d_labels2, N2 * sizeof(int));
-    cudaMalloc(&d_loss2, sizeof(float));
-
-    // 随机初始化 logits [-10, 10]
-    float* h_logits2 = (float*)malloc((size_t)N2 * C2 * sizeof(float));
-    int* h_labels2 = (int*)malloc(N2 * sizeof(int));
-    srand(42);
-    for (size_t i = 0; i < (size_t)N2 * C2; i++)
-        h_logits2[i] = -10.0f + 20.0f * (rand() / (float)RAND_MAX);
-    for (int i = 0; i < N2; i++)
-        h_labels2[i] = rand() % C2;
-
-    cudaMemcpy(d_logits2, h_logits2, (size_t)N2 * C2 * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_labels2, h_labels2, N2 * sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemset(d_loss2, 0, sizeof(float));
-
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventRecord(start);
-    cross_entropy_kernel<<<N2, BLOCK_SIZE>>>(d_logits2, d_labels2, d_loss2, N2, C2);
-    cudaEventRecord(stop);
-    cudaDeviceSynchronize();
-
-    float ms = 0;
-    cudaEventElapsedTime(&ms, start, stop);
-    float perf_loss;
-    cudaMemcpy(&perf_loss, d_loss2, sizeof(float), cudaMemcpyDeviceToHost);
-    printf("\nPerf test: N=%d, C=%d\n", N2, C2);
-    printf("GPU loss = %.7f\n", perf_loss);
-    printf("Kernel time = %.3f ms\n", ms);
-    printf("Data read = %.2f MB (2 passes × %d×%d×4B)\n",
-           2.0f * N2 * C2 * 4 / 1e6, N2, C2);
-    printf("Effective bandwidth = %.2f GB/s\n",
-           2.0f * N2 * C2 * 4 / (ms * 1e6));
-
-    // cleanup
-    cudaFree(d_logits); cudaFree(d_labels); cudaFree(d_loss);
-    cudaFree(d_logits2); cudaFree(d_labels2); cudaFree(d_loss2);
-    cudaEventDestroy(start); cudaEventDestroy(stop);
-    free(h_logits2); free(h_labels2);
-
-    return 0;
 }
 ```
+
+> 📎 完整可编译代码已整理到 <a href="./25-categorical-cross-entropy-loss.cu" download><code>25-categorical-cross-entropy-loss.cu</code></a>（含 host 端测试 harness，编译与运行命令见文件头注释，用于本地自测与 profiling）。
 
 ### 4.2 代码详解
 
@@ -383,7 +298,7 @@ int main() {
 ## 5. 性能分析与优化
 
 ```bash
-nvcc -O3 -arch=sm_80 categorical_cross_entropy.cu -o categorical_cross_entropy
+nvcc -O3 -arch=sm_80 25-categorical-cross-entropy-loss.cu -o categorical_cross_entropy
 ncu --set full ./categorical_cross_entropy 2>&1 | grep -iE "Memory Throughput|Occupancy|DRAM|Compute"
 ```
 

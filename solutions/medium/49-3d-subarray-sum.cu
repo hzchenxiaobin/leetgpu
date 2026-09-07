@@ -1,0 +1,126 @@
+// 49-3d-subarray-sum.cu —— 3D Subarray Sum（子立方体展平 + grid-stride 累加 + 两级 block 归约 + long long 累加）
+// 编译命令: nvcc -O3 -arch=sm_120 49-3d-subarray-sum.cu -o 3d_subarray_sum
+// 运行:     ./3d_subarray_sum
+
+#include <cstdio>
+#include <cstdlib>
+#include <vector>
+#include <cuda_runtime.h>
+
+#define BLOCK 256
+#define WARP 32
+
+__device__ __forceinline__ long long warp_reduce_ll(long long val) {
+    #pragma unroll
+    for (int offset = WARP / 2; offset > 0; offset /= 2)
+        val += __shfl_down_sync(0xffffffff, val, offset);
+    return val;
+}
+
+// 子立方体展平 → grid-stride 累加 → warp 归约 → block 归约 → atomicAdd 到 scratch(long long)
+__global__ void subarray_sum_3d_kernel(const int* input, unsigned long long* scratch,
+                                       int M, int K, int S_DEP, int S_ROW, int S_COL,
+                                       int dep_len, int row_len, int col_len,
+                                       long long plane, long long total) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int lane = threadIdx.x & (WARP - 1);
+    int warp_id = threadIdx.x / WARP;
+    __shared__ long long warp_sums[WARP];
+
+    long long sum = 0;
+    int stride = gridDim.x * blockDim.x;
+    for (long long off = tid; off < total; off += stride) {
+        int dep = (int)(off / plane);          // 子立方体内深度号
+        int rem = (int)(off % plane);          // 片内偏移
+        int r   = rem / col_len;               // 子立方体内行号
+        int c   = rem % col_len;               // 子立方体内列号
+        sum += (long long)input[((S_DEP + dep) * M + (S_ROW + r)) * K + (S_COL + c)];
+    }
+
+    sum = warp_reduce_ll(sum);
+    if (lane == 0)
+        warp_sums[warp_id] = sum;
+    __syncthreads();
+
+    if (warp_id == 0) {
+        sum = (lane < blockDim.x / WARP) ? warp_sums[lane] : 0;
+        sum = warp_reduce_ll(sum);
+        if (lane == 0)
+            atomicAdd(scratch, (unsigned long long)sum);
+    }
+}
+
+// 单线程：把 long long scratch cast 成 int 写入 output[0]
+__global__ void cast_to_int(const unsigned long long* scratch, int* output) {
+    output[0] = (int)((long long)scratch[0]);
+}
+
+int main() {
+    int N = 500, M = 500, K = 500;
+    int S_DEP = 11, E_DEP = 498, S_ROW = 0, E_ROW = 499, S_COL = 1, E_COL = 489;  // 性能测试场景
+    int dep_len = E_DEP - S_DEP + 1;
+    int row_len = E_ROW - S_ROW + 1;
+    int col_len = E_COL - S_COL + 1;
+    long long plane = (long long)row_len * col_len;
+    long long total = (long long)dep_len * plane;
+    size_t bytes = (size_t)N * M * K * sizeof(int);
+
+    std::vector<int> h_input((size_t)N * M * K);
+    srand(42);
+    for (size_t i = 0; i < (size_t)N * M * K; ++i)
+        h_input[i] = (rand() % 10) + 1;   // [1, 10]，匹配题目约束
+
+    int* d_input;
+    int* d_output;
+    unsigned long long* d_scratch;
+    cudaMalloc(&d_input, bytes);
+    cudaMalloc(&d_output, sizeof(int));
+    cudaMalloc(&d_scratch, sizeof(unsigned long long));
+    cudaMemcpy(d_input, h_input.data(), bytes, cudaMemcpyHostToDevice);
+    cudaMemset(d_scratch, 0, sizeof(unsigned long long));
+
+    int num_sm;
+    cudaDeviceGetAttribute(&num_sm, cudaDevAttrMultiProcessorCount, 0);
+    int blocks = num_sm * 4;
+    int threads = BLOCK;
+    printf("launch: blocks=%d  threads=%d  (SM=%d, dep_len=%d, row_len=%d, col_len=%d, total=%lld)\n",
+           blocks, threads, num_sm, dep_len, row_len, col_len, total);
+
+    cudaEvent_t t0, t1;
+    cudaEventCreate(&t0);
+    cudaEventCreate(&t1);
+    cudaEventRecord(t0);
+    subarray_sum_3d_kernel<<<blocks, threads>>>(d_input, d_scratch, M, K,
+                                                 S_DEP, S_ROW, S_COL,
+                                                 dep_len, row_len, col_len, plane, total);
+    cast_to_int<<<1, 1>>>(d_scratch, d_output);
+    cudaEventRecord(t1);
+    cudaDeviceSynchronize();
+    float ms = 0.0f;
+    cudaEventElapsedTime(&ms, t0, t1);
+    printf("kernel time: %.3f ms\n", ms);
+
+    int gpu_result;
+    cudaMemcpy(&gpu_result, d_output, sizeof(int), cudaMemcpyDeviceToHost);
+
+    // CPU 验证（long long 累加再 cast）
+    long long cpu_sum = 0;
+    for (int d = S_DEP; d <= E_DEP; ++d)
+        for (int r = S_ROW; r <= E_ROW; ++r)
+            for (int c = S_COL; c <= E_COL; ++c)
+                cpu_sum += h_input[((size_t)d * M + r) * K + c];
+    int cpu_result = (int)cpu_sum;
+
+    printf("GPU: %d, CPU: %d, %s\n", gpu_result, cpu_result,
+           gpu_result == cpu_result ? "PASS" : "FAIL");
+
+    // 带宽估算：只读 total 个 int
+    size_t rw_bytes = (size_t)total * sizeof(int);
+    float bw_gbs = (rw_bytes / 1e9) / (ms / 1e3);
+    printf("effective read bandwidth: %.1f GB/s\n", bw_gbs);
+
+    cudaFree(d_input);
+    cudaFree(d_output);
+    cudaFree(d_scratch);
+    return 0;
+}

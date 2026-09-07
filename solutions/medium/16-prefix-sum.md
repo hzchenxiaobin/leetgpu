@@ -306,8 +306,8 @@ for (int offset = 1; offset < WARP_SIZE; offset <<= 1) {
 ### 4.0 公共头文件与宏定义
 
 ```cuda
-// prefix_sum.cu —— 三阶段分块 scan：warp shuffle + block scan + 全局偏移加回
-// 编译命令: nvcc -O3 -arch=sm_120 prefix_sum.cu -o prefix_sum
+// 16-prefix-sum.cu —— 三阶段分块 scan：warp shuffle + block scan + 全局偏移加回
+// 编译命令: nvcc -O3 -arch=sm_120 16-prefix-sum.cu -o prefix_sum
 // 运行:     ./prefix_sum 16777216
 
     #include <cstdio>
@@ -612,176 +612,7 @@ input[tid]                      = 自身                                       (
 
 以下是完整版本，可本地编译运行自测。阶段二采用了修正后的正确实现。
 
-```cuda
-// prefix_sum.cu —— 三阶段分块 scan：warp shuffle + block scan + 全局偏移加回
-// 编译命令: nvcc -O3 -arch=sm_120 prefix_sum.cu -o prefix_sum
-// 运行:     ./prefix_sum 16777216
-
-    #include <cstdio>
-    #include <cstdlib>
-    #include <cmath>
-    #include <cuda_runtime.h>
-
-    #define CHECK_CUDA(call)                                                                                               \
-    do {                                                                                                               \
-        cudaError_t e = (call);                                                                                        \
-        if (e != cudaSuccess) {                                                                                        \
-            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
-            exit(EXIT_FAILURE);                                                                                        \
-        }                                                                                                              \
-    } while (0)
-
-#define BLOCK_SIZE 256
-#define WARP_SIZE 32
-#define NUM_WARPS (BLOCK_SIZE / WARP_SIZE) // 8
-
-__inline__ __device__ float warp_inclusive_scan(float val) {
-    for (int offset = 1; offset < WARP_SIZE; offset <<= 1) {
-        float n = __shfl_up_sync(0xffffffff, val, offset);
-        if ((threadIdx.x & (WARP_SIZE - 1)) >= offset) {
-            val += n;
-        }
-    }
-    return val;
-}
-
-__inline__ __device__ float block_exclusive_scan(float val, float* block_sum) {
-    __shared__ float warp_sums[NUM_WARPS];
-    int lane = threadIdx.x & (WARP_SIZE - 1);
-    int warpId = threadIdx.x >> 5;
-
-    float inclusive = warp_inclusive_scan(val);
-
-    if (lane == WARP_SIZE - 1) {
-        warp_sums[warpId] = inclusive;
-    }
-    __syncthreads();
-
-    if (warpId == 0) {
-        float v = (lane < NUM_WARPS) ? warp_sums[lane] : 0.0f;
-        v = warp_inclusive_scan(v);
-        if (lane < NUM_WARPS)
-            warp_sums[lane] = v;
-    }
-    __syncthreads();
-
-    float warp_offset = (warpId == 0) ? 0.0f : warp_sums[warpId - 1];
-    float exclusive = warp_offset + (inclusive - val);
-
-    if (threadIdx.x == BLOCK_SIZE - 1) {
-        *block_sum = warp_offset + inclusive;
-    }
-    return exclusive;
-}
-
-__global__ void scan_block_kernel(const float* input, float* output, float* block_sums, int N) {
-    int tid = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    bool valid = (tid < N);
-    float val = valid ? input[tid] : 0.0f;
-    float exclusive = block_exclusive_scan(val, &block_sums[blockIdx.x]);
-    if (valid)
-        output[tid] = exclusive;
-}
-
-__global__ void scan_offsets_kernel(const float* block_sums, float* block_offsets, int M) {
-    __shared__ float s_chunk_total;
-    __shared__ float s_running;
-    int tid = threadIdx.x;
-
-    if (tid == 0) {
-        s_running = 0.0f;
-    }
-    __syncthreads();
-
-    for (int chunk = 0; chunk < M; chunk += BLOCK_SIZE) {
-        int idx = chunk + tid;
-        float val = (idx < M) ? block_sums[idx] : 0.0f;
-
-        float exclusive = block_exclusive_scan(val, &s_chunk_total);
-
-        if (idx < M) {
-            block_offsets[idx] = exclusive + s_running;
-        }
-
-        __syncthreads();
-        if (tid == 0)
-            s_running += s_chunk_total;
-        __syncthreads();
-    }
-}
-
-__global__ void add_offset_kernel(float* output, const float* input, const float* block_offsets, int N) {
-    int tid = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    if (tid >= N)
-        return;
-    output[tid] = output[tid] + block_offsets[blockIdx.x] + input[tid];
-}
-
-int main(int argc, char** argv) {
-    int N = (argc > 1) ? atoi(argv[1]) : 16777216;
-    size_t bytes = (size_t)N * sizeof(float);
-    printf("N = %d  (%.1f MB)\n", N, bytes / 1e6);
-
-    float* hIn = (float*)malloc(bytes);
-    srand(42);
-    for (int i = 0; i < N; ++i) {
-        hIn[i] = ((float)(rand() % 20000) - 10000.0f) / 1000.0f;
-    }
-
-    float *dIn, *dOut, *dBlockSums, *dBlockOffsets;
-    CHECK_CUDA(cudaMalloc(&dIn, bytes));
-    CHECK_CUDA(cudaMalloc(&dOut, bytes));
-    CHECK_CUDA(cudaMemcpy(dIn, hIn, bytes, cudaMemcpyHostToDevice));
-
-    int numBlocks = (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    CHECK_CUDA(cudaMalloc(&dBlockSums, numBlocks * sizeof(float)));
-    CHECK_CUDA(cudaMalloc(&dBlockOffsets, numBlocks * sizeof(float)));
-
-    cudaEvent_t t0, t1;
-    cudaEventCreate(&t0);
-    cudaEventCreate(&t1);
-    cudaEventRecord(t0);
-
-    scan_block_kernel<<<numBlocks, BLOCK_SIZE>>>(dIn, dOut, dBlockSums, N);
-    scan_offsets_kernel<<<1, BLOCK_SIZE>>>(dBlockSums, dBlockOffsets, numBlocks);
-    add_offset_kernel<<<numBlocks, BLOCK_SIZE>>>(dOut, dIn, dBlockOffsets, N);
-
-    cudaEventRecord(t1);
-    CHECK_CUDA(cudaDeviceSynchronize());
-    float ms = 0.0f;
-    cudaEventElapsedTime(&ms, t0, t1);
-    printf("kernel time (three-pass): %.3f ms\n", ms);
-
-    float* hOut = (float*)malloc(bytes);
-    CHECK_CUDA(cudaMemcpy(hOut, dOut, bytes, cudaMemcpyDeviceToHost));
-
-    double acc = 0.0;
-    int fail = 0;
-    int checkPts[] = {0, 1, 2, N / 4, N / 2, N - 2, N - 1};
-    for (int k = 0; k < 7; ++k) {
-        int i = checkPts[k];
-        for (int j = (k == 0 ? 0 : checkPts[k - 1] + 1); j <= i; ++j)
-            acc += hIn[j];
-        if (fabsf(hOut[i] - (float)acc) > 1e-2f * (1.0f + fabsf((float)acc))) {
-            printf("FAIL at i=%d: GPU=%f CPU=%f\n", i, hOut[i], (float)acc);
-            fail = 1;
-            break;
-        }
-    }
-    printf("%s\n", fail ? "FAIL" : "PASS");
-
-    float bw_gbs = (2.0 * bytes / 1e9) / (ms / 1e3);
-    printf("I/O bandwidth: %.1f GB/s\n", bw_gbs);
-
-    CHECK_CUDA(cudaFree(dIn));
-    CHECK_CUDA(cudaFree(dOut));
-    CHECK_CUDA(cudaFree(dBlockSums));
-    CHECK_CUDA(cudaFree(dBlockOffsets));
-    free(hIn);
-    free(hOut);
-    return 0;
-}
-```
+> 📎 完整可编译代码（含 Host）已整理到 <a href="./16-prefix-sum.cu" download><code>16-prefix-sum.cu</code></a>（编译与运行命令见文件头注释，用于本地自测与 profiling）。
 
 > 💡 提交给 LeetGPU 平台时，把三个 kernel 填进 `solve` 函数、按顺序 launch 即可。带 `main()` 的版本用于本地自测。
 
@@ -789,10 +620,10 @@ int main(int argc, char** argv) {
 
 ### 4.7 LeetGPU 提交版代码
 
-LeetGPU 平台的 `starter.cu` 只需实现 `extern "C" void solve(const float* input, float* output, int N)` 函数。平台会传入 device pointer `input`/`output` 和数组长度 `N`，函数内部启动 kernel 即可。以下是直接可提交的完整代码：
+LeetGPU 平台的 `16-prefix-sum.cu` 只需实现 `extern "C" void solve(const float* input, float* output, int N)` 函数。平台会传入 device pointer `input`/`output` 和数组长度 `N`，函数内部启动 kernel 即可。以下是直接可提交的完整代码：
 
 ```cuda
-// starter.cu —— LeetGPU Prefix Sum 提交版
+// 16-prefix-sum.cu —— LeetGPU Prefix Sum 提交版
 // 平台接口：extern "C" void solve(const float* input, float* output, int N)
 // input/output 是 device pointer，N 是数组长度
 
@@ -923,7 +754,7 @@ extern "C" void solve(const float* input, float* output, int N) {
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_120 prefix_sum.cu -o prefix_sum
+nvcc -O3 -arch=sm_120 16-prefix-sum.cu -o prefix_sum
 ./prefix_sum 16777216
 ```
 
@@ -984,15 +815,15 @@ ncu --metrics gpu__time_duration.sum, \
 
 > 💡 **一句话总结**：scan 是 **warp shuffle** 的进阶应用——把"串行依赖的前缀和"改造成"对数步数的蝶形并行交换"。`__shfl_up_sync` 与归约的 `__shfl_down_sync` 是一对镜像，掌握它们就掌握了 GPU 上所有 prefix 类操作的基础积木。三阶段分块架构（block 内 scan → block 间偏移 scan → 加回）是处理超大数据的标准模板，可直接迁移到 stream compaction、radix sort、segmented scan 等场景。
 
-## 7. 优化版对比：`presum.cu` 为什么更快
+## 7. 优化版对比：`16-prefix-sum.cu` 为什么更快
 
-实际提交 LeetGPU 后发现，`presum.cu`（两阶段融合方案）比第 4 节的三阶段方案性能更好。本节逐点分析原因。
+实际提交 LeetGPU 后发现，`16-prefix-sum.cu`（两阶段融合方案）比第 4 节的三阶段方案性能更好。本节逐点分析原因。
 
-![presum.cu 两阶段架构总览](/images/presum_overview.svg)
+![16-prefix-sum.cu 两阶段架构总览](/images/presum_overview.svg)
 
 ### 7.1 两个版本的核心差异
 
-| 维度 | 三阶段方案（本文 4.7 节） | `presum.cu`（优化版） |
+| 维度 | 三阶段方案（本文 4.7 节） | `16-prefix-sum.cu`（优化版） |
 |------|--------------------------|------------------------|
 | **阶段一 scan 类型** | exclusive（不含自身） | **inclusive**（含自身） |
 | **kernel 数量** | 3 个（block scan + offsets scan + add offset） | **2 个**（intra_block_reduce + inter_block_reduce） |
@@ -1016,7 +847,7 @@ output[tid] = exclusive[tid] + block_offsets[blockIdx.x] + input[tid]
 
 阶段一存的是 exclusive（不含 `input[i]`），所以阶段三**必须重读** `input[tid]` 才能得到 inclusive——这是一整遍 global memory 读（N=16M 时 64MB）。
 
-`presum.cu` 阶段一做 **inclusive** scan，输出已是 block 内 inclusive 前缀和。阶段二只需把"前面所有 block 的总和"加上去：
+`16-prefix-sum.cu` 阶段一做 **inclusive** scan，输出已是 block 内 inclusive 前缀和。阶段二只需把"前面所有 block 的总和"加上去：
 
 ```cuda
 // inter_block_reduce 中
@@ -1025,7 +856,7 @@ output[offset] += val; // val = g_block_sum[0] + ... + g_block_sum[blockIdx.x-1]
 
 **完全不需要重读 input**。对 memory-bound 的 scan（算术强度仅 0.125 FLOP/B），省掉一整遍 global 读是最大的性能提升来源。
 
-> 💡 这正是第 5.3 节"优化方向 5"提到的思路，`presum.cu` 用 inclusive scan 天然规避了重读。
+> 💡 这正是第 5.3 节"优化方向 5"提到的思路，`16-prefix-sum.cu` 用 inclusive scan 天然规避了重读。
 
 #### 优化 2：融合阶段二+三为单 kernel（省掉 block_offsets 的 global 写+读）
 
@@ -1039,7 +870,7 @@ output[offset] += val; // val = g_block_sum[0] + ... + g_block_sum[blockIdx.x-1]
 
 `block_offsets[]` 被写入 global memory 后立刻被阶段三读回，这是一轮**多余的写+读**。
 
-`presum.cu` 的 `inter_block_reduce` 在**同一个 kernel 内**完成"计算前缀偏移 + 加回 output"：
+`16-prefix-sum.cu` 的 `inter_block_reduce` 在**同一个 kernel 内**完成"计算前缀偏移 + 加回 output"：
 
 ```cuda
 // 每个 block 独立计算自己的全局偏移（前面所有 block 的总和）
@@ -1066,13 +897,13 @@ __device__ float g_block_sum[MAX_BLOCK_NUM]; // 静态分配，零运行时开�
 
 #### 优化 4：更少的 kernel launch（2 次 vs 3 次）
 
-每次 kernel launch 约 5-10μs 开销。`presum.cu` 少一次 launch，在小数据量场景下占比显著。
+每次 kernel launch 约 5-10μs 开销。`16-prefix-sum.cu` 少一次 launch，在小数据量场景下占比显著。
 
 ### 7.3 block 内 scan 的差异
 
 两个版本在 block 内 inter-warp scan 的实现策略不同：
 
-![presum.cu Kernel 1 intra_block_reduce：warp scan + inter-warp 蝶形](/images/presum_intra_block_scan.svg)
+![16-prefix-sum.cu Kernel 1 intra_block_reduce：warp scan + inter-warp 蝶形](/images/presum_intra_block_scan.svg)
 
 **三阶段方案** `block_exclusive_scan`：
 
@@ -1082,33 +913,33 @@ __device__ float g_block_sum[MAX_BLOCK_NUM]; // 静态分配，零运行时开�
 4. 读回 `warp_sums[warpId-1]` 作为偏移，计算 `exclusive = warp_offset + (inclusive - val)`
 5. 总共 **2 次** `__syncthreads`
 
-`presum.cu` `intra_block_reduce`：
+`16-prefix-sum.cu` `intra_block_reduce`：
 
 1. 每 warp 做 inclusive scan（`warp_pre_sum`，5 步，无 sync）
 2. 写回 smem，在 shared memory 上做 **Hillis-Steele 蝶形** inter-warp scan：
    - `wid_offset = 1, 2, 4`（3 步），每步读前 `wid_offset` 个 warp 的 lane 31（= 该 warp 总和），累加
 3. 总共 **6 次** `__syncthreads`（3 步 × 2 sync/步）
 
-> 💡 `presum.cu` 的 block scan sync 更多（6 vs 2），但 scan 是 **memory-bound**，sync 开销被 global memory 延迟掩盖。它换来的好处是**直接产出 inclusive scan**——`smem[tid]` 就是 block 内 inclusive 前缀和，`smem[TILE-1]` 就是 block 总和，一步到位，无需"先 exclusive 再加回 input"的繁琐逻辑。
+> 💡 `16-prefix-sum.cu` 的 block scan sync 更多（6 vs 2），但 scan 是 **memory-bound**，sync 开销被 global memory 延迟掩盖。它换来的好处是**直接产出 inclusive scan**——`smem[tid]` 就是 block 内 inclusive 前缀和，`smem[TILE-1]` 就是 block 总和，一步到位，无需"先 exclusive 再加回 input"的繁琐逻辑。
 
 ### 7.4 代价与限制
 
-`presum.cu` 的优化并非没有代价：
+`16-prefix-sum.cu` 的优化并非没有代价：
 
-![presum.cu Kernel 2 inter_block_reduce：全局偏移 + 加回](/images/presum_inter_block_addback.svg)
+![16-prefix-sum.cu Kernel 2 inter_block_reduce：全局偏移 + 加回](/images/presum_inter_block_addback.svg)
 
 | 代价 | 说明 | 影响 |
 |------|------|------|
 | `MAX_BLOCK_NUM = 1024` **硬限制** | `g_block_sum[1024]` 只有 1024 个槽位，`numBlocks > 1024` 时越界写 | 限制 `N ≤ 1024 × 256 = 262,144` |
 | **O(B²) 总读取量** | `inter_block_reduce` 中每个 block `b` 读 `g_block_sum[0..b-1]`，总读取 = `B(B-1)/2` | B=1024 时约 50 万次读（~2MB），可接受；B=65536 时约 20 亿次读（~8GB），灾难性 |
-| **不适用超大 N** | 三阶段方案的 grid-stride scan 是 O(B)，`presum.cu` 是 O(B²) | 大规模数据应回归三阶段或递归分块 |
+| **不适用超大 N** | 三阶段方案的 grid-stride scan 是 O(B)，`16-prefix-sum.cu` 是 O(B²) | 大规模数据应回归三阶段或递归分块 |
 | `__device__` **数组无法动态扩容** | 静态大小编译期固定 | 需预估最大 numBlocks |
 
-> ⚠️ `presum.cu` 的设计前提是 **numBlocks ≤ 1024**（即 `N ≤ 262K`）。在此规模下 O(B²) 仅约 50 万次额外读取（~2MB），远小于省掉的收益（一整遍 input 重读 + block_offsets 写读 + cudaMalloc 开销）。当 `N` 远大于 262K 时，三阶段方案的 O(B) 阶段二优势会显现，`presum.cu` 反而会因 O(B²) 退化。
+> ⚠️ `16-prefix-sum.cu` 的设计前提是 **numBlocks ≤ 1024**（即 `N ≤ 262K`）。在此规模下 O(B²) 仅约 50 万次额外读取（~2MB），远小于省掉的收益（一整遍 input 重读 + block_offsets 写读 + cudaMalloc 开销）。当 `N` 远大于 262K 时，三阶段方案的 O(B) 阶段二优势会显现，`16-prefix-sum.cu` 反而会因 O(B²) 退化。
 
 ### 7.5 总结
 
-`presum.cu` 更快的核心原因是 **memory-bound 场景下减少了 global memory 访问轮次**：
+`16-prefix-sum.cu` 更快的核心原因是 **memory-bound 场景下减少了 global memory 访问轮次**：
 
 ```
 三阶段方案 global traffic:
@@ -1117,7 +948,7 @@ __device__ float g_block_sum[MAX_BLOCK_NUM]; // 静态分配，零运行时开�
   阶段三: 读 output(N) + 读 block_offsets(B) + 读 input(N) + 写 output(N)    ← input 重读！
   合计: 3N(读) + 2N(写) + 4B  +  3次 launch + cudaMalloc/Free
 
-presum.cu global traffic:
+16-prefix-sum.cu global traffic:
   阶段一: 读 input(N) + 写 output(N) + 写 g_block_sum(B)
   阶段二: 读 g_block_sum(B²/2) + 读 output(N) + 写 output(N)    ← 无 input 重读！
   合计: 2N(读) + 2N(写) + B + B²/2  +  2次 launch + 零 malloc

@@ -134,15 +134,12 @@ __global__ void dense_gemm(const float* A, const float* B, float* C, int M, int 
 
 ## 4. Kernel 实现
 
-### 4.1 完整可编译 CUDA 代码
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本，一个 warp 处理 A 的一行并跳过零元素，K 维分摊到 warp 内 32 个 thread 做 scaled accumulation。
 
 ```cuda
-// spmm.cu —— SpMM: 稀疏 A × 稠密 B，CSR 遍历 + warp 分摊 K 维
-// 编译命令: nvcc -O3 -arch=sm_80 spmm.cu -o spmm
-
 #include <cuda_runtime.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 #define WARP_SIZE 32
 #define WARPS_PER_BLOCK 8
@@ -192,88 +189,15 @@ __global__ void spmm_kernel(
     }
 }
 
-// ===== Host 端 =====
-int main() {
-    // 功能测试: A(3×4) × B(4×2) = C(3×2)
-    int M = 3, N = 4, K = 2;
-    float h_A[] = {2, 0, 0, 1,  0, 3, 0, 0,  0, 0, 4, 0};
-    float h_B[] = {1, 2,  3, 4,  5, 6,  7, 8};
-    float h_C[6] = {0};
-    float ref_C[] = {9, 12, 9, 12, 20, 24};
-
-    float *d_A, *d_B, *d_C;
-    cudaMalloc(&d_A, M * N * sizeof(float));
-    cudaMalloc(&d_B, N * K * sizeof(float));
-    cudaMalloc(&d_C, M * K * sizeof(float));
-    cudaMemcpy(d_A, h_A, M * N * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, h_B, N * K * sizeof(float), cudaMemcpyHostToDevice);
-
+// A, B, C are device pointers
+extern "C" void solve(const float* A, const float* B, float* C, int M, int N, int K, int nnz) {
     int blocks = (M + WARPS_PER_BLOCK - 1) / WARPS_PER_BLOCK;
-    spmm_kernel<<<blocks, BLOCK_SIZE>>>(d_A, d_B, d_C, M, N, K);
+    spmm_kernel<<<blocks, BLOCK_SIZE>>>(A, B, C, M, N, K);
     cudaDeviceSynchronize();
-    cudaMemcpy(h_C, d_C, M * K * sizeof(float), cudaMemcpyDeviceToHost);
-
-    printf("=== Functional Test ===\n");
-    printf("A = [[2,0,0,1], [0,3,0,0], [0,0,4,0]]\n");
-    printf("B = [[1,2], [3,4], [5,6], [7,8]]\n");
-    printf("C = [");
-    for (int i = 0; i < M; i++) {
-        printf("[%.0f, %.0f]%s", h_C[i*K], h_C[i*K+1], i < M-1 ? ", " : "");
-    }
-    printf("]\n");
-    int pass = 1;
-    for (int i = 0; i < M * K; i++)
-        if (fabsf(ref_C[i] - h_C[i]) > 0.001) pass = 0;
-    printf("%s\n\n", pass ? "✅ PASS" : "❌ FAIL");
-
-    // ===== 性能测试: M=4096, N=2048, K=512 =====
-    int M2 = 4096, N2 = 2048, K2 = 512;
-    float *d_A2, *d_B2, *d_C2;
-    cudaMalloc(&d_A2, (size_t)M2 * N2 * sizeof(float));
-    cudaMalloc(&d_B2, (size_t)N2 * K2 * sizeof(float));
-    cudaMalloc(&d_C2, (size_t)M2 * K2 * sizeof(float));
-
-    float *hA2 = (float*)malloc((size_t)M2 * N2 * sizeof(float));
-    float *hB2 = (float*)malloc((size_t)N2 * K2 * sizeof(float));
-    srand(42);
-    int nnz = 0;
-    for (size_t i = 0; i < (size_t)M2 * N2; i++) {
-        hA2[i] = (rand() % 100 < 35) ? (-1.0f + 2.0f * (rand() / (float)RAND_MAX)) : 0.0f;
-        if (hA2[i] != 0.0f) nnz++;
-    }
-    for (size_t i = 0; i < (size_t)N2 * K2; i++)
-        hB2[i] = -1.0f + 2.0f * (rand() / (float)RAND_MAX);
-
-    cudaMemcpy(d_A2, hA2, (size_t)M2 * N2 * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B2, hB2, (size_t)N2 * K2 * sizeof(float), cudaMemcpyHostToDevice);
-
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    int blocks2 = (M2 + WARPS_PER_BLOCK - 1) / WARPS_PER_BLOCK;
-    cudaEventRecord(start);
-    spmm_kernel<<<blocks2, BLOCK_SIZE>>>(d_A2, d_B2, d_C2, M2, N2, K2);
-    cudaEventRecord(stop);
-    cudaDeviceSynchronize();
-    float ms = 0;
-    cudaEventElapsedTime(&ms, start, stop);
-
-    printf("=== Perf Test (M=%d, N=%d, K=%d) ===\n", M2, N2, K2);
-    printf("nnz = %d (%.1f%% sparse)\n", nnz, 100.0 * (1.0 - (double)nnz / (M2 * N2)));
-    printf("Kernel time = %.3f ms\n", ms);
-    printf("FMA count: dense=%zu, sparse=%zu (saved %.0f%%)\n",
-           (size_t)M2 * N2 * K2, (size_t)nnz * K2,
-           100.0 * (1.0 - (double)nnz / (M2 * N2)));
-    size_t bytes = (size_t)M2 * N2 * 4 + (size_t)N2 * K2 * 4 + (size_t)M2 * K2 * 4;
-    printf("HBM traffic (dense A+B+C) = %.2f MB\n", bytes / 1e6);
-
-    cudaFree(d_A); cudaFree(d_B); cudaFree(d_C);
-    cudaFree(d_A2); cudaFree(d_B2); cudaFree(d_C2);
-    cudaEventDestroy(start); cudaEventDestroy(stop);
-    free(hA2); free(hB2);
-    return 0;
 }
 ```
+
+> 📎 完整可编译代码已整理到 <a href="./75-sparse-matrix-dense-matrix-multiplication.cu" download><code>75-sparse-matrix-dense-matrix-multiplication.cu</code></a>（含 host 端测试 harness，编译与运行命令见文件头注释，用于本地自测与 profiling）。
 
 ### 4.2 代码详解
 
@@ -313,7 +237,7 @@ int main() {
 ## 5. 性能分析与优化
 
 ```bash
-nvcc -O3 -arch=sm_80 spmm.cu -o spmm
+nvcc -O3 -arch=sm_80 75-sparse-matrix-dense-matrix-multiplication.cu -o spmm
 ncu --set full ./spmm 2>&1 | grep -iE "Memory Throughput|Occupancy|DRAM|L2 hit|Compute"
 ```
 

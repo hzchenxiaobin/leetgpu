@@ -145,16 +145,13 @@ __global__ void dequant_kernel(const uint8_t* w_q, const __half* scales,
 
 ## 4. Kernel 实现
 
-### 4.1 完整可编译 CUDA 代码
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本，Tiled GEMM 在 shared memory 内即时反量化 INT4 权重（nibble 解包 + 分组 scale），FP16×FP16 用 FP32 累加。
 
 ```cuda
-// int4_matmul.cu —— W4A16 量化矩阵乘：即时反量化 + Tiled GEMM + FP32 累加
-// 编译命令: nvcc -O3 -arch=sm_80 int4_matmul.cu -o int4_matmul
-
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <cstdint>
 
 #define BM 64
@@ -254,92 +251,17 @@ __global__ void int4_matmul_kernel(
     }
 }
 
-// ===== Host 端 =====
-int main() {
-    // 功能测试: M=2, N=4, K=4, gs=2
-    int M = 2, N = 4, K = 4, gs = 2;
-    __half h_x[] = {
-        __float2half(1.0f), __float2half(0.0f), __float2half(1.0f), __float2half(0.0f),
-        __float2half(0.0f), __float2half(1.0f), __float2half(0.0f), __float2half(1.0f)
-    };
-    uint8_t h_wq[] = {0x99, 0x99, 0xAA, 0xAA, 0x77, 0x77, 0x88, 0x88};
-    __half h_scales[8];
-    for (int i = 0; i < 8; i++) h_scales[i] = __float2half(0.5f);
-    __half h_y[8];
-
-    __half *d_x; uint8_t *d_wq; __half *d_scales, *d_y;
-    cudaMalloc(&d_x, M * K * sizeof(__half));
-    cudaMalloc(&d_wq, N * (K/2) * sizeof(uint8_t));
-    cudaMalloc(&d_scales, N * (K/gs) * sizeof(__half));
-    cudaMalloc(&d_y, M * N * sizeof(__half));
-    cudaMemcpy(d_x, h_x, M * K * sizeof(__half), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_wq, h_wq, N * (K/2), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_scales, h_scales, N * (K/gs) * sizeof(__half), cudaMemcpyHostToDevice);
-
+// x, w_q, scales, y are device pointers
+extern "C" void solve(const __half* x, const uint8_t* w_q, const __half* scales,
+                      __half* y, int M, int N, int K, int group_size) {
     dim3 grid((M + BM - 1) / BM, (N + BN - 1) / BN);
     dim3 block(256);
-    int4_matmul_kernel<<<grid, block>>>(d_x, d_wq, d_scales, d_y, M, N, K, gs);
+    int4_matmul_kernel<<<grid, block>>>(x, w_q, scales, y, M, N, K, group_size);
     cudaDeviceSynchronize();
-    cudaMemcpy(h_y, d_y, M * N * sizeof(__half), cudaMemcpyHostToHost);
-
-    printf("=== Functional Test ===\n");
-    printf("Expected: [1, 2, -1, 0, 1, 2, -1, 0]\n");
-    printf("Got:      [");
-    for (int i = 0; i < M * N; i++) printf("%.1f%s", __half2float(h_y[i]), i < M*N-1 ? ", " : "");
-    printf("]\n");
-
-    // CPU 参考
-    float ref[8];
-    for (int m = 0; m < M; m++)
-        for (int n = 0; n < N; n++) {
-            float sum = 0;
-            for (int k = 0; k < K; k++) {
-                uint8_t byte = h_wq[n * (K/2) + k/2];
-                int nibble = (k % 2 == 0) ? (byte >> 4) & 0xF : byte & 0xF;
-                float w = (float)(nibble - 8) * __half2float(h_scales[n * (K/gs) + k/gs]);
-                sum += __half2float(h_x[m * K + k]) * w;
-            }
-            ref[m * N + n] = sum;
-        }
-    int pass = 1;
-    for (int i = 0; i < M * N; i++)
-        if (fabsf(ref[i] - __half2float(h_y[i])) > 0.01) pass = 0;
-    printf("%s\n\n", pass ? "✅ PASS" : "❌ FAIL");
-
-    // ===== 性能测试: M=N=K=4096, gs=128 =====
-    int M2 = 4096, N2 = 4096, K2 = 4096, gs2 = 128;
-    __half *d_x2; uint8_t *d_wq2; __half *d_s2, *d_y2;
-    cudaMalloc(&d_x2, (size_t)M2 * K2 * sizeof(__half));
-    cudaMalloc(&d_wq2, (size_t)N2 * (K2/2));
-    cudaMalloc(&d_s2, (size_t)N2 * (K2/gs2) * sizeof(__half));
-    cudaMalloc(&d_y2, (size_t)M2 * N2 * sizeof(__half));
-
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    dim3 grid2((M2+BM-1)/BM, (N2+BN-1)/BN);
-    cudaEventRecord(start);
-    int4_matmul_kernel<<<grid2, block>>>(d_x2, d_wq2, d_s2, d_y2, M2, N2, K2, gs2);
-    cudaEventRecord(stop);
-    cudaDeviceSynchronize();
-    float ms = 0;
-    cudaEventElapsedTime(&ms, start, stop);
-
-    printf("=== Perf Test (M=N=K=%d, gs=%d) ===\n", M2, gs2);
-    printf("Kernel time = %.3f ms\n", ms);
-    // HBM: read x(M*K*2) + w_q(N*K/2) + scales(small) + write y(M*N*2)
-    size_t bytes = (size_t)M2*K2*2 + (size_t)N2*(K2/2) + (size_t)M2*N2*2;
-    printf("HBM traffic ≈ %.2f MB (x + w_q + y)\n", bytes / 1e6);
-    printf("Effective bandwidth = %.2f GB/s\n", bytes / (ms * 1e6));
-    printf("INT4 saves %.2f MB vs FP16 GEMM\n",
-           ((size_t)N2 * K2 * 2 - (size_t)N2 * (K2/2)) / 1e6);
-
-    cudaFree(d_x); cudaFree(d_wq); cudaFree(d_scales); cudaFree(d_y);
-    cudaFree(d_x2); cudaFree(d_wq2); cudaFree(d_s2); cudaFree(d_y2);
-    cudaEventDestroy(start); cudaEventDestroy(stop);
-    return 0;
 }
 ```
+
+> 📎 完整可编译代码已整理到 <a href="./81-int4-matmul.cu" download><code>81-int4-matmul.cu</code></a>（含 host 端测试 harness，编译与运行命令见文件头注释，用于本地自测与 profiling）。
 
 ### 4.2 代码详解
 
@@ -376,7 +298,7 @@ int main() {
 ## 5. 性能分析与优化
 
 ```bash
-nvcc -O3 -arch=sm_80 int4_matmul.cu -o int4_matmul
+nvcc -O3 -arch=sm_80 81-int4-matmul.cu -o int4_matmul
 ncu --set full ./int4_matmul 2>&1 | grep -iE "Memory Throughput|Occupancy|DRAM|Compute"
 ```
 

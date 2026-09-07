@@ -133,15 +133,12 @@ __global__ void naive_recurrence(const float* a, const float* x, float* h, int B
 
 ## 4. Kernel 实现
 
-### 4.1 完整可编译 CUDA 代码
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本，一个 block 处理一条序列，用仿射复合 ⊙ 算子的三阶段关联扫描（warp shuffle + block scan）打破串行依赖。
 
 ```cuda
-// linear_recurrence.cu —— 关联扫描并行化线性递推（SSM 核心原语）
-// 编译命令: nvcc -O3 -arch=sm_80 linear_recurrence.cu -o linear_recurrence
-
 #include <cuda_runtime.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 #define WARP 32
 #define BLOCK_SIZE 256
@@ -257,88 +254,14 @@ __global__ void linear_recurrence_kernel(
     }
 }
 
-// ===== Host 端 =====
-int main() {
-    // 测试: B=2, L=4
-    int B = 2, L = 4;
-    float h_a[]  = {0.5f, 0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f};
-    float h_x[]  = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
-    float h_h[8] = {0};
-
-    // CPU 参考
-    float ref[8];
-    for (int b = 0; b < B; b++) {
-        ref[b*L] = h_x[b*L];
-        for (int t = 1; t < L; t++)
-            ref[b*L+t] = h_a[b*L+t] * ref[b*L+t-1] + h_x[b*L+t];
-    }
-
-    float *d_a, *d_x, *d_h;
-    cudaMalloc(&d_a, B * L * sizeof(float));
-    cudaMalloc(&d_x, B * L * sizeof(float));
-    cudaMalloc(&d_h, B * L * sizeof(float));
-    cudaMemcpy(d_a, h_a, B * L * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_x, h_x, B * L * sizeof(float), cudaMemcpyHostToDevice);
-
-    linear_recurrence_kernel<<<B, BLOCK_SIZE>>>(d_a, d_x, d_h, B, L);
+// a, x, h are device pointers
+extern "C" void solve(const float* a, const float* x, float* h, int B, int L) {
+    linear_recurrence_kernel<<<B, BLOCK_SIZE>>>(a, x, h, B, L);
     cudaDeviceSynchronize();
-    cudaMemcpy(h_h, d_h, B * L * sizeof(float), cudaMemcpyDeviceToHost);
-
-    printf("=== Functional Test (B=%d, L=%d) ===\n", B, L);
-    int pass = 1;
-    for (int b = 0; b < B; b++) {
-        printf("Batch %d: ", b);
-        for (int t = 0; t < L; t++) {
-            printf("%.4f ", h_h[b*L+t]);
-            if (fabsf(ref[b*L+t] - h_h[b*L+t]) > 1e-5) pass = 0;
-        }
-        printf("\n  ref: ");
-        for (int t = 0; t < L; t++) printf("%.4f ", ref[b*L+t]);
-        printf("\n");
-    }
-    printf("%s\n\n", pass ? "✅ PASS" : "❌ FAIL");
-
-    // ===== 性能测试: B=64, L=16384 =====
-    int B2 = 64, L2 = 16384;
-    float *d_a2, *d_x2, *d_h2;
-    cudaMalloc(&d_a2, (size_t)B2 * L2 * sizeof(float));
-    cudaMalloc(&d_x2, (size_t)B2 * L2 * sizeof(float));
-    cudaMalloc(&d_h2, (size_t)B2 * L2 * sizeof(float));
-
-    float *ha2 = (float*)malloc((size_t)B2 * L2 * sizeof(float));
-    float *hx2 = (float*)malloc((size_t)B2 * L2 * sizeof(float));
-    srand(42);
-    for (size_t i = 0; i < (size_t)B2 * L2; i++) {
-        ha2[i] = (float)rand() / RAND_MAX;  // [0, 1)
-        hx2[i] = (float)(rand() % 200 - 100) / 10.0f;
-    }
-    cudaMemcpy(d_a2, ha2, (size_t)B2 * L2 * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_x2, hx2, (size_t)B2 * L2 * sizeof(float), cudaMemcpyHostToDevice);
-
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventRecord(start);
-    linear_recurrence_kernel<<<B2, BLOCK_SIZE>>>(d_a2, d_x2, d_h2, B2, L2);
-    cudaEventRecord(stop);
-    cudaDeviceSynchronize();
-
-    float ms = 0;
-    cudaEventElapsedTime(&ms, start, stop);
-    printf("=== Perf Test (B=%d, L=%d) ===\n", B2, L2);
-    printf("Kernel time = %.3f ms\n", ms);
-    printf("Data read = %.2f MB (2 passes × 2 arrays × %d×%d×4B)\n",
-           2.0f * 2 * B2 * L2 * 4 / 1e6, B2, L2);
-    printf("Effective bandwidth = %.2f GB/s\n",
-           (2.0f * 2 * B2 * L2 * 4 + (float)B2 * L2 * 4) / (ms * 1e6));
-
-    cudaFree(d_a); cudaFree(d_x); cudaFree(d_h);
-    cudaFree(d_a2); cudaFree(d_x2); cudaFree(d_h2);
-    cudaEventDestroy(start); cudaEventDestroy(stop);
-    free(ha2); free(hx2);
-    return 0;
 }
 ```
+
+> 📎 完整可编译代码已整理到 <a href="./82-linear-recurrence.cu" download><code>82-linear-recurrence.cu</code></a>（含 host 端测试 harness，编译与运行命令见文件头注释，用于本地自测与 profiling）。
 
 ### 4.2 代码详解
 
@@ -380,7 +303,7 @@ int main() {
 ## 5. 性能分析与优化
 
 ```bash
-nvcc -O3 -arch=sm_80 linear_recurrence.cu -o linear_recurrence
+nvcc -O3 -arch=sm_80 82-linear-recurrence.cu -o linear_recurrence
 ncu --set full ./linear_recurrence 2>&1 | grep -iE "Memory Throughput|Occupancy|DRAM|Compute"
 ```
 

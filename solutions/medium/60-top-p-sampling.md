@@ -144,16 +144,13 @@ for (int i = 0; i < cutoff; i++) {
 
 ## 4. Kernel 实现
 
-### 4.1 完整可编译 CUDA 代码
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本，单个 block 依次完成 softmax、bitonic 降序排序、cumsum、nucleus 截断与 CDF 采样五个阶段，vocab 数据全程驻留 shared memory。
 
 ```cuda
-// top_p_sampling.cu —— Top-p Nucleus Sampling: softmax + bitonic sort + scan + CDF sample
-// 编译命令: nvcc -O3 -arch=sm_80 top_p_sampling.cu -o top_p_sampling
-
 #include <cuda_runtime.h>
 #include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <cstdint>
 
 #define BLOCK_SIZE 256
@@ -315,75 +312,18 @@ __global__ void top_p_sampling_kernel(
     }
 }
 
-// ===== Host 端 =====
-int main() {
-    // 功能测试: logits=[1, 2, 3, 0.5], p=0.9, seed=42
-    int V = 4;
-    float h_logits[] = {1.0f, 2.0f, 3.0f, 0.5f};
-    float h_p = 0.9f;
-    int32_t h_seed = 42;
-    int32_t h_token = -1;
-
-    float *d_logits; float *d_p; int32_t *d_seed, *d_token;
-    cudaMalloc(&d_logits, V * sizeof(float));
-    cudaMalloc(&d_p, sizeof(float));
-    cudaMalloc(&d_seed, sizeof(int32_t));
-    cudaMalloc(&d_token, sizeof(int32_t));
-    cudaMemcpy(d_logits, h_logits, V * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_p, &h_p, sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_seed, &h_seed, sizeof(int32_t), cudaMemcpyHostToDevice);
-
-    // shared memory 大小: 3 * padded_V * 4 bytes (probs + idx + cumsum)
+// logits, p, seed, sampled_token are device pointers
+extern "C" void solve(const float* logits, const float* p, const int32_t* seed,
+                      int32_t* sampled_token, int vocab_size) {
     int padded_V = 1;
-    while (padded_V < V) padded_V <<= 1;
+    while (padded_V < vocab_size) padded_V <<= 1;
     size_t smem = padded_V * (2 * sizeof(float) + sizeof(int));
-
-    top_p_sampling_kernel<<<1, BLOCK_SIZE, smem>>>(d_logits, d_p, d_seed, d_token, V);
+    top_p_sampling_kernel<<<1, BLOCK_SIZE, smem>>>(logits, p, seed, sampled_token, vocab_size);
     cudaDeviceSynchronize();
-    cudaMemcpy(&h_token, d_token, sizeof(int32_t), cudaMemcpyDeviceToHost);
-
-    printf("=== Functional Test ===\n");
-    printf("logits = [1, 2, 3, 0.5], p = 0.9, seed = 42\n");
-    printf("probs = [0.16, 0.42, 0.64, 0.09]\n");
-    printf("sorted = [0.64(idx=2), 0.24(idx=1), 0.09(idx=0), 0.03(idx=3)]\n");
-    printf("cumsum = [0.64, 0.88, 0.97, 1.00] → nucleus = top 3\n");
-    printf("sampled_token = %d (expect 2, 1, or 0)\n", h_token);
-    printf("%s\n\n", (h_token >= 0 && h_token < V) ? "✅ PASS" : "❌ FAIL");
-
-    // ===== 性能测试: V=50000 =====
-    int V2 = 50000;
-    float *d_logits2;
-    cudaMalloc(&d_logits2, V2 * sizeof(float));
-    float *h_l2 = (float*)malloc(V2 * sizeof(float));
-    srand(42);
-    for (int i = 0; i < V2; i++) h_l2[i] = -3.0f + 6.0f * (rand() / (float)RAND_MAX);
-    cudaMemcpy(d_logits2, h_l2, V2 * sizeof(float), cudaMemcpyHostToDevice);
-
-    int pv2 = 1;
-    while (pv2 < V2) pv2 <<= 1;
-    size_t smem2 = pv2 * (2 * sizeof(float) + sizeof(int));
-
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventRecord(start);
-    top_p_sampling_kernel<<<1, BLOCK_SIZE, smem2>>>(d_logits2, d_p, d_seed, d_token, V2);
-    cudaEventRecord(stop);
-    cudaDeviceSynchronize();
-    float ms = 0;
-    cudaEventElapsedTime(&ms, start, stop);
-
-    printf("=== Perf Test (V=%d) ===\n", V2);
-    printf("Kernel time = %.3f ms\n", ms);
-    printf("shared memory = %.1f KB (padded_V=%d)\n", smem2 / 1024.0, pv2);
-
-    cudaFree(d_logits); cudaFree(d_p); cudaFree(d_seed); cudaFree(d_token);
-    cudaFree(d_logits2);
-    cudaEventDestroy(start); cudaEventDestroy(stop);
-    free(h_l2);
-    return 0;
 }
 ```
+
+> 📎 完整可编译代码已整理到 <a href="./60-top-p-sampling.cu" download><code>60-top-p-sampling.cu</code></a>（含 host 端测试 harness，编译与运行命令见文件头注释，用于本地自测与 profiling）。
 
 > ⚠️ 上述代码为教学版，bitonic sort 和 cumsum 简化为 shared memory 内的协作操作。生产实现需注意：(1) `atomicMax` 对 float 的正确性（用 `__float_as_int` 转换），(2) `padded_V` 需作为编译期常量或动态传入 shared 分配，(3) 大 vocab 时 shared memory 可能超限（$50000 \times 12\text{B} \approx 600\text{KB}$），需分块处理或用 global memory 辅助。
 
@@ -425,7 +365,7 @@ int main() {
 ## 5. 性能分析与优化
 
 ```bash
-nvcc -O3 -arch=sm_80 top_p_sampling.cu -o top_p_sampling
+nvcc -O3 -arch=sm_80 60-top-p-sampling.cu -o top_p_sampling
 ncu --set full ./top_p_sampling 2>&1 | grep -iE "Memory Throughput|Occupancy|DRAM|Compute"
 ```
 

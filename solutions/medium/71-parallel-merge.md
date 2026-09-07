@@ -124,15 +124,13 @@ __global__ void naive_merge(const float* A, const float* B, float* C, int M, int
 
 ## 4. Kernel 实现
 
-### 4.1 完整可编译 CUDA 代码
+### 4.1 LeetGPU 提交版本
+
+下面给出适配 LeetGPU 官方 starter 签名的提交版本，每个 block 负责输出中一个 TILE=256 的分块，先全局 co-rank 二分定位 tile 边界并协作加载到 shared memory，再由每个 thread 局部 co-rank 独立写出自己的输出元素。
 
 ```cuda
-// parallel_merge.cu —— Co-rank 二分搜索 + Block 分块并行归并
-// 编译命令: nvcc -O3 -arch=sm_80 parallel_merge.cu -o parallel_merge
-
 #include <cuda_runtime.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <math.h>
 
 #define TILE 256
 
@@ -196,86 +194,15 @@ __global__ void parallel_merge_kernel(const float* __restrict__ A,
     }
 }
 
-int cmpfloat(const void* a, const void* b) {
-    float fa = *(const float*)a, fb = *(const float*)b;
-    return (fa > fb) - (fa < fb);
-}
-
-// ===== Host 端 =====
-int main() {
-    // 功能测试: A=[1,3,5,7], B=[2,4,6,8]
-    int M = 4, N = 4;
-    float h_A[] = {1.0f, 3.0f, 5.0f, 7.0f};
-    float h_B[] = {2.0f, 4.0f, 6.0f, 8.0f};
-    float h_C[8];
-
-    float *d_A, *d_B, *d_C;
-    cudaMalloc(&d_A, M * sizeof(float));
-    cudaMalloc(&d_B, N * sizeof(float));
-    cudaMalloc(&d_C, (M + N) * sizeof(float));
-    cudaMemcpy(d_A, h_A, M * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, h_B, N * sizeof(float), cudaMemcpyHostToDevice);
-
+// A, B, C are device pointers
+extern "C" void solve(const float* A, const float* B, float* C, int M, int N) {
     int blocks = (M + N + TILE - 1) / TILE;
-    parallel_merge_kernel<<<blocks, TILE>>>(d_A, d_B, d_C, M, N);
+    parallel_merge_kernel<<<blocks, TILE>>>(A, B, C, M, N);
     cudaDeviceSynchronize();
-    cudaMemcpy(h_C, d_C, (M + N) * sizeof(float), cudaMemcpyDeviceToHost);
-
-    printf("=== Functional Test ===\n");
-    printf("A = [1, 3, 5, 7], B = [2, 4, 6, 8]\n");
-    printf("C = [");
-    for (int i = 0; i < M + N; i++) printf("%.0f%s", h_C[i], i < M+N-1 ? ", " : "");
-    printf("]\n");
-    float ref[] = {1, 2, 3, 4, 5, 6, 7, 8};
-    int pass = 1;
-    for (int i = 0; i < M + N; i++)
-        if (h_C[i] != ref[i]) pass = 0;
-    printf("%s\n\n", pass ? "✅ PASS" : "❌ FAIL");
-
-    // ===== 性能测试: M=N=25M =====
-    int M2 = 25000000, N2 = 25000000;
-    float *d_A2, *d_B2, *d_C2;
-    cudaMalloc(&d_A2, (size_t)M2 * sizeof(float));
-    cudaMalloc(&d_B2, (size_t)N2 * sizeof(float));
-    cudaMalloc(&d_C2, (size_t)(M2 + N2) * sizeof(float));
-
-    float *hA2 = (float*)malloc((size_t)M2 * sizeof(float));
-    float *hB2 = (float*)malloc((size_t)N2 * sizeof(float));
-    srand(42);
-    for (int i = 0; i < M2; i++) hA2[i] = -1.0f + 2.0f * (rand() / (float)RAND_MAX);
-    for (int i = 0; i < N2; i++) hB2[i] = -1.0f + 2.0f * (rand() / (float)RAND_MAX);
-    // 排序
-    qsort(hA2, M2, sizeof(float), (int(*)(const void*,const void*))cmpfloat);
-    qsort(hB2, N2, sizeof(float), (int(*)(const void*,const void*))cmpfloat);
-
-    cudaMemcpy(d_A2, hA2, (size_t)M2 * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B2, hB2, (size_t)N2 * sizeof(float), cudaMemcpyHostToDevice);
-
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    int blocks2 = (M2 + N2 + TILE - 1) / TILE;
-    cudaEventRecord(start);
-    parallel_merge_kernel<<<blocks2, TILE>>>(d_A2, d_B2, d_C2, M2, N2);
-    cudaEventRecord(stop);
-    cudaDeviceSynchronize();
-
-    float ms = 0;
-    cudaEventElapsedTime(&ms, start, stop);
-    printf("=== Perf Test (M=%d, N=%d) ===\n", M2, N2);
-    printf("Blocks = %d, TILE = %d\n", blocks2, TILE);
-    printf("Kernel time = %.3f ms\n", ms);
-    size_t bytes = ((size_t)M2 + N2 + (M2 + N2)) * sizeof(float);
-    printf("Data traffic = %.2f MB (read A+B + write C)\n", bytes / 1e6);
-    printf("Effective bandwidth = %.2f GB/s\n", bytes / (ms * 1e6));
-
-    cudaFree(d_A); cudaFree(d_B); cudaFree(d_C);
-    cudaFree(d_A2); cudaFree(d_B2); cudaFree(d_C2);
-    cudaEventDestroy(start); cudaEventDestroy(stop);
-    free(hA2); free(hB2);
-    return 0;
 }
 ```
+
+> 📎 完整可编译代码已整理到 <a href="./71-parallel-merge.cu" download><code>71-parallel-merge.cu</code></a>（含 host 端测试 harness，编译与运行命令见文件头注释，用于本地自测与 profiling）。
 
 > ⚠️ 上方 `qsort` 用到 `cmpfloat` 比较函数，编译时需补充：`int cmpfloat(const void* a, const void* b) { float fa=*(const float*)a, fb=*(const float*)b; return (fa>fb)-(fa<fb); }`。Kernel 本身不依赖它。
 
@@ -318,7 +245,7 @@ int main() {
 ## 5. 性能分析与优化
 
 ```bash
-nvcc -O3 -arch=sm_80 parallel_merge.cu -o parallel_merge
+nvcc -O3 -arch=sm_80 71-parallel-merge.cu -o parallel_merge
 ncu --set full ./parallel_merge 2>&1 | grep -iE "Memory Throughput|Occupancy|DRAM|Compute"
 ```
 

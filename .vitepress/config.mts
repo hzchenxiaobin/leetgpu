@@ -58,6 +58,22 @@ export default defineConfig({
     }
   },
 
+  // 题解旁的 .cu 源码复制进构建产物，正文用相对链接 <a href="./xxx.cu" download> 引用
+  buildEnd() {
+    const outRoot = path.resolve(root, '../dist')
+    for (const diff of ['easy', 'medium', 'hard']) {
+      const dir = path.resolve(root, '../solutions', diff)
+      if (!fs.existsSync(dir)) continue
+      for (const f of fs.readdirSync(dir)) {
+        if (f.endsWith('.cu')) {
+          const dest = path.join(outRoot, 'solutions', diff, f)
+          fs.mkdirSync(path.dirname(dest), { recursive: true })
+          fs.copyFileSync(path.join(dir, f), dest)
+        }
+      }
+    }
+  },
+
   themeConfig: {
     nav: [
       { text: '首页', link: '/' },

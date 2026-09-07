@@ -135,192 +135,10 @@ LOAD_B = BK×BN/NUM_THREADS = 4   每 thread 加载 4 个 B 元素
 
 ## 4. Kernel 实现
 
+
 完整可编译的 register tiling 版本（`BM=64, BN=64, BK=16, TM=4, TN=4`，每 thread 算 16 个输出）：
 
-```cuda
-// matmul_register_tiled.cu —— register tiling 矩阵乘法
-// 编译命令: nvcc -O3 -arch=sm_120 matmul_register_tiled.cu -o matmul
-// 运行:     ./matmul 8192 6144 4096
-
-    #include <cstdio>
-    #include <cstdlib>
-    #include <cmath>
-    #include <cuda_runtime.h>
-
-    #define CHECK_CUDA(call)                                                                                               \
-    do {                                                                                                               \
-        cudaError_t e = (call);                                                                                        \
-        if (e != cudaSuccess) {                                                                                        \
-            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
-            exit(EXIT_FAILURE);                                                                                        \
-        }                                                                                                              \
-    } while (0)
-
-// register tiling 参数：block 负责 64×64 输出，每 thread 算 4×4 = 16 个元素
-const int BM = 64, BN = 64, BK = 16;
-const int TM = 4, TN = 4;
-const int BLOCK_M = BM / TM;               // 16
-const int BLOCK_N = BN / TN;               // 16
-const int NUM_THREADS = BLOCK_M * BLOCK_N; // 256
-
-// register tiling：每 thread 算 TM×TN 个 C 元素
-__global__ void matmul_register_tiled(const float* __restrict__ A, const float* __restrict__ B,
-                                      float* __restrict__ C, int M, int N, int K) {
-    // shared memory：A 的 BM×BK 子块 + B 的 BK×BN 子块
-    __shared__ float As[BM][BK];
-    __shared__ float Bs[BK][BN];
-
-    int bx = blockIdx.x;   // K 维（列方向）
-    int by = blockIdx.y;   // M 维（行方向）
-    int tid = threadIdx.x; // 0..255
-    int tx = tid % BLOCK_N; // 0..15，thread 在 block tile 内的列坐标
-    int ty = tid / BLOCK_N; // 0..15，thread 在 block tile 内的行坐标
-
-    // 寄存器累加器：TM×TN 个输出，常驻寄存器不落盘
-    float acc[TM][TN];
-    #pragma unroll
-    for (int i = 0; i < TM; ++i)
-        #pragma unroll
-        for (int j = 0; j < TN; ++j)
-            acc[i][j] = 0.0f;
-
-    const int LOAD_A = BM * BK / NUM_THREADS; // 4，每 thread 加载 4 个 A 元素
-    const int LOAD_B = BK * BN / NUM_THREADS; // 4，每 thread 加载 4 个 B 元素
-
-    // 沿 N 维滑动 BK=16 的 tile
-    int num_tiles = (N + BK - 1) / BK;
-    for (int t = 0; t < num_tiles; ++t) {
-        // ---- ① 协作加载 As[BM][BK] ----
-        #pragma unroll
-        for (int i = 0; i < LOAD_A; ++i) {
-            int lin = tid + i * NUM_THREADS;
-            int r = lin / BK;
-            int c = lin % BK;
-            int ar = by * BM + r;
-            int ac = t * BK + c;
-            As[r][c] = (ar < M && ac < N) ? A[ar * N + ac] : 0.0f;
-        }
-        // ---- ② 协作加载 Bs[BK][BN] ----
-        #pragma unroll
-        for (int i = 0; i < LOAD_B; ++i) {
-            int lin = tid + i * NUM_THREADS;
-            int r = lin / BN;
-            int c = lin % BN;
-            int br = t * BK + r;
-            int bc = bx * BN + c;
-            Bs[r][c] = (br < N && bc < K) ? B[br * K + bc] : 0.0f;
-        }
-        __syncthreads();
-
-        // ---- ③ register tiling：每 thread 算 TM×TN 个输出 ----
-        #pragma unroll
-        for (int k = 0; k < BK; ++k) {
-            float a[TM], b[TN];
-            #pragma unroll
-            for (int i = 0; i < TM; ++i)
-                a[i] = As[ty * TM + i][k];
-            #pragma unroll
-            for (int j = 0; j < TN; ++j)
-                b[j] = Bs[k][tx * TN + j];
-            #pragma unroll
-            for (int i = 0; i < TM; ++i) {
-                #pragma unroll
-                for (int j = 0; j < TN; ++j) {
-                    acc[i][j] += a[i] * b[j];
-                }
-            }
-        }
-        __syncthreads(); // tile 用完才能覆盖
-    }
-
-    // ---- ④ 写回 C ----
-    #pragma unroll
-    for (int i = 0; i < TM; ++i) {
-        #pragma unroll
-        for (int j = 0; j < TN; ++j) {
-            int gr = by * BM + ty * TM + i;
-            int gc = bx * BN + tx * TN + j;
-            if (gr < M && gc < K) {
-                C[gr * K + gc] = acc[i][j];
-            }
-        }
-    }
-}
-
-int main(int argc, char** argv) {
-    int M = (argc > 1) ? atoi(argv[1]) : 8192;
-    int N = (argc > 2) ? atoi(argv[2]) : 6144;
-    int K = (argc > 3) ? atoi(argv[3]) : 4096;
-    size_t a_bytes = (size_t)M * N * sizeof(float);
-    size_t b_bytes = (size_t)N * K * sizeof(float);
-    size_t c_bytes = (size_t)M * K * sizeof(float);
-    printf("A: %dx%d, B: %dx%d, C: %dx%d\n", M, N, N, K, M, K);
-    printf("FLOPs: %.2f GFLOP\n", 2.0 * M * N * K / 1e9);
-
-    // ---- host ----
-    float* hA = (float*)malloc(a_bytes);
-    float* hB = (float*)malloc(b_bytes);
-    float* hC = (float*)malloc(c_bytes);
-    srand(42);
-    for (int i = 0; i < M * N; ++i)
-        hA[i] = (float)(rand() % 1000) / 100.0f;
-    for (int i = 0; i < N * K; ++i)
-        hB[i] = (float)(rand() % 1000) / 100.0f;
-
-    // ---- device ----
-    float *dA, *dB, *dC;
-    CHECK_CUDA(cudaMalloc(&dA, a_bytes));
-    CHECK_CUDA(cudaMalloc(&dB, b_bytes));
-    CHECK_CUDA(cudaMalloc(&dC, c_bytes));
-    CHECK_CUDA(cudaMemcpy(dA, hA, a_bytes, cudaMemcpyHostToDevice));
-    CHECK_CUDA(cudaMemcpy(dB, hB, b_bytes, cudaMemcpyHostToDevice));
-
-    // ---- launch ----
-    dim3 threads(NUM_THREADS);
-    dim3 blocks((K + BN - 1) / BN, (M + BM - 1) / BM);
-    printf("launch: blocks=(%d,%d) threads=%d  BM=%d BN=%d BK=%d TM=%d TN=%d\n",
-           blocks.x, blocks.y, NUM_THREADS, BM, BN, BK, TM, TN);
-
-    cudaEvent_t t0, t1;
-    cudaEventCreate(&t0);
-    cudaEventCreate(&t1);
-    cudaEventRecord(t0);
-    matmul_register_tiled<<<blocks, threads>>>(dA, dB, dC, M, N, K);
-    cudaEventRecord(t1);
-    CHECK_CUDA(cudaDeviceSynchronize());
-    float ms = 0.0f;
-    cudaEventElapsedTime(&ms, t0, t1);
-    printf("kernel time: %.3f ms\n", ms);
-
-    // ---- TFLOPS ----
-    double tflops = (2.0 * M * N * K / 1e12) / (ms / 1e3);
-    printf("performance: %.2f TFLOPS\n", tflops);
-
-    // ---- 验证（抽检角落 + 随机点）----
-    CHECK_CUDA(cudaMemcpy(hC, dC, c_bytes, cudaMemcpyDeviceToHost));
-    int err = 0;
-    int checks[] = {0, K - 1, (M / 2) * K + K / 2, (M - 1) * K + K - 1};
-    for (int idx : checks) {
-        int i = idx / K, j = idx % K;
-        float ref = 0.0f;
-        for (int k = 0; k < N; ++k)
-            ref += hA[i * N + k] * hB[k * K + j];
-        if (fabsf(hC[idx] - ref) > 1e-3f * fmaxf(1.0f, fabsf(ref))) {
-            if (++err <= 5)
-                printf("MISMATCH @(%d,%d): got %f, expect %f\n", i, j, hC[idx], ref);
-        }
-    }
-    printf("verify: %s\n", err ? "FAIL" : "PASS");
-
-    CHECK_CUDA(cudaFree(dA));
-    CHECK_CUDA(cudaFree(dB));
-    CHECK_CUDA(cudaFree(dC));
-    free(hA);
-    free(hB);
-    free(hC);
-    return 0;
-}
-```
+> 📎 完整可编译的 register tiling 版本已整理到 <a href="./2-matrix-multiplication.cu" download><code>2-matrix-multiplication.cu</code></a>（含 host 端测试 harness，编译与运行命令见文件头注释，用于本地自测与 profiling）。
 
 > 💡 提交给 LeetGPU 平台时，把 `matmul_register_tiled` kernel 填进 starter 的 `__global__` 空壳即可。带 `main()` 的版本用于本地自测与 profiling。
 
@@ -475,7 +293,7 @@ extern "C" void solve(const float* A, const float* B, float* C, int M, int N, in
 ### 5.1 编译与运行
 
 ```bash
-nvcc -O3 -arch=sm_120 matmul_register_tiled.cu -o matmul
+nvcc -O3 -arch=sm_120 2-matrix-multiplication.cu -o matmul
 ./matmul 8192 6144 4096
 ```
 
@@ -495,7 +313,7 @@ verify: PASS
 ### 5.2 寄存器用量与占用率
 
 ```bash
-nvcc -O3 -arch=sm_120 -Xptxas -v matmul_register_tiled.cu -o matmul 2>&1 | rg "registers|spill|stack|smem"
+nvcc -O3 -arch=sm_120 -Xptxas -v 2-matrix-multiplication.cu -o matmul 2>&1 | rg "registers|spill|stack|smem"
 ```
 
 ```text
@@ -617,196 +435,10 @@ staging (dyn) = Cs[128×128] fp32 = 64 KB   epilogue 暂存累加器
 
 ### 7.3 Kernel 实现
 
+
 完整可编译版本（含计时、验证逻辑），`BM=128, BN=128, BK=16`，每 warp 算 `2×4=8` 个 `16×16` fragment：
 
-```cuda
-// matmul_tf32_wmma.cu —— TF32 Tensor Core 矩阵乘法
-// C = A × B,  A: M×K, B: K×N, C: M×N (FP32 in/out, TF32 compute)
-// 编译: nvcc -O3 -arch=sm_80 matmul_tf32_wmma.cu -o matmul_tc
-// 运行: ./matmul_tc 8192 6144 4096
-
-#include <cstdio>
-#include <cstdlib>
-#include <cmath>
-#include <cuda_runtime.h>
-#include <mma.h>
-
-using namespace nvcuda;
-
-#define CHECK_CUDA(call)                                                                                               \
-    do {                                                                                                               \
-        cudaError_t e = (call);                                                                                        \
-        if (e != cudaSuccess) {                                                                                        \
-            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
-            exit(EXIT_FAILURE);                                                                                        \
-        }                                                                                                              \
-    } while (0)
-
-// TF32 WMMA 参数
-const int WMMA_M = 16, WMMA_N = 16, WMMA_K = 8;
-const int BM = 128, BN = 128, BK = 16;
-const int WARPS_M = 4, WARPS_N = 2;
-const int NUM_WARPS = WARPS_M * WARPS_N;
-const int NUM_THREADS = NUM_WARPS * 32;
-const int WARP_TILE_M = BM / WARPS_M;
-const int WARP_TILE_N = BN / WARPS_N;
-const int FRAGS_M = WARP_TILE_M / WMMA_M;
-const int FRAGS_N = WARP_TILE_N / WMMA_N;
-const int LOAD_A = BM * BK / NUM_THREADS;
-const int LOAD_B = BK * BN / NUM_THREADS;
-
-__global__ void matmul_tf32_wmma(const float* __restrict__ A, const float* __restrict__ B,
-                                 float* __restrict__ C, int M, int N, int K) {
-    __shared__ float As[BM][BK];
-    __shared__ float Bs[BK][BN];
-    extern __shared__ float Cs[]; // BM×BN fp32 staging
-
-    const int bx = blockIdx.x, by = blockIdx.y;
-    const int tid = threadIdx.x;
-    const int warp_id = tid >> 5;
-    const int warp_m = warp_id / WARPS_N;
-    const int warp_n = warp_id % WARPS_N;
-    const int warp_row = warp_m * WARP_TILE_M;
-    const int warp_col = warp_n * WARP_TILE_N;
-
-    using AccFrag = wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float>;
-    AccFrag acc[FRAGS_M][FRAGS_N];
-    #pragma unroll
-    for (int i = 0; i < FRAGS_M; ++i)
-        #pragma unroll
-        for (int j = 0; j < FRAGS_N; ++j)
-            wmma::fill_fragment(acc[i][j], 0.0f);
-
-    using AFrag = wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, __nv_tf32, wmma::row_major>;
-    using BFrag = wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, __nv_tf32, wmma::row_major>;
-
-    int num_tiles = (K + BK - 1) / BK;
-    for (int t = 0; t < num_tiles; ++t) {
-        // ---- ① 协作加载 As[BM][BK] / Bs[BK][BN]（float，越界补 0）----
-        #pragma unroll
-        for (int i = 0; i < LOAD_A; ++i) {
-            int lin = tid + i * NUM_THREADS;
-            int r = lin / BK, c = lin % BK;
-            int ar = by * BM + r, ac = t * BK + c;
-            As[r][c] = (ar < M && ac < K) ? A[ar * K + ac] : 0.0f;
-        }
-        #pragma unroll
-        for (int i = 0; i < LOAD_B; ++i) {
-            int lin = tid + i * NUM_THREADS;
-            int r = lin / BN, c = lin % BN;
-            int br = t * BK + r, bc = bx * BN + c;
-            Bs[r][c] = (br < K && bc < N) ? B[br * N + bc] : 0.0f;
-        }
-        __syncthreads();
-
-        // ---- ② TF32 mma：BK/WMMA_K = 2 个子步，每步 8 个 fragment ----
-        #pragma unroll
-        for (int kk = 0; kk < BK; kk += WMMA_K) {
-            #pragma unroll
-            for (int i = 0; i < FRAGS_M; ++i) {
-                #pragma unroll
-                for (int j = 0; j < FRAGS_N; ++j) {
-                    AFrag a_frag;
-                    BFrag b_frag;
-                    wmma::load_matrix_sync(a_frag, &As[warp_row + i * WMMA_M][kk], BK);
-                    wmma::load_matrix_sync(b_frag, &Bs[kk][warp_col + j * WMMA_N], BN);
-                    wmma::mma_sync(acc[i][j], a_frag, b_frag, acc[i][j]);
-                }
-            }
-        }
-        __syncthreads();
-    }
-
-    // ---- ③ epilogue：累加器存入 shared staging，再写回 global C ----
-    #pragma unroll
-    for (int i = 0; i < FRAGS_M; ++i) {
-        #pragma unroll
-        for (int j = 0; j < FRAGS_N; ++j) {
-            wmma::store_matrix_sync(&Cs[(warp_row + i * WMMA_M) * BN + warp_col + j * WMMA_N],
-                                    acc[i][j], BN, wmma::mem_row_major);
-        }
-    }
-    __syncthreads();
-
-    const int total = BM * BN;
-    #pragma unroll
-    for (int i = 0; i < total / NUM_THREADS; ++i) {
-        int idx = tid + i * NUM_THREADS;
-        int r = idx / BN, c = idx % BN;
-        int gr = by * BM + r, gc = bx * BN + c;
-        if (gr < M && gc < N)
-            C[gr * N + gc] = Cs[idx];
-    }
-}
-
-int main(int argc, char** argv) {
-    int M = (argc > 1) ? atoi(argv[1]) : 8192;
-    int N = (argc > 2) ? atoi(argv[2]) : 6144;
-    int K = (argc > 3) ? atoi(argv[3]) : 4096;
-    size_t aB = (size_t)M * K * sizeof(float);
-    size_t bB = (size_t)K * N * sizeof(float);
-    size_t cB = (size_t)M * N * sizeof(float);
-    printf("A:%dx%d B:%dx%d C:%dx%d  FLOPs=%.2f GFLOP\n", M, K, K, N, M, N, 2.0 * M * N * K / 1e9);
-
-    float *hA = (float*)malloc(aB), *hB = (float*)malloc(bB), *hC = (float*)malloc(cB);
-    srand(42);
-    for (int i = 0; i < M * K; ++i) hA[i] = (float)(rand() % 1000) / 100.0f;
-    for (int i = 0; i < K * N; ++i) hB[i] = (float)(rand() % 1000) / 100.0f;
-
-    float *dA, *dB, *dC;
-    CHECK_CUDA(cudaMalloc(&dA, aB));
-    CHECK_CUDA(cudaMalloc(&dB, bB));
-    CHECK_CUDA(cudaMalloc(&dC, cB));
-    CHECK_CUDA(cudaMemcpy(dA, hA, aB, cudaMemcpyHostToDevice));
-    CHECK_CUDA(cudaMemcpy(dB, hB, bB, cudaMemcpyHostToDevice));
-
-    const int dyn_smem = BM * BN * sizeof(float);
-    cudaFuncSetAttribute(matmul_tf32_wmma, cudaFuncAttributeMaxDynamicSharedMemorySize, dyn_smem);
-
-    dim3 threads(NUM_THREADS);
-    dim3 blocks((N + BN - 1) / BN, (M + BM - 1) / BM);
-    printf("launch: blocks=(%d,%d) threads=%d  BM=%d BN=%d BK=%d WMMA=%dx%dx%d\n",
-           blocks.x, blocks.y, NUM_THREADS, BM, BN, BK, WMMA_M, WMMA_N, WMMA_K);
-
-    // warmup
-    matmul_tf32_wmma<<<blocks, threads, dyn_smem>>>(dA, dB, dC, M, N, K);
-    CHECK_CUDA(cudaDeviceSynchronize());
-
-    cudaEvent_t t0, t1;
-    cudaEventCreate(&t0);
-    cudaEventCreate(&t1);
-    cudaEventRecord(t0);
-    matmul_tf32_wmma<<<blocks, threads, dyn_smem>>>(dA, dB, dC, M, N, K);
-    cudaEventRecord(t1);
-    CHECK_CUDA(cudaDeviceSynchronize());
-    float ms = 0.0f;
-    cudaEventElapsedTime(&ms, t0, t1);
-    double tflops = (2.0 * M * N * K / 1e12) / (ms / 1e3);
-    printf("kernel time: %.3f ms\nperformance: %.2f TFLOPS\n", ms, tflops);
-
-    CHECK_CUDA(cudaMemcpy(hC, dC, cB, cudaMemcpyDeviceToHost));
-    int err = 0;
-    int checks[] = {0, N - 1, (M / 2) * N + N / 2, (M - 1) * N + N - 1};
-    for (int idx : checks) {
-        int i = idx / N, j = idx % N;
-        float ref = 0.0f;
-        for (int k = 0; k < K; ++k)
-            ref += hA[i * K + k] * hB[k * N + j];
-        if (fabsf(hC[idx] - ref) > 1e-4f * fmaxf(1.0f, fabsf(ref))) {
-            if (++err <= 5)
-                printf("MISMATCH @(%d,%d): got %f, expect %f, err %.2e\n", i, j, hC[idx], ref,
-                       fabsf(hC[idx] - ref));
-        }
-    }
-    printf("verify: %s\n", err ? "FAIL" : "PASS");
-
-    CHECK_CUDA(cudaFree(dA));
-    CHECK_CUDA(cudaFree(dB));
-    CHECK_CUDA(cudaFree(dC));
-    free(hA); free(hB); free(hC);
-    return 0;
-}
-```
+> 📎 完整可编译版本（含计时、验证逻辑）已整理到 <a href="./2-matrix-multiplication-tf32-wmma.cu" download><code>2-matrix-multiplication-tf32-wmma.cu</code></a>（编译与运行命令见文件头注释，用于本地自测与 profiling）。
 
 ### 7.4 LeetGPU 提交版本
 
@@ -998,7 +630,7 @@ for (int i = 0; i < total/NUM_THREADS; ++i) {
 **编译与运行**：
 
 ```bash
-nvcc -O3 -arch=sm_80 matmul_tf32_wmma.cu -o matmul_tc   # sm_80+（Ampere/Ada/Hopper/Blackwell）
+nvcc -O3 -arch=sm_80 2-matrix-multiplication-tf32-wmma.cu -o matmul_tc   # sm_80+（Ampere/Ada/Hopper/Blackwell）
 ./matmul_tc 8192 6144 4096
 ```
 
@@ -1022,7 +654,7 @@ verify: PASS
 **寄存器与占用率**：
 
 ```bash
-nvcc -O3 -arch=sm_120 -Xptxas -v matmul_tf32_wmma.cu -o matmul_tc 2>&1 | rg "registers|spill|stack|smem"
+nvcc -O3 -arch=sm_120 -Xptxas -v 2-matrix-multiplication-tf32-wmma.cu -o matmul_tc 2>&1 | rg "registers|spill|stack|smem"
 ```
 
 ```text
