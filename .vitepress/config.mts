@@ -29,11 +29,9 @@ export default defineConfig({
   description: 'CUDA Kernel 编程题解合集',
   lang: 'zh-CN',
   base: '/leetgpu/',
-  // 旧版题解目录与文档不纳入站点构建（保留在仓库中作存档）
+  // 文档不纳入站点构建（仅作为仓库文档保留）
   srcExclude: [
-    'easy/**', 'medium/**', 'hard/**',
-    'README.md', 'SKILL.md', 'cuda-interview-notes.md',
-    'build/**', 'static/**'
+    'README.md', 'SKILL.md', 'cuda-interview-notes.md'
   ],
   outDir: './dist',
   ignoreDeadLinks: true, // 正文里有指向站外其他仓库的相对链接

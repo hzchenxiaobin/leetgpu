@@ -70,7 +70,7 @@ __global__ void count_2d_naive(const int* input, int* output, int N, int M, int 
 核心思想分两步：
 
 1. **展平 2D → 1D**：$N \times M$ 矩阵在内存中本就是 row-major 连续存储，元素 $(i, j)$ 的地址即 $input[i \times M + j]$。令 $total = N \times M$，问题退化为"在长度为 $total$ 的一维数组中统计等于 $K$ 的个数"——与 #43 完全同构。
-2. **predicate + 两级归约**：把"计数"重写成"判定（1/0）后求和"，完全复用 [#4 Reduction](../4_reduction/leetgpu-reduction-solution.md) 的两阶段归约骨架，**全程不发任何 global atomic**。
+2. **predicate + 两级归约**：把"计数"重写成"判定（1/0）后求和"，完全复用 [#4 Reduction](/solutions/medium/4-reduction) 的两阶段归约骨架，**全程不发任何 global atomic**。
 
 ![Count 2D Array Element 概念总览：2D 展平 + predicate 归约](/images/count_2d_array_element_overview.svg)
 

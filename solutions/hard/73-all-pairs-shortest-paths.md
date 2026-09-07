@@ -33,7 +33,7 @@ $$
 - `dist` 为 `float32`；容差为浮点 `atol/rtol` 量级（`~1e-3`），最短路结果需与 reference 数值一致
 - `INF` 取一个远大于任意真实路径长度的值（如 `1e9` / `FLT_MAX`），保证 `INF + INF` 不污染结果
 
-> 💡 这道题是 **「外层串行、内层并行」+ min-plus 半环矩阵乘** 的经典综合练习。Floyd-Warshall 的 `k` 循环**必须串行**（第 `k+1` 轮依赖第 `k` 轮的结果），但每一轮 `k` 内的 `N²` 个 `(i,j)` 松弛**互不冲突**——可以全并行。这把它变成与 [K-Means 迭代](../20_kmeans_clustering/leetgpu-kmeans-clustering-solution.md)、[#37 Matrix Power](../37_matrix_power/leetgpu-matrix-power-solution.md) 同构的「host 外层循环 + kernel 内并行」模板。而单轮内的松弛 `d[i][j] = min(d[i][j], d[i][k]+d[k][j])` 又与 GEMM 的 `C[i][j] += A[i][k]*B[k][j]` **逐位同构**——只需把「乘加」换成「取小加」，即 **min-plus 半环**上的矩阵乘。因此 GEMM 的 shared memory tiling 技巧可以原样迁移过来：把第 `k` 行 / 列缓存进 shared memory，让一个 tile 内的 `BM×BN` 个线程共享复用，把 global 读流量从 `O(N²)`/轮压到 `O(N²/BN + N²/BM)`/轮。
+> 💡 这道题是 **「外层串行、内层并行」+ min-plus 半环矩阵乘** 的经典综合练习。Floyd-Warshall 的 `k` 循环**必须串行**（第 `k+1` 轮依赖第 `k` 轮的结果），但每一轮 `k` 内的 `N²` 个 `(i,j)` 松弛**互不冲突**——可以全并行。这把它变成与 [K-Means 迭代](/solutions/hard/20-kmeans-clustering)、[#37 Matrix Power](/solutions/medium/37-matrix-power) 同构的「host 外层循环 + kernel 内并行」模板。而单轮内的松弛 `d[i][j] = min(d[i][j], d[i][k]+d[k][j])` 又与 GEMM 的 `C[i][j] += A[i][k]*B[k][j]` **逐位同构**——只需把「乘加」换成「取小加」，即 **min-plus 半环**上的矩阵乘。因此 GEMM 的 shared memory tiling 技巧可以原样迁移过来：把第 `k` 行 / 列缓存进 shared memory，让一个 tile 内的 `BM×BN` 个线程共享复用，把 global 读流量从 `O(N²)`/轮压到 `O(N²/BN + N²/BM)`/轮。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

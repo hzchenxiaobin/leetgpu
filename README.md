@@ -62,16 +62,16 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 17 | [Dot Product](solutions/medium/17-dot-product.md) | reduction、warp shuffle、kernel 融合 |
 | 18 | [Sparse Matrix-Vector Multiplication](solutions/medium/18-sparse-matrix-vector-multiplication.md) | CSR、SpMV、warp shuffle、间接访存（gather） |
 | 22 | [GEMM](solutions/medium/22-gemm.md) | FP16、WMMA、Tensor Core、shared memory tiling |
-| 25 | [Categorical Cross Entropy Loss](/mnt/workspace/aiinfra/leetgpu/solutions/medium/25-categorical-cross-entropy-loss.md) | Cross Entropy、log-sum-exp、数值稳定性、reduction、warp shuffle |
+| 25 | [Categorical Cross Entropy Loss](solutions/medium/25-categorical-cross-entropy-loss.md) | Cross Entropy、log-sum-exp、数值稳定性、reduction、warp shuffle |
 | 27 | [Mean Squared Error](solutions/medium/27-mean-squared-error.md) | reduction、kernel 融合、损失函数 |
 | 28 | [Gaussian Blur](solutions/medium/28-gaussian-blur.md) | same-padding 卷积、shared memory halo、可分离卷积、零填充 |
 | 29 | [Top K Selection](solutions/medium/29-top-k-selection.md) | bitonic sort、堆归约、selection |
 | 30 | [Batched Matrix Multiplication](solutions/medium/30-batched-matrix-multiplication.md) | batched GEMM、tiled matmul、register blocking |
 | 32 | [INT8 Quantized MatMul](solutions/medium/32-int8-quantized-matmul.md) | INT8 量化、tiled GEMM、INT32 累加、requantize |
 | 33 | [Ordinary Least Squares](solutions/medium/33-ordinary-least-squares.md) | 线性代数、GEMM（XᵀX）、归约、Cholesky 分解、三角求解 |
-| 34 | [Logistic Regression](/mnt/workspace/aiinfra/leetgpu/solutions/medium/34-logistic-regression.md) | sigmoid、Newton-Raphson（IRLS）、tiled GEMM（Hessian）、Cholesky 分解、迭代 kernel launch |
+| 34 | [Logistic Regression](solutions/medium/34-logistic-regression.md) | sigmoid、Newton-Raphson（IRLS）、tiled GEMM（Hessian）、Cholesky 分解、迭代 kernel launch |
 | 35 | [Monte Carlo Integration](solutions/medium/35-monte-carlo-integration.md) | sum reduction、warp shuffle、atomicAdd、memory-bound |
-| 37 | [Matrix Power](/mnt/workspace/aiinfra/leetgpu/solutions/medium/37-matrix-power.md) | GEMM、shared memory tiling、register blocking、binary exponentiation、compute-bound |
+| 37 | [Matrix Power](solutions/medium/37-matrix-power.md) | GEMM、shared memory tiling、register blocking、binary exponentiation、compute-bound |
 | 38 | [Nearest Neighbor](solutions/medium/38-nearest-neighbor.md) | pairwise distance、shared memory tiling、argmin 归约 |
 | 40 | [Batch Normalization](solutions/medium/40-batch-normalization.md) | normalization、reduction、数值稳定性 |
 | 42 | [2D Max Pooling](solutions/medium/42-2d-max-pooling.md) | pooling、滑窗 reduction、padding 边界 |
@@ -86,20 +86,20 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 55 | [Attention with Linear Biases (ALiBi)](solutions/medium/55-attn-w-linear-bias.md) | ALiBi、positional bias、online softmax |
 | 57 | [FP16 Batched Matrix Multiplication](solutions/medium/57-fp16-batched-matmul.md) | FP16 存储、FP32 累加、batched GEMM、Tensor Core |
 | 58 | [FP16 Dot Product](solutions/medium/58-fp16-dot-product.md) | half 精度、warp shuffle、FP32 累加 |
-| 60 | [Top-p Sampling](/mnt/workspace/aiinfra/leetgpu/solutions/medium/60-top-p-sampling.md) | top-p sampling、nucleus sampling、softmax、bitonic sort、cumsum、CDF 采样、LLM 推理 |
+| 60 | [Top-p Sampling](solutions/medium/60-top-p-sampling.md) | top-p sampling、nucleus sampling、softmax、bitonic sort、cumsum、CDF 采样、LLM 推理 |
 | 61 | [Rotary Positional Embedding](solutions/medium/61-rope-embedding.md) | elementwise、rotate_half、位置编码 |
 | 64 | [Weight Dequantization](solutions/medium/64-weight-dequantization.md) | element-wise、分块 scale、量化推理 |
 | 67 | [MoE Top-K Gating](solutions/medium/67-moe-topk-gating.md) | top-k 选择、并行归约、softmax、MoE 路由 |
 | 69 | [2D Jacobi Stencil](solutions/medium/69-jacobi-stencil-2d.md) | stencil 计算、shared memory halo、Jacobi 迭代 |
 | 70 | [Segmented Prefix Sum](solutions/medium/70-segmented-prefix-sum.md) | segmented scan、warp shuffle |
-| 71 | [Parallel Merge](/mnt/workspace/aiinfra/leetgpu/solutions/medium/71-parallel-merge.md) | parallel merge、co-rank、binary search、merge path |
+| 71 | [Parallel Merge](solutions/medium/71-parallel-merge.md) | parallel merge、co-rank、binary search、merge path |
 | 72 | [Stream Compaction](solutions/medium/72-stream-compaction.md) | scan、predicate、stream compaction |
-| 75 | [Sparse Matrix-Dense Matrix Multiplication](/mnt/workspace/aiinfra/leetgpu/solutions/medium/75-sparse-matrix-dense-matrix-multiplication.md) | SpMM、CSR、稀疏矩阵、gather 访存、scaled accumulation |
+| 75 | [Sparse Matrix-Dense Matrix Multiplication](solutions/medium/75-sparse-matrix-dense-matrix-multiplication.md) | SpMM、CSR、稀疏矩阵、gather 访存、scaled accumulation |
 | 76 | [Adder Transformer Inference](solutions/medium/76-adder-transformer.md) | 多 kernel 流水线、autoregressive 推理、RoPE |
-| 78 | [2D FFT](/mnt/workspace/aiinfra/leetgpu/solutions/medium/78-2d-fft.md) | DFT、FFT、行-列分解（row-column decomposition）、shared memory、twiddle factor、compute-bound |
+| 78 | [2D FFT](solutions/medium/78-2d-fft.md) | DFT、FFT、行-列分解（row-column decomposition）、shared memory、twiddle factor、compute-bound |
 | 80 | [Grouped Query Attention (GQA)](solutions/medium/80-grouped-query-attention.md) | GQA、KV head 共享、LLM 推理 |
-| 81 | [INT4 Weight-Only Quantized MatMul](/mnt/workspace/aiinfra/leetgpu/solutions/medium/81-int4-matmul.md) | INT4 量化、W4A16、nibble 打包、group-wise dequant、FP16、LLM 推理 |
-| 82 | [Linear Recurrence](/mnt/workspace/aiinfra/leetgpu/solutions/medium/82-linear-recurrence.md) | associative scan、linear recurrence、warp shuffle、State Space Model |
+| 81 | [INT4 Weight-Only Quantized MatMul](solutions/medium/81-int4-matmul.md) | INT4 量化、W4A16、nibble 打包、group-wise dequant、FP16、LLM 推理 |
+| 82 | [Linear Recurrence](solutions/medium/82-linear-recurrence.md) | associative scan、linear recurrence、warp shuffle、State Space Model |
 | 84 | [SwiGLU MLP Block](solutions/medium/84-swiglu-mlp-block.md) | SwiGLU、MLP、GEMM、kernel fusion、LLaMA |
 | 85 | [LoRA Linear](solutions/medium/85-lora-linear.md) | Low-Rank Adaptation、参数高效微调 |
 | 87 | [Speculative Decoding Verification](solutions/medium/87-speculative-decoding-verification.md) | 投机解码、accept/reject 采样、CDF 查找 |
@@ -110,11 +110,11 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 105 | [Group Normalization](solutions/medium/105-group-normalization.md) | normalization、reduction、GroupNorm |
 | 106 | [Token Embedding Layer](solutions/medium/106-token-embedding-layer.md) | embedding、gather、LayerNorm、融合 kernel |
 | 107 | [Argmax](solutions/medium/107-argmax.md) | 归约、argmax、`__shfl_down_sync` |
-| 107 | [PPO Clipped Surrogate Loss](/mnt/workspace/aiinfra/leetgpu/solutions/medium/107-ppo-clipped-surrogate-loss.md) | reduction、kernel fusion、PPO、RL、memory-bound、warp shuffle、atomicAdd |
-| 108 | [DPO Sequence Loss](/mnt/workspace/aiinfra/leetgpu/solutions/medium/108-dpo-sequence-loss.md) | Reduction、Kernel Fusion、Loss Function、Numerical Stability、softplus、memory-bound |
+| 107 | [PPO Clipped Surrogate Loss](solutions/medium/107-ppo-clipped-surrogate-loss.md) | reduction、kernel fusion、PPO、RL、memory-bound、warp shuffle、atomicAdd |
+| 108 | [DPO Sequence Loss](solutions/medium/108-dpo-sequence-loss.md) | Reduction、Kernel Fusion、Loss Function、Numerical Stability、softplus、memory-bound |
 | 109 | [GRPO Surrogate Loss](solutions/medium/109-grpo-surrogate-loss.md) | GRPO、kernel fusion、两级归约、PPO clip、KL 惩罚 |
-| 110 | [Parallel Reverse Scan (GAE)](/mnt/workspace/aiinfra/leetgpu/solutions/medium/110-gae-reverse-scan.md) | Scan、Reverse Scan、Linear Recurrence、warp shuffle `__shfl_down_sync`、GAE、RL、memory-bound |
-| 111 | [Softmax Attention Backward](/mnt/workspace/aiinfra/leetgpu/solutions/medium/111-softmax-attention-backward.md) | attention backward、softmax 反向、GEMM、kernel fusion、reduction |
+| 110 | [Parallel Reverse Scan (GAE)](solutions/medium/110-gae-reverse-scan.md) | Scan、Reverse Scan、Linear Recurrence、warp shuffle `__shfl_down_sync`、GAE、RL、memory-bound |
+| 111 | [Softmax Attention Backward](solutions/medium/111-softmax-attention-backward.md) | attention backward、softmax 反向、GEMM、kernel fusion、reduction |
 | 112 | [Attention with Sinks](solutions/medium/112-attention-with-sinks.md) | StreamingLLM、sink token、sliding window、复合掩码、online softmax |
 | 113 | [Fused QKV Projection](solutions/medium/113-fused-qkv-projection.md) | kernel fusion、GEMM epilogue、reshape 融合 |
 | 114 | [GEMV](solutions/medium/114-gemv.md) | memory-bound、合并访存、block 归约、float4 |
@@ -129,9 +129,9 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 | 14 | [Multi-Agent Simulation](solutions/hard/14-multi-agent-sim.md) | O(N²) pairwise interaction、shared memory tiling、per-thread 串行归约、float4 向量化 |
 | 15 | [Sorting](solutions/hard/15-sorting.md) | bitonic sort、排序网络、compare-swap、shared memory 局部排序 |
 | 20 | [K-Means Clustering](solutions/hard/20-kmeans-clustering.md) | 迭代算法、assign↔update 双 kernel、atomicAdd 归约、空簇处理 |
-| 26 | [Multi-Head Cross-Attention](/mnt/workspace/aiinfra/leetgpu/solutions/hard/26-multi-head-cross-attention.md) | Cross-Attention、FlashAttention、online softmax、融合 attention、batched kernel launch |
+| 26 | [Multi-Head Cross-Attention](solutions/hard/26-multi-head-cross-attention.md) | Cross-Attention、FlashAttention、online softmax、融合 attention、batched kernel launch |
 | 36 | [Radix Sort](solutions/hard/36-radix-sort.md) | 分布式排序、按位 histogram、exclusive prefix sum、stable scatter、warp shuffle scan |
-| 39 | [Fast Fourier Transform](/mnt/workspace/aiinfra/leetgpu/solutions/hard/39-fast-fourier-transform.md) | FFT、radix-2、Cooley-Tukey、蝶形运算（butterfly）、位反转（bit-reversal）、shared memory、twiddle factor、compute-bound |
+| 39 | [Fast Fourier Transform](solutions/hard/39-fast-fourier-transform.md) | FFT、radix-2、Cooley-Tukey、蝶形运算（butterfly）、位反转（bit-reversal）、shared memory、twiddle factor、compute-bound |
 | 46 | [BFS Shortest Path](solutions/hard/46-bfs-shortest-path.md) | level-synchronous BFS、pull-based 扩散、frontier 并行、atomicCAS |
 | 53 | [Causal Self-Attention](solutions/hard/53-casual-attention.md) | causal mask、online softmax、LLM prefill、PagedAttention 对偶 |
 | 56 | [Linear Self-Attention](solutions/hard/56-linear-attention.md) | linear attention、kernel trick、ELU feature map、GEMM+reduction 流水线 |

@@ -29,7 +29,7 @@ initial_centroid = [(1,1), (8,8)]
 - `data_x/y`、`initial_centroid_x/y` 为 `float32`；`labels` 为 `int32`
 - `atol = rtol = 1e-4`：中心按浮点容差比对；`labels` 为整数，容差 < 1 等价于**精确匹配**
 
-> 💡 这道题是 **迭代算法 + pairwise distance + atomic 归约** 的综合练习。它不像 GEMM/attention 那样单 kernel 吃满算力，而是把 K-Means 拆成两个交替 kernel（**assign** ↔ **update**），在 `max_iterations` 轮里反复启动——本质是「**迭代之间有数据依赖、迭代内可大规模并行**」的典型模板。两个子 kernel 各练一个概念：assign 练 **embarrassingly parallel 的 argmin 距离计算**（与 [#38 Nearest Neighbor](../38_nearest_neighbor/leetgpu-nearest-neighbor-solution.md) 同构，但此处 `k` 极小，无需 tiling）；update 练 **按标签分组的 atomic 归约**（与 [#13 Histogramming](/solutions/medium/13-histogramming) 的直方图 atomic 同构）。难点不在单 kernel，而在**跨迭代的 kernel 编排、空簇处理、以及迭代算法天然无法跨轮并行**这一 GPU 编程认知。
+> 💡 这道题是 **迭代算法 + pairwise distance + atomic 归约** 的综合练习。它不像 GEMM/attention 那样单 kernel 吃满算力，而是把 K-Means 拆成两个交替 kernel（**assign** ↔ **update**），在 `max_iterations` 轮里反复启动——本质是「**迭代之间有数据依赖、迭代内可大规模并行**」的典型模板。两个子 kernel 各练一个概念：assign 练 **embarrassingly parallel 的 argmin 距离计算**（与 [#38 Nearest Neighbor](/solutions/medium/38-nearest-neighbor) 同构，但此处 `k` 极小，无需 tiling）；update 练 **按标签分组的 atomic 归约**（与 [#13 Histogramming](/solutions/medium/13-histogramming) 的直方图 atomic 同构）。难点不在单 kernel，而在**跨迭代的 kernel 编排、空簇处理、以及迭代算法天然无法跨轮并行**这一 GPU 编程认知。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 

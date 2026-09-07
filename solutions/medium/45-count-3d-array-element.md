@@ -73,7 +73,7 @@ __global__ void count_3d_naive(const int* input, int* output,
 核心思想分两步：
 
 1. **展平 3D → 1D**：$N \times M \times K$ 体数据在内存中本就是 row-major 连续存储，元素 $(i, j, k)$ 的地址即 $input[(i \cdot M + j) \cdot K + k]$。令 $total = N \cdot M \cdot K$，问题退化为"在长度为 $total$ 的一维数组中统计等于 $P$ 的个数"——与 #43 / #44 完全同构。
-2. **predicate + 两级归约**：把"计数"重写成"判定（1/0）后求和"，完全复用 [#4 Reduction](../4_reduction/leetgpu-reduction-solution.md) 的两阶段归约骨架，**全程不发任何 global atomic**。
+2. **predicate + 两级归约**：把"计数"重写成"判定（1/0）后求和"，完全复用 [#4 Reduction](/solutions/medium/4-reduction) 的两阶段归约骨架，**全程不发任何 global atomic**。
 
 ![Count 3D Array Element 概念总览：3D 体数据展平 + predicate 归约](/images/count_3d_array_element_overview.svg)
 

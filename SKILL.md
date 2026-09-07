@@ -21,11 +21,11 @@ LeetGPU 平台的题目都是 **CUDA Kernel 实现题**，选题目标是**用�
 |------|------|
 | **概念覆盖优先** | 每道题对应一个 CUDA 核心概念（grid-stride、shared memory、warp shuffle、bank conflict、reduction、scan、tiling 等），避免连续多题重复同一概念 |
 | **难度递进** | 由简到难：memory-bound 入门 → shared memory 进阶 → warp shuffle / tiling 高阶 → 综合题压轴 |
-| **题目不重复** | 同一道题在整个题解系列中只出现一次，选题前先查下表状态列（✅ 已完成 / ⬜ 待补全）和 `leetgpu/` 已有文件 |
+| **题目不重复** | 同一道题在整个题解系列中只出现一次，选题前先查下表状态列（✅ 已完成 / ⬜ 待补全）和 `solutions/` 已有文件 |
 | **配合每日教程** | LeetGPU 题解作为每日教程（`aiinfra/daily/weekN/dayM/`）Coding 任务的"任务 4"实战检验，选题应与当日主题强相关 |
 | **性能导向** | 优先选能体现 ncu profiling 价值的题（有明确瓶颈指标可观察、可优化） |
 
-**slug 推导规则**：`<slug>` = 平台 URL slug，由 `challenge.py` 的 `name` 经「小写化 → 空格转 `-` → 去括号/斜杠」得到（如 `"General Matrix Multiplication (GEMM)"` → `general-matrix-multiplication-gemm`，`"1D Convolution"` → `1d-convolution`）。题解文件名固定为 `leetgpu-<slug>-solution.md`。下表「编号」列为仓库目录前缀 `<number>_`，便于在 `leetgpu-challenges` 中定位题目源码。
+**slug 推导规则**：`<slug>` = 平台 URL slug，由 `challenge.py` 的 `name` 经「小写化 → 空格转 `-` → 去括号/斜杠」得到（如 `"General Matrix Multiplication (GEMM)"` → `general-matrix-multiplication-gemm`，`"1D Convolution"` → `1d-convolution`）。题解文件名为 `solutions/<difficulty>/<编号>-<name>.md`。下表「编号」列与 `leetgpu-challenges` 的题目编号对应，便于定位题目源码。
 
 ### 1.2 推荐选题路径（按概念分组）
 
@@ -500,42 +500,38 @@ LeetGPU 题解不是独立选题，而是配合 `aiinfra/daily/weekN/dayM/` 每�
 
 ## 2. 目录组织
 
-LeetGPU 题解按 **难度** 组织，目录形式对齐 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库的 `challenges/<difficulty>/<编号>_<name>/`：题解放在 `leetgpu/<difficulty>/<编号>_<name>/leetgpu-<slug>-solution.md`，`<difficulty>` ∈ {`easy`, `medium`, `hard`}，`<编号>` 与 `<name>` 取自 `leetgpu-challenges` 对应题目目录（如 `1_vector_add`、`22_gemm`）。题解系列可以独立扩展，只要题解文件名中的 slug 唯一即可：
+LeetGPU 题解按 **难度** 组织，存放于 `solutions/<difficulty>/` 目录，`<difficulty>` ∈ {`easy`, `medium`, `hard`}。文件名为 `<编号>-<name>.md`，`<编号>` 与 `<name>` 对齐 [leetgpu-challenges](https://github.com/sayaklahiri/leetgpu-challenges) 仓库的 `challenges/<difficulty>/<编号>_<name>/`（如 `1_vector_add` → `solutions/easy/1-vector-add.md`、`22_gemm` → `solutions/medium/22-gemm.md`）。题解系列可以独立扩展，只要编号唯一即可：
 
 ```
 leetgpu/
-├── easy/
-│   ├── 1_vector_add/
-│   │   └── leetgpu-vector-addition-solution.md   # #1: grid-stride
-│   ├── 21_relu/
-│   │   └── leetgpu-relu-solution.md              # #21: coalesced access
-│   └── ...
-├── medium/
-│   └── ...
-├── hard/
-│   └── ...
+├── solutions/                               # 题解（按难度分组）
+│   ├── easy/
+│   │   ├── 1-vector-add.md                  # #1: grid-stride
+│   │   ├── 21-relu.md                       # #21: coalesced access
+│   │   └── ...
+│   ├── medium/
+│   └── hard/
 ├── images/                                  # 所有题解共享的 SVG/PNG 插图
 │   ├── vector_addition_overview.svg
 │   ├── reduction_overview.svg
 │   └── generate_figures.py                  # matplotlib 生成脚本
-├── build/                                   # 网站构建（common.py + leetgpu.py）
-│   └── ...
-├── public/                                  # 构建产物（build.py 生成）
+├── .vitepress/                              # VitePress 站点配置与主题
+├── index.md / easy.md / medium.md / hard.md # 站点页面
 └── SKILL.md                                 # 本文件
 ```
 
 **规则**：
 
-1. **题解根目录**：`leetgpu/`，不要写到其他位置。
-2. **按难度组织**：题解 `.md` 放在 `leetgpu/<difficulty>/<编号>_<name>/` 下，`<difficulty>` 与 `<编号>_<name>` 对齐 `leetgpu-challenges` 仓库（如 Day1 的 Vector Addition → `easy/1_vector_add/`）。难度以 `leetgpu-challenges` 仓库为准；新增题解时优先从 `challenges/<difficulty>/*/challenge.py` 取编号与目录名。
-3. **题解文件名**：`leetgpu-<slug>-solution.md`，其中 `<slug>` 是 LeetGPU 平台的题目 URL slug（如 `vector-addition`、`prefix-sum`）。文件名不随难度/编号变化，slug 即唯一标识。
-4. **图片目录**：`leetgpu/images/`，所有题解共享（不按难度/题分散）。图片在题解中用 `../../images/xxx.svg` 相对路径引用（题解位于 `<difficulty>/<编号>_<name>/` 下，`../../` 回到 `leetgpu/`；`build.py` 递归扫描时统一重写为 `./images/xxx.svg`，输出页面扁平化到 `public/` 根）。
-5. **未收录进 leetgpu-challenges 的题**：若题解对应的题目暂不在 `leetgpu-challenges` 仓库中（如 Argmax、Vector Reversal、Attention、Scalar Multiply、Element Reversal），则在对应难度目录下顺延分配编号（`107_argmax`、`108_vector_reversal`、`109_attention`、`110_scalar_multiply`、`111_element_reversal`），并在 README 与本节注明。
+1. **题解根目录**：`solutions/`，不要写到其他位置。
+2. **按难度组织**：题解 `.md` 放在 `solutions/<difficulty>/` 下（如 Day1 的 Vector Addition → `solutions/easy/1-vector-add.md`）。难度以 `leetgpu-challenges` 仓库为准；新增题解时优先从 `challenges/<difficulty>/*/challenge.py` 取编号与目录名。
+3. **题解文件名**：`<编号>-<name>.md`（如 `1-vector-add.md`、`16-prefix-sum.md`），`<name>` 取自 `leetgpu-challenges` 目录名（下划线转连字符），编号即唯一标识。
+4. **图片目录**：`images/`，所有题解共享（不按难度/题分散）。图片在题解中用 `/images/xxx.svg` 站点根绝对路径引用（VitePress 部署 base `/leetgpu/` 自动处理）。
+5. **未收录进 leetgpu-challenges 的题**：若题解对应的题目暂不在 `leetgpu-challenges` 仓库中（如 Argmax、Vector Reversal、Attention、Scalar Multiply、Element Reversal），则在对应难度目录下顺延分配编号（`107-argmax.md`、`108-vector-reversal.md`、`109-attention.md`、`110-scalar-multiply.md`、`111-element-reversal.md`），并在 README 与本节注明。
 6. **选题与每日教程对齐（推荐但非强制）**：题解尽量与 `aiinfra/daily/weekN/dayM/` 每日教程的「任务 4」LeetGPU 在线题目主题保持一致，便于读者按周学习；但 LeetGPU 题解按难度独立归类，不强制与教程周/日一一对应。
 
 ## 3. 题解文档结构
 
-每篇题解 `.md` 遵循固定 **6 段结构**（参考下文模板与 `leetgpu/` 已有题解）：
+每篇题解 `.md` 遵循固定 **6 段结构**（参考下文模板与 `solutions/` 已有题解）：
 
 ```markdown
 # LeetGPU <题目名> 题解
@@ -573,7 +569,7 @@ leetgpu/
 - 代码块标注语言：` ```cuda` / ` ```cpp` / ` ```bash` / ` ```text`。
 - **Kernel 代码必须完整可编译**：包含 `#include`、`__global__` kernel、`main()`、host 端 `cudaMalloc`/`cudaMemcpy`、验证逻辑、`cudaFree`。
 - 代码块首行带注释：`// <filename>.cu —— <说明>` + `// 编译命令: nvcc ...`。
-- 图片引用用相对路径：`![<中文alt>](../../images/<filename>.svg)`（题解位于 `<difficulty>/<编号>_<name>/` 下，`../../images/` 解析到共享的 `leetgpu/images/`，由 `build.py` 统一重写为 `./images/`）。
+- 图片引用用站点根绝对路径：`![<中文alt>](/images/<filename>.svg)`（VitePress 部署时自动加上 `/leetgpu/` base 前缀）。
 - 每篇题解引用 **2-4 张 SVG/PNG 插图**，并配 `### 4.2 代码详解` 子节（详见 §5）。
 
 ### 数学公式
@@ -720,13 +716,13 @@ leetgpu/
 
 #### SVG 引用路径
 
-题解位于 `leetgpu/<difficulty>/<编号>_<name>/`，SVG 位于 `leetgpu/images/`，因此引用路径为：
+题解位于 `solutions/<difficulty>/`，SVG 位于 `images/`，因此引用路径为：
 
 ```markdown
-![<中文描述>](../../images/<filename>.svg)
+![<中文描述>](/images/<filename>.svg)
 ```
 
-`build.py` 会自动将 `../../images/` 重写为 `./images/`（网站输出扁平化）。
+VitePress 以站点根绝对路径解析 `/images/`（部署 base `/leetgpu/` 自动处理）。
 
 #### SVG 创建要点
 
@@ -736,70 +732,48 @@ leetgpu/
 4. **具体数值**：worked example 类 SVG 必须用具体数字（如 `N=3, d=2, scale=0.707`），不能只有抽象符号
 5. **viewBox**：使用 `viewBox="0 0 W H"` 而非固定 width/height，保证响应式缩放
 
-### 5.3 重复 slug 文件同步
-
-LeetGPU 平台的同一道题可能在多个 week/day 出现（如 `softmax-attention` 在 `week2/day5` 和 `week4/day1` 都有）。由于 `build.py` 按 slug 扁平输出 HTML，**后构建的文件会覆盖先构建的**。
-
-**同步规则**：
-
-1. **主文件**：内容最完整的版本作为主文件（通常是首次出现的 week/day）
-2. **副本文件**：用 `cp` 从主文件同步，保持内容完全一致
-3. **stub 文件**：如果某 week/day 的题解只是指向其他文件的 deferral stub（如 `> 本题解与 ... 内容相同`），则**不需要同步**——stub 只保留标题和指引链接
-4. **同步检查**：修改主文件后，用 `diff` 检查所有同 slug 文件是否需要同步
-
-```bash
-# 检查同 slug 文件是否一致
-diff leetgpu/week2/day5/leetgpu-softmax-attention-solution.md \
-     leetgpu/week4/day1/leetgpu-softmax-attention-solution.md
-# 如不一致，同步
-cp leetgpu/week2/day5/leetgpu-softmax-attention-solution.md \
-   leetgpu/week4/day1/leetgpu-softmax-attention-solution.md
-```
-
-### 5.4 完成度检查清单
+### 5.3 完成度检查清单
 
 为题解补充 SVG + 代码详解后，用以下清单自检：
 
-- [ ] 至少 1 张 SVG 引用（`![...](../../images/...svg)`）
-- [ ] SVG 文件存在于 `leetgpu/images/`
+- [ ] 至少 1 张 SVG 引用（`![...](/images/...svg)`）
+- [ ] SVG 文件存在于 `images/`
 - [ ] `### 4.2 代码详解` 子节存在（或等效的详解标题）
 - [ ] 详解覆盖 kernel 的关键代码段（索引计算、访存模式、同步屏障）
 - [ ] 复杂 kernel 有 worked example（具体数值逐步推演）
 - [ ] `> 💡 关键洞察` blockquote 存在
-- [ ] 同 slug 的重复文件已同步（`diff` 无差异）
 - [ ] `## 同类练习题` 章节存在，且内容与 §1.6 推荐映射完全一致（4 条推荐 + 选材主线）
-- [ ] `python3 build.py` 构建成功
-- [ ] 生成的 HTML 中 SVG 路径正确（`./images/...svg`）
+- [ ] `npm run build` 构建成功
+- [ ] 生成的页面中 SVG 路径正确（`/images/...svg`）
 
 ## 6. 网站构建集成
 
-题解写完后会被 `build/leetgpu.py` 自动读取并生成网页：
+题解写完后由 VitePress 自动读取并生成网页：
 
-- `build.py` **递归扫描** `leetgpu/` 下所有 `leetgpu-*.md` 文件（用 `rglob()`，自动识别 `<difficulty>/<编号>_<name>/` 子目录）。
-- 解析路径中的 `<difficulty>` 与 `<编号>` 作为分组依据，侧边栏按难度（easy→medium→hard）手风琴式分组，组内按编号排序。
-- 解析一级标题 `# LeetGPU <题目名> 题解` 作为侧边栏与列表页标题。
-- 图片路径 `images/xxx.svg` 在题解页被重写为 `./images/xxx.svg`（网站输出目录扁平化）。
-- 生成 `public/index.html`（概览页）和 `public/leetgpu-<slug>-solution.html`（各题解页，扁平输出）。
-- `leetgpu/images/` 自动复制到 `public/images/` 部署。
+- `.vitepress/config.mts` 的 `loadGroup()` 从 `solutions/<difficulty>/` 读取题目列表，按题号排序，生成 Easy/Medium/Hard 难度页与全站「上一题/下一题」导航。
+- 解析一级标题 `# LeetGPU <题目名> 题解` 作为导航与列表页标题。
+- 图片以站点根绝对路径 `/images/xxx.svg` 引用（部署 base `/leetgpu/` 自动处理）。
+- 输出到 `dist/`，由 GitHub Actions 推送 main 分支时自动部署到 GitHub Pages。
 
 **验证命令**：
 
 ```bash
-python3 build.py                     # 组合构建全站（含 leetgpu）
+npm install
+npm run dev           # 本地开发预览（http://localhost:5173）
+npm run build         # 构建静态站点到 dist/
 ```
 
 **自检清单**：
 
-- [ ] 题解位于 `leetgpu/<difficulty>/<编号>_<name>/leetgpu-<slug>-solution.md`（难度/编号用于本地归类，slug 唯一）
+- [ ] 题解位于 `solutions/<difficulty>/<编号>-<name>.md`（编号唯一）
 - [ ] 一级标题 `# LeetGPU <题目名> 题解`
 - [ ] 含 6 段结构（题目概述/CPU基线/GPU设计/Kernel实现/性能分析/复杂度分析）
 - [ ] Kernel 代码完整可编译（含 main、cudaMalloc、验证、cudaFree）
-- [ ] 含 2-4 张 SVG/PNG 插图，引用格式 `![中文alt](../../images/xxx.svg)`
+- [ ] 含 2-4 张 SVG/PNG 插图，引用格式 `![中文alt](/images/xxx.svg)`
 - [ ] 含 `### 4.2 代码详解` 子节（逐行解释 + 索引表 + 关键洞察）
 - [ ] SVG 为手绘 sketch 风（含 `feTurbulence` 抖动滤镜 + Comic Sans/Kaiti SC 字体）
 - [ ] 复杂 kernel 有 worked example（具体数值逐步推演）
-- [ ] 同 slug 重复文件已同步（`diff` 无差异）
 - [ ] 含 `## 同类练习题` 章节，内容与 §1.6 推荐映射一致
 - [ ] 含 ncu profiling 命令与关键指标
-- [ ] `python3 build.py` 成功生成对应 `public/leetgpu/leetgpu-<slug>-solution.html`
+- [ ] `npm run build` 成功生成对应 `dist/solutions/<difficulty>/<编号>-<name>.html`
 - [ ] `git push origin` 推送题解（commit + push 到远程）

@@ -16,7 +16,7 @@ $$\text{output}[m, h] = \text{softmax}\!\left(\frac{Q[m,h]\, K[\,:,h]^{\mathsf{T
 - `K[n,h,d] = K[((n·H)+h)·D + d]`，`V` 同理
 - `output[m,h,d] = output[((m·H)+h)·D + d]`
 
-注意 `head` 维在第二维、`D` 维最内层连续——这与 [#12 Multi-Head Attention](../12_multi_head_attention/leetgpu-multi-head-attention-solution.md) 的 `(B,H,N,d)` 布局不同，但 `head` 之间同样互不通信。
+注意 `head` 维在第二维、`D` 维最内层连续——这与 [#12 Multi-Head Attention](/solutions/hard/12-multi-head-attention) 的 `(B,H,N,d)` 布局不同，但 `head` 之间同样互不通信。
 
 **约束**：`1 ≤ M, N ≤ 4096`，`1 ≤ H ≤ 16`，`1 ≤ D ≤ 128`；容差 `atol=rtol=1e-4`。性能测试取 `M=1024, N=2048, H=16, D=128`（BART-large 风格的 decoder→encoder cross-attention）。
 
@@ -414,7 +414,7 @@ ncu --set full ./cross_attn | rg -i "Memory Throughput|Compute|Occupancy"
 | 瓶颈 | HBM 带宽 | 算力 / 归约（大 `D` 时） |
 | 数值稳定 | 减 max（两遍） | online（一遍，`exp` 减 running max） |
 
-> 💡 **一句话总结**：Multi-Head Cross-Attention 的核心是 `grid=(H, M)` 二维并行 + online softmax 一遍扫描 `N` 个 key——`head` 与 `query` 各自独立，`S/P` 不物化，显存从 `O(H·M·N)` 降到 `O(H·M·D)`。它与 [#12 MHA](../12_multi_head_attention/leetgpu-multi-head-attention-solution.md) / [#6 Softmax Attention](/solutions/medium/6-softmax-attention) 同属 FlashAttention 范式，差异仅在 `(M,H,D)/(N,H,D)` 的 stride 寻址——掌握了 fused attention 骨架，本题只需调整索引。生产环境用 `flash_attn` 库的 cross-attention 接口或 cuDNN 的 `SDPA`。
+> 💡 **一句话总结**：Multi-Head Cross-Attention 的核心是 `grid=(H, M)` 二维并行 + online softmax 一遍扫描 `N` 个 key——`head` 与 `query` 各自独立，`S/P` 不物化，显存从 `O(H·M·N)` 降到 `O(H·M·D)`。它与 [#12 MHA](/solutions/hard/12-multi-head-attention) / [#6 Softmax Attention](/solutions/medium/6-softmax-attention) 同属 FlashAttention 范式，差异仅在 `(M,H,D)/(N,H,D)` 的 stride 寻址——掌握了 fused attention 骨架，本题只需调整索引。生产环境用 `flash_attn` 库的 cross-attention 接口或 cuDNN 的 `SDPA`。
 
 ## 同类练习题
 

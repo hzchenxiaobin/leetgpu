@@ -753,8 +753,8 @@ extern __shared__ float Cs[]; // 128×128 fp32，epilogue 暂存累加器
 ```
 
 - `As` / `Bs` 是 **static shared**，编译期固定，共 `(128×16 + 16×128)×2B = 8KB`。它们沿 K 维滑动，每步只装 `BK=16` 深的一列片，供 block 内 8 个 warp 复用。
-- `Cs` 是 **dynamic shared**（`extern __shared__ float Cs[]`），大小由 launch 时的 `dyn_smem = BM*BN*sizeof(float) = 64KB` 指定（4.1 的 `solve`，`leetgpu-gemm-solution.md:733`），只在 epilogue 阶段短暂存放 fp32 累加器，不参与 K 循环。
-- 三者合计 `8KB + 64KB = 72KB/block`，超过默认 48KB 上限，故 `solve` 必须 `cudaFuncSetAttribute(..., cudaFuncAttributeMaxDynamicSharedMemorySize, dyn_smem)` 放开 dynamic shared 上限（`leetgpu-gemm-solution.md:734`）。
+- `Cs` 是 **dynamic shared**（`extern __shared__ float Cs[]`），大小由 launch 时的 `dyn_smem = BM*BN*sizeof(float) = 64KB` 指定（4.1 的 `solve`），只在 epilogue 阶段短暂存放 fp32 累加器，不参与 K 循环。
+- 三者合计 `8KB + 64KB = 72KB/block`，超过默认 48KB 上限，故 `solve` 必须 `cudaFuncSetAttribute(..., cudaFuncAttributeMaxDynamicSharedMemorySize, dyn_smem)` 放开 dynamic shared 上限（4.1 的 `solve`）。
 
 > ⚠️ `As`/`Bs` 用 `half` 而非 `float`：WMMA fragment 直接从 half shared 加载，省一半 shared 带宽，且 `BK=16` 的一片正好对齐一个 fragment 的 K 维。
 
@@ -796,7 +796,7 @@ for (int bk = 0; bk < K; bk += BK) {
 }
 ```
 
-- **① 协作加载**：256 thread 平摊 `As` 的 `128×16=2048` 与 `Bs` 的 `16×128=2048` 个 half，每 thread 各搬 `LOAD_A=LOAD_B=8` 个（`leetgpu-gemm-solution.md:678` 起）。越界处填 `__float2half(0)`，使内层 `mma` 无需判边界。
+- **① 协作加载**：256 thread 平摊 `As` 的 `128×16=2048` 与 `Bs` 的 `16×128=2048` 个 half，每 thread 各搬 `LOAD_A=LOAD_B=8` 个（4.1 提交版 kernel 的 K 循环起）。越界处填 `__float2half(0)`，使内层 `mma` 无需判边界。
 - **②** `__syncthreads`：保证所有 thread 装完本 tile，才能开始 `load_matrix_sync` 读 shared。
 - **③** `2×4=8` **次** `mma`：每个 warp 用自己的 `acc[i][j]` 累加，8 个 warp 互不干扰地并行跑 Tensor Core。累加器常驻寄存器，K 循环里不落盘。
 - **④** `__syncthreads`：本 tile 的 `As/Bs` 已读完，下一轮迭代才能覆盖写入，故再同步一次。
@@ -828,7 +828,7 @@ wmma::mma_sync(acc[i][j], a_frag, b_frag, acc[i][j]);
 `mma_sync(D, A, B, C)` 语义为 `D = A×B + C`。这里 `D` 与 `C` 都传 `acc[i][j]`，即 **就地累加**：每个 K tile 的 `A·B` 直接加到上一步的累加器上。一次调用完成 `16×16×16 = 8192 FLOP` 乘加，由 32 lane 协作、Tensor Core 在约一个时钟周期内吞吐。
 
 - `a_frag`/`b_frag` 为 `half`、`acc` 为 `float` → 输入 FP16、累加 FP32，**天然满足题目「FP32 累加」要求**，无需额外代码。
-- `a_frag`/`b_frag` 声明在双循环内（`leetgpu-gemm-solution.md:697`），用完即弃、可复用寄存器；`acc` 声明在 K 循环外（`:664`），全程常驻。
+- `a_frag`/`b_frag` 声明在双循环内（4.1 提交版 kernel 的 K 循环体），用完即弃、可复用寄存器；`acc` 声明在 K 循环外，全程常驻。
 
 #### 4.2.6 Epilogue：staging → α·acc + β·C → half 写回
 

@@ -28,7 +28,7 @@ start = (0,0), end = (3,3)
 - 起点可能等于终点（此时返回 `0`）
 - 容差 `atol = rtol = 0`（精确整数匹配）
 
-> 💡 这道题是 **「level-synchronous BFS」+ host 外层循环** 的经典图算法 GPU 化练习。BFS 的本质是按距离分层扩展——所有距离为 `d` 的节点组成第 `d` 层 frontier，第 `d+1` 层由 frontier 的未访问邻居组成。这种**层内并行、层间串行**的依赖结构与 [Floyd-Warshall](../73_all_pairs_shortest_paths/leetgpu-all-pairs-shortest-paths-solution.md) 的「外串内并」同构：每一层内的节点扩展互不冲突（可全并行），但层与层之间必须同步（前一层的结果是下一层的输入）。关键设计抉择是 **pull-based**（每个格子主动检查邻居是否在当前层）还是 **push-based**（frontier 格子主动写入邻居），以及是否维护显式 frontier 列表。
+> 💡 这道题是 **「level-synchronous BFS」+ host 外层循环** 的经典图算法 GPU 化练习。BFS 的本质是按距离分层扩展——所有距离为 `d` 的节点组成第 `d` 层 frontier，第 `d+1` 层由 frontier 的未访问邻居组成。这种**层内并行、层间串行**的依赖结构与 [Floyd-Warshall](/solutions/hard/73-all-pairs-shortest-paths) 的「外串内并」同构：每一层内的节点扩展互不冲突（可全并行），但层与层之间必须同步（前一层的结果是下一层的输入）。关键设计抉择是 **pull-based**（每个格子主动检查邻居是否在当前层）还是 **push-based**（frontier 格子主动写入邻居），以及是否维护显式 frontier 列表。
 
 ## 2. CPU 基线 / 朴素 GPU 方法
 
@@ -531,7 +531,7 @@ ncu --kernel-name regex:"bfs_pull_kernel|bfs_push_kernel" \
 
 ### 5.3 优化方向
 
-1. **frontier 列表（data-driven BFS）**：当前 topology-driven 方案每层扫描全部 `n` 个格子，大部分已访问格子立即早退（`dist != -1 → return`）。可维护一个显式 frontier 数组，每层只处理 frontier 中的格子。新 frontier 的生成需要 **prefix-sum compaction**（参考 [#72 Stream Compaction](../72_stream_compaction/leetgpu-stream-compaction-solution.md) 的 scan + predicate 模板）。当 frontier 稀疏时（如 BFS 末期），data-driven 的吞吐远优于 topology-driven。
+1. **frontier 列表（data-driven BFS）**：当前 topology-driven 方案每层扫描全部 `n` 个格子，大部分已访问格子立即早退（`dist != -1 → return`）。可维护一个显式 frontier 数组，每层只处理 frontier 中的格子。新 frontier 的生成需要 **prefix-sum compaction**（参考 [#72 Stream Compaction](/solutions/medium/72-stream-compaction) 的 scan + predicate 模板）。当 frontier 稀疏时（如 BFS 末期），data-driven 的吞吐远优于 topology-driven。
 2. **tiled BFS（shared memory tile 内多层传播）**：每个 block 处理一个 `BM × BN` tile，将 tile 载入 shared memory，在 tile 内部用 `__syncthreads()` 传播多层 BFS，直到波前到达 tile 边界。这可以把 kernel launch 次数从 `O(diameter)` 降到 `O(diameter / min(BM, BN))`。代价是边界格子的状态交换复杂，需正确处理 tile 间的依赖。
 3. **persistent kernel + cooperative groups grid sync**：用 `cudaLaunchCooperativeKernel` + `this_grid().sync()` 在单个 kernel 内循环全部层，消除 `O(diameter)` 次 launch 开销。每次 grid sync 保证全图 `dist` 写回对所有 block 可见。代价：grid 规模受 SM 数上限约束，且 grid sync 本身有开销（约 10–20µs），层数少时可能更慢。
 4. **双向 BFS**：从起点和终点同时做 BFS，当两个 wavefront 相遇时即找到最短路。理论上层数减半（`O(diameter / 2)` 次 launch），但相遇检测和距离计算增加复杂度。

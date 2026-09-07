@@ -116,9 +116,9 @@ void attn_backward_cpu(const float* Q, const float* K, const float* V, const flo
 
 ### 3.3 关键技巧
 
-- **softmax 反向的逐行归约**：`dS[i,j] = (dP[i,j]·P[i,j] − P[i,j]·Σ_j dP[i,j]·P[i,j]) / √d`。每行先算 `rowsum = Σ dP·P`（一个标量），再逐元素减去 `P·rowsum`。这需要一次行内归约 + 一次逐元素更新——与 [Softmax #5](../5_softmax/leetgpu-softmax-solution.md) 的"max→exp→sum→scale"三遍结构同构。
+- **softmax 反向的逐行归约**：`dS[i,j] = (dP[i,j]·P[i,j] − P[i,j]·Σ_j dP[i,j]·P[i,j]) / √d`。每行先算 `rowsum = Σ dP·P`（一个标量），再逐元素减去 `P·rowsum`。这需要一次行内归约 + 一次逐元素更新——与 [Softmax #5](/solutions/medium/5-softmax) 的"max→exp→sum→scale"三遍结构同构。
 - **fwd softmax 重算 P**：题目只给 `Q/K/V/dO`，不给前向缓存的 `P`。解法是重新跑一遍 fwd softmax 算 `P`（k1）。FlashAttention-2 的 backward 也做类似重计算，但它在 `dS` 阶段重算，避免存 `P`；本题为清晰起见直接存 `P`。
-- **朴素 GEMM**：`dP/dV/dQ/dK` 四个矩阵乘用"一 thread 一输出元素"的朴素 GEMM。`M·d` 或 `N·d` 规模的输出各一个 grid。生产环境应换 tiled GEMM（参考 [GEMM #22](../22_gemm/leetgpu-gemm-solution.md)）。
+- **朴素 GEMM**：`dP/dV/dQ/dK` 四个矩阵乘用"一 thread 一输出元素"的朴素 GEMM。`M·d` 或 `N·d` 规模的输出各一个 grid。生产环境应换 tiled GEMM（参考 [GEMM #22](/solutions/medium/22-gemm)）。
 - **scale = √d（注意是除以 √d）**：前向 `S = QKᵀ / √d`，反向 `dS` 也要 `/ √d`（因为 `dS_raw = dP·P − P·ΣdP·P` 是对 `S` 未缩放的梯度，需对 `/√d` 的缩放求导得 `dS = dS_raw / √d`）。
 
 > ⚠️ **softmax dim 方向**：本题 softmax 沿 `dim=1`（即 `N` 维，每行 `M` 个... 实际 `P` 是 `M×N`，每行 `N` 个元素归一化）。行归约沿 `N` 维，每行独立——天然适合"一 block 一行"的并行。
@@ -470,7 +470,7 @@ extern "C" void solve(const float* Q, const float* K, const float* V, const floa
 - `rowsum = Σ_j dP[i,j]·P[i,j]` — 每行的归约标量，用 warp shuffle + shared 两级归约
 - 4 个 GEMM 的 `Σ` 维：`dP/dV` 沿 `d`，`dQ/dK` 沿 `N/M`
 
-> 💡 **关键洞察**：attention backward 的本质是 **3 个 GEMM + 1 个 softmax 行归约**。softmax 反向公式 `dS = (dP⊙P − P⊙ΣdP⊙P)/√d` 可拆成"逐元素乘 + 行归约 + 逐元素减"三步，与 [Softmax #5](../5_softmax/leetgpu-softmax-solution.md) 的"max→exp→sum→scale"结构同构。掌握了 GEMM + 行归约这两个模板，attention backward 就是它们的组合编排。
+> 💡 **关键洞察**：attention backward 的本质是 **3 个 GEMM + 1 个 softmax 行归约**。softmax 反向公式 `dS = (dP⊙P − P⊙ΣdP⊙P)/√d` 可拆成"逐元素乘 + 行归约 + 逐元素减"三步，与 [Softmax #5](/solutions/medium/5-softmax) 的"max→exp→sum→scale"结构同构。掌握了 GEMM + 行归约这两个模板，attention backward 就是它们的组合编排。
 
 ## 5. 性能分析与优化
 
@@ -493,7 +493,7 @@ ncu --set full ./attn_backward | rg -i "Memory Throughput|Compute|Occupancy"
 
 **优化方向**：
 
-1. **tiled GEMM**：4 个 GEMM 换成 [GEMM #22](../22_gemm/leetgpu-gemm-solution.md) 的 shared memory tiling + register blocking，性能提升数倍（GEMM 是主要瓶颈）
+1. **tiled GEMM**：4 个 GEMM 换成 [GEMM #22](/solutions/medium/22-gemm) 的 shared memory tiling + register blocking，性能提升数倍（GEMM 是主要瓶颈）
 2. **FlashAttention-2 backward**：在 `dS` 阶段重算 `P`（而非存 `P`），省 `M×N` 显存；进一步融合 `dP/dV` 减少 HBM 往返
 3. **融合 dP + dS**：`dP` 和 `dS` 都逐 `(i,j)` 元素，可合并成一个 kernel（先算 `dP`，再在同一 block 内做行归约算 `dS`），省一次 `dP` 的 HBM 写读
 4. **FP16 / Tensor Core**：输入转 FP16，GEMM 用 WMMA，吞吐提升一个量级
@@ -511,7 +511,7 @@ ncu --set full ./attn_backward | rg -i "Memory Throughput|Compute|Occupancy"
 | **kernel 数** | 6（fwd_softmax / dP / dV / dS / dQ / dK） |
 | **数值稳定** | softmax 减 max（fwd）；dS 减 `P·rowsum` 保持数值稳定 |
 
-> 💡 **一句话总结**：Softmax Attention Backward 是 **3 个 GEMM + 1 个 softmax 行归约** 的组合编排——`fwd_softmax` 重算 `P`，`dP/dV` 两个 GEMM 并行，`dS` 做 softmax 反向行归约，`dQ/dK` 两个 GEMM 并行。softmax 反向公式 `dS=(dP⊙P−P⊙ΣdP⊙P)/√d` 与 [Softmax #5](../5_softmax/leetgpu-softmax-solution.md) 的行归约同构。掌握了 GEMM + 行归约两个模板，attention backward 就是它们的依赖编排。生产环境用 FlashAttention-2 的 backward（重算 `P` + 融合 GEMM）或 PyTorch `aten::_scaled_dot_product_attention_backward`。
+> 💡 **一句话总结**：Softmax Attention Backward 是 **3 个 GEMM + 1 个 softmax 行归约** 的组合编排——`fwd_softmax` 重算 `P`，`dP/dV` 两个 GEMM 并行，`dS` 做 softmax 反向行归约，`dQ/dK` 两个 GEMM 并行。softmax 反向公式 `dS=(dP⊙P−P⊙ΣdP⊙P)/√d` 与 [Softmax #5](/solutions/medium/5-softmax) 的行归约同构。掌握了 GEMM + 行归约两个模板，attention backward 就是它们的依赖编排。生产环境用 FlashAttention-2 的 backward（重算 `P` + 融合 GEMM）或 PyTorch `aten::_scaled_dot_product_attention_backward`。
 
 ## 同类练习题
 
