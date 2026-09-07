@@ -177,6 +177,8 @@ $$s\_data[k + j] \leftarrow u + t, \quad s\_data[k + j + m2] \leftarrow u - t$$
 
 ## 4. Kernel 实现
 
+> 📎 完整可编译代码已整理到 <a href="./39-fast-fourier-transform.cu" download><code>39-fast-fourier-transform.cu</code></a>（含 host 端测试 harness，编译与运行命令见文件头注释，用于本地自测与 profiling）。
+
 ### 4.1 LeetGPU 提交版本
 
 ```cuda
@@ -421,10 +423,6 @@ extern "C" void solve(const float* signal, float* spectrum, int N) {
 | 无需同步（同级内） | — | 同级蝶形不相交，天然无 race |
 
 > 💡 **关键洞察**：FFT 蝶形网络的并行性在于**同级蝶形互不相交**——每级的 $N/2$ 个蝶形恰好将 $N$ 个元素两两配对，无重叠。这使得同一级内所有蝶形可完全并行（一个蝶形一个线程），仅需在级间用 `__syncthreads()` 屏障。这与 Prefix Sum 的蝶形扫描结构完全同构——都是 $\log N$ 层全数组并行的两两组合，区别仅在组合运算（FFT 是复数乘加，scan 是加法）。
-
-### 4.3 完整可编译代码（含 Host 验证）
-
-> 📎 完整可编译代码已整理到 <a href="./39-fast-fourier-transform.cu" download><code>39-fast-fourier-transform.cu</code></a>（含 host 端测试 harness，编译与运行命令见文件头注释，用于本地自测与 profiling）。
 
 ## 5. 性能分析与优化
 

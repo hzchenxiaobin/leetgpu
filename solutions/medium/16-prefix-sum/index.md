@@ -301,324 +301,9 @@ for (int offset = 1; offset < WARP_SIZE; offset <<= 1) {
 
 ## 4. Kernel 实现
 
-完整的三阶段分块 scan 版本，由 **公共头文件 + 4 个函数**组成。下面逐个拆解，每个函数配图解 + 代码 + 详解。
+完整的三阶段分块 scan 版本，由 **公共头文件 + 4 个函数**组成。下面先给出 LeetGPU 提交版代码，再逐个拆解各组成部分——每个函数配图解 + 代码 + 详解。
 
-### 4.0 公共头文件与宏定义
-
-```cuda
-// 16-prefix-sum.cu —— 三阶段分块 scan：warp shuffle + block scan + 全局偏移加回
-// 编译命令: nvcc -O3 -arch=sm_120 16-prefix-sum.cu -o prefix_sum
-// 运行:     ./prefix_sum 16777216
-
-    #include <cstdio>
-    #include <cstdlib>
-    #include <cmath>
-    #include <cuda_runtime.h>
-
-    #define CHECK_CUDA(call)                                                                                               \
-    do {                                                                                                               \
-        cudaError_t e = (call);                                                                                        \
-        if (e != cudaSuccess) {                                                                                        \
-            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
-            exit(EXIT_FAILURE);                                                                                        \
-        }                                                                                                              \
-    } while (0)
-
-#define BLOCK_SIZE 256
-#define WARP_SIZE 32
-#define NUM_WARPS (BLOCK_SIZE / WARP_SIZE) // 8
-```
-
-### 4.1 `warp_inclusive_scan`：Warp 内 5 步蝶形前缀扫描
-
-**作用**：在一个 warp（32 个 lane）内做 inclusive prefix sum。每个 lane 最终持有 `input[0] + input[1] + ... + input[lane]`。
-
-**原理**：Hillis-Steele 蝶形扫描——每步用 `__shfl_up_sync` 从 `lane - offset` 处取值并累加，`offset = 1, 2, 4, 8, 16`，共 5 步（`log₂32`）。所有 lane 全程活跃，无需 `__syncthreads`。
-
-![warp_inclusive_scan 函数图解：32 lane 5 步蝶形前缀扫描](/images/prefix_sum_warp_inclusive_scan.svg)
-
-**代码**：
-
-```cuda
-// ============================================================
-// warp 内 inclusive scan：__shfl_up_sync，5 步蝶形
-// ============================================================
-__inline__ __device__ float warp_inclusive_scan(float val) {
-    for (int offset = 1; offset < WARP_SIZE; offset <<= 1) {
-        float n = __shfl_up_sync(0xffffffff, val, offset);
-        if ((threadIdx.x & (WARP_SIZE - 1)) >= offset) {
-            val += n;
-        }
-    }
-    return val; // lane i 持有本 warp 内 [0..i] 的前缀和
-}
-```
-
-**详解**：
-
-| 步骤 | offset | `__shfl_up_sync` 取的来源 | 谁加 | 效果 |
-|------|--------|--------------------------|------|------|
-| 1 | 1 | lane(i-1) | lane ≥ 1 | 每 lane 加左边 1 个 |
-| 2 | 2 | lane(i-2) | lane ≥ 2 | 每 lane 加左边 2 个 |
-| 3 | 4 | lane(i-4) | lane ≥ 4 | 每 lane 加左边 4 个 |
-| 4 | 8 | lane(i-8) | lane ≥ 8 | 每 lane 加左边 8 个 |
-| 5 | 16 | lane(i-16) | lane ≥ 16 | 每 lane 加左边 16 个 |
-
-5 步后，lane `i` 持有 `input[0] + ... + input[i]`（本 warp 内前缀和）。
-
-> 💡 `if (lane >= offset)` 保证前 `offset` 个 lane 不加（它们没有足够的左侧数据）。`__shfl_up_sync` 在 `lane - offset < 0` 时返回原值不变，但加不加由 `if` 控制。
-
-### 4.2 `block_exclusive_scan`：Block 内 exclusive scan（warp scan + shared 汇总）
-
-**作用**：在 256 线程（8 个 warp）的 block 内做 **exclusive** prefix scan（不含自身）。同时输出整个 block 的总和。
-
-**原理**：block 内 scan 分两步——① 每 warp 各自 `warp_inclusive_scan`；② 每 warp 的 lane 31 把 warp 总和写入 shared memory，warp 0 对这些总和再做一次 scan 得到每 warp 的起始偏移；③ 每 warp 把偏移加回，得到 block 内 exclusive。
-
-![block_exclusive_scan 函数图解：warp scan + shared memory 汇总 + 偏移加回](/images/prefix_sum_block_exclusive_scan.svg)
-
-**代码**：
-
-```cuda
-// ============================================================
-// block 内 exclusive scan：warp scan + shared 汇总 + 偏移加回
-// 返回每线程对应的 exclusive 前缀和；block 总和由 lane (BLOCK_SIZE-1) 写入 *block_sum
-// ============================================================
-__inline__ __device__ float block_exclusive_scan(float val, float* block_sum) {
-    __shared__ float warp_sums[NUM_WARPS];
-    int lane = threadIdx.x & (WARP_SIZE - 1);
-    int warpId = threadIdx.x >> 5;
-
-    // ① 每 warp 各自 inclusive scan
-    float inclusive = warp_inclusive_scan(val);
-
-    // ② 每 warp 的 lane 31 记录本 warp 总和
-    if (lane == WARP_SIZE - 1) {
-        warp_sums[warpId] = inclusive; // inclusive 的最后一个 = 该 warp 总和
-    }
-    __syncthreads();
-
-    // ③ 第一个 warp 对 warp_sums 做 inclusive scan，得到每 warp 的起始偏移
-    if (warpId == 0) {
-        float v = (lane < NUM_WARPS) ? warp_sums[lane] : 0.0f;
-        v = warp_inclusive_scan(v);
-        if (lane < NUM_WARPS)
-            warp_sums[lane] = v; // 改写为 inclusive prefix
-    }
-    __syncthreads();
-
-    // ④ 当前 warp 之前所有 warp 的总和 = exclusive 起始偏移
-    float warp_offset = (warpId == 0) ? 0.0f : warp_sums[warpId - 1];
-
-    // ⑤ exclusive = warp_offset + (本 warp 内 inclusive 减去自身)
-    float exclusive = warp_offset + (inclusive - val);
-
-    // ⑥ block 总和 = 最后一个线程的 inclusive（warp_offset + inclusive）
-    if (threadIdx.x == BLOCK_SIZE - 1) {
-        *block_sum = warp_offset + inclusive;
-    }
-    return exclusive;
-}
-```
-
-**详解**：
-
-| 步骤 | 操作 | 数据流 |
-|------|------|--------|
-| ① | 每 warp 各自 `warp_inclusive_scan` | register 内，无 smem |
-| ② | lane 31 写 warp 总和到 `warp_sums[]` | register → shared memory |
-| ③ | warp 0 对 `warp_sums[0..7]` 做 inclusive scan | shared memory 内 |
-| ④ | 读取 `warp_sums[warpId - 1]` 作为本 warp 偏移 | shared memory → register |
-| ⑤ | `exclusive = warp_offset + (inclusive - val)` | register 内计算 |
-| ⑥ | 最后一个线程写 block 总和到 `*block_sum` | register → global |
-
-> 💡 **exclusive vs inclusive**：`inclusive[i] = input[0] + ... + input[i]`（含自身），`exclusive[i] = input[0] + ... + input[i-1]`（不含自身）。`exclusive = inclusive - val`。阶段一用 exclusive 是为了让阶段三加回 `input[i]` 时正好得到 inclusive。
-
-### 4.3 阶段一 `scan_block_kernel`：每 block 独立 exclusive scan
-
-**作用**：每个 block 对自己负责的 `BLOCK_SIZE` 个元素做 exclusive scan，结果暂存到 `output[]`，同时把 block 总和写入 `block_sums[blockIdx.x]`。
-
-**原理**：grid 的每个 block 独立工作，互不依赖。block 内调用 `block_exclusive_scan` 完成扫描。
-
-![阶段一 scan_block_kernel 图解：每 block 独立 exclusive scan，输出 + block 总和](/images/prefix_sum_phase1_block_scan.svg)
-
-**代码**：
-
-```cuda
-// ============================================================
-// 阶段一：每 block 对自己那段做 exclusive scan，结果存 output，总和写 block_sums
-// ============================================================
-__global__ void scan_block_kernel(const float* input, float* output, float* block_sums, int N) {
-    int tid = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    bool valid = (tid < N);
-    float val = valid ? input[tid] : 0.0f;
-    float exclusive = block_exclusive_scan(val, &block_sums[blockIdx.x]);
-    if (valid)
-        output[tid] = exclusive; // 暂存 exclusive，阶段三再加回 input + offset
-}
-```
-
-**详解**：
-
-- **输入**：`input[tid]`，每个线程读一个元素
-- **输出**：`output[tid] = exclusive prefix sum`（不含自身），`block_sums[blockIdx.x] = 本 block 总和`
-- **注意**：`output` 此时存的是 exclusive（不含 `input[i]`），阶段三需要加回 `input[i] + 全局偏移` 才得到最终 inclusive
-
-> ⚠️ 每个 block 的 exclusive scan 是局部的——block 1 的 exclusive 不知道 block 0 的总和。阶段二就是算这个跨 block 偏移。
->
-> ⚠️ **不要对越界线程提前** `return`：`block_exclusive_scan` 内部含 `__syncthreads()`，且只有 `threadIdx.x == BLOCK_SIZE-1` 会写 `block_sums`。若提前 `return`，最后不完整 block 的 `block_sums` 不会被写入，且部分线程跳过同步会导致未定义行为。这里用 `valid` 标志让全部线程参与 scan，只对有效位置写 `output`。
-
-### 4.4 阶段二 `scan_offsets_kernel`：对 block_sums 做前缀和 → 全局偏移
-
-**作用**：对 `block_sums[]`（每 block 一个总和）做 exclusive prefix sum，得到每个 block 的**全局起始偏移** `block_offsets[]`。用 grid-stride 迭代支持 `numBlocks > BLOCK_SIZE` 的场景。
-
-**原理**：用单 block 迭代处理所有 `block_sums`。每轮处理 `BLOCK_SIZE` 个，累积 running offset 到 shared memory，下一轮继续。
-
-![阶段二+三 scan_offsets_kernel + add_offset_kernel 图解：全局偏移计算与加回](/images/prefix_sum_phase23_offset_addback.svg)
-
-**代码**：
-
-```cuda
-// ============================================================
-// 阶段二：对 block_sums[] 做 exclusive prefix sum → block_offsets[]
-// 使用 grid-stride 迭代，支持 numBlocks > BLOCK_SIZE 的场景
-// 每轮处理 BLOCK_SIZE 个 block_sums，累积到 running_offset
-// ============================================================
-__global__ void scan_offsets_kernel(const float* block_sums, float* block_offsets, int M) {
-    __shared__ float s_chunk_total;
-    __shared__ float s_running;
-    int tid = threadIdx.x;
-
-    if (tid == 0) {
-        s_running = 0.0f;
-    }
-    __syncthreads();
-
-    for (int chunk = 0; chunk < M; chunk += BLOCK_SIZE) {
-        int idx = chunk + tid;
-        float val = (idx < M) ? block_sums[idx] : 0.0f;
-
-        float exclusive = block_exclusive_scan(val, &s_chunk_total);
-
-        if (idx < M) {
-            block_offsets[idx] = exclusive + s_running;
-        }
-
-        __syncthreads();
-        if (tid == 0)
-            s_running += s_chunk_total;
-        __syncthreads();
-    }
-}
-```
-
-> ⚠️ 核心思路：每轮把本 chunk 的总和累加到 running offset，下一轮的 exclusive 再加上这个 running offset。
->
-> ⚠️ **实现陷阱**：`block_exclusive_scan` 只在 `threadIdx.x == BLOCK_SIZE-1` 时写 `*block_sum`。若用局部变量 `float chunk_total` 接这个值，再在 `tid == 0` 时读取，thread 0 读到的是未初始化的寄存器垃圾，导致 `s_running` 累积错误，后续所有 block 的偏移都会错（例如 LeetGPU 上 `N=250000` 时后部结果完全偏离）。正确做法是把它放进 `__shared__ float s_chunk_total`，由 thread 0 在 `__syncthreads()` 后读取。
-
-#### `s_running` 与 `s_chunk_total` 的作用详解
-
-阶段二需要处理 `numBlocks`（可能远大于 `BLOCK_SIZE`）个 `block_sums`，但单个 block 一次只能 scan `BLOCK_SIZE` 个元素。解决办法是**分 chunk 迭代**，每轮处理一个 chunk（`BLOCK_SIZE` 个元素），用两个 shared 变量在 chunk 之间传递状态：
-
-![s_running 与 s_chunk_total：grid-stride 迭代 scan](/images/prefix_sum_srunning_schunktotal.svg)
-
-`s_chunk_total`**：本 chunk 的总和（chunk 内 → chunk 间）**
-
-- **谁写**：`block_exclusive_scan` 内部，只有 `threadIdx.x == BLOCK_SIZE-1`（最后一个线程）写 `*block_sum = s_chunk_total`，值为本 chunk 所有元素之和。
-- **谁读**：`tid == 0` 在 `__syncthreads()` 后读取，用于累加到 `s_running`。
-- **生命周期**：单轮 chunk 内有效，每轮被 `block_exclusive_scan` 覆写。
-- **为什么用 shared 而非寄存器**：写入者（thread 255）和读取者（thread 0）是不同线程，寄存器是线程私有的，无法跨线程传递。必须经 shared memory + `__syncthreads` 可见化。
-
-`s_running`**：跨 chunk 的累积偏移（chunk 间累积器）**
-
-- **谁写**：`tid == 0` 在每轮 chunk 结束时执行 `s_running += s_chunk_total`，把本 chunk 总和累加进去。
-- **谁读**：所有线程在每轮 chunk 开始时读取 `s_running`，加到本 chunk 的 exclusive scan 结果上（`block_offsets[idx] = exclusive + s_running`）。
-- **生命周期**：贯穿整个 kernel，初始化为 0，每轮递增，最终 = 所有 block_sums 的总和。
-- **作用**：把"chunk 内的局部 exclusive scan"修正为"全局 exclusive scan"。第 `k` 轮的 `s_running` = 前 `k` 个 chunk 的总和 = 第 `k` 轮所有元素的全局起始偏移。
-
-**两者协作的数据流**（以 `numBlocks = 700, BLOCK_SIZE = 256` 为例，需 3 轮）：
-
-```
-初始化:  s_running = 0
-
-轮次 0 (chunk 0: block_sums[0..255]):
-  block_exclusive_scan → exclusive[0..255]（chunk 内 exclusive scan）
-  s_chunk_total = Σ block_sums[0..255]                  ← thread 255 写
-  block_offsets[0..255] = exclusive[0..255] + s_running(=0)
-  s_running += s_chunk_total                             ← s_running = Σ[0..255]
-
-轮次 1 (chunk 1: block_sums[256..511]):
-  block_exclusive_scan → exclusive[256..511]
-  s_chunk_total = Σ block_sums[256..511]
-  block_offsets[256..511] = exclusive[256..511] + s_running(=Σ[0..255])
-  s_running += s_chunk_total                             ← s_running = Σ[0..511]
-
-轮次 2 (chunk 2: block_sums[512..699], 不足 256):
-  block_exclusive_scan → exclusive[512..699]（越界线程 val=0）
-  s_chunk_total = Σ block_sums[512..699]
-  block_offsets[512..699] = exclusive[512..699] + s_running(=Σ[0..511])
-  s_running += s_chunk_total                             ← s_running = Σ[0..699]（总和）
-```
-
-> 💡 **一句话总结**：`s_chunk_total` 是"chunk 内的总和"，每轮由最后一个线程算出并经 shared memory 传给 thread 0；`s_running` 是"前序所有 chunk 的累积和"，每轮由 thread 0 更新并广播给所有线程，用于把 chunk 内的局部 scan 修正为全局 scan。两者配合实现了 `numBlocks > BLOCK_SIZE` 时的 grid-stride 迭代 scan。
-
-#### 为什么 `s_running += s_chunk_total` 只由 `tid == 0` 执行
-
-```cuda
-__syncthreads(); // ① 确保 s_chunk_total 已写入且对 thread 0 可见
-if (tid == 0)
-    s_running += s_chunk_total; //    只有 thread 0 更新，无竞态
-__syncthreads();                // ② 确保更新后的 s_running 对下一轮所有线程可见
-```
-
-**原因一：避免数据竞争**。`s_running` 是单个 `__shared__` 变量。若 256 个线程同时执行 `s_running += s_chunk_total`，就是 256 个线程对同一地址做 read-modify-write，属于数据竞争，结果未定义。只让 `tid == 0` 写一次即可。
-
-**原因二：只需加一次**。`s_chunk_total` 在 `__syncthreads()` 后对所有线程可见且值相同（它由 `block_exclusive_scan` 内部的最后一个线程写入 shared memory）。所有线程加的都是同一个值，让一个线程加一次就够了。
-
-> ⚠️ **为什么不用** `atomicAdd`**？** 若改用 `atomicAdd(&s_running, s_chunk_total)` 让所有线程都执行，则 256 个线程会把**同一个值加 256 次**，结果错误。所以这里**不是**用 atomic 解决竞态的问题，而是用"单线程写 + syncthreads 广播"的正确模式：thread 0 独占写入，两道 `__syncthreads` 分别保证"写前 s_chunk_total 可见"和"写后 s_running 可见"。
-
-### 4.5 阶段三 `add_offset_kernel`：加回全局偏移 + input → inclusive
-
-**作用**：每个元素最终值 = 阶段一的 exclusive + 本 block 全局偏移 + `input[i]`。一行公式搞定。
-
-**原理**：`output[i]`（阶段一存的 exclusive）+ `block_offsets[blockIdx.x]`（阶段二算的全局偏移）+ `input[i]`（自身）= `input[0] + ... + input[i]`（inclusive prefix sum）。
-
-**代码**：
-
-```cuda
-// ============================================================
-// 阶段三：每元素 = 阶段一的 exclusive + 本 block 偏移 + input[i]
-// ============================================================
-__global__ void add_offset_kernel(float* output, const float* input, const float* block_offsets, int N) {
-    int tid = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    if (tid >= N)
-        return;
-    output[tid] = output[tid] + block_offsets[blockIdx.x] + input[tid];
-}
-```
-
-**详解**：
-
-```
-output[tid] (阶段一 exclusive)  = input[block_start] + ... + input[tid-1]   (本 block 内, 不含自身)
-block_offsets[blockIdx.x]       = sum of all previous blocks                 (阶段二全局偏移)
-input[tid]                      = 自身                                       (原始输入)
-─────────────────────────────────────────────────────────────────────────────
-三者相加 = 全局 inclusive prefix sum = input[0] + input[1] + ... + input[tid]
-```
-
-> 💡 阶段三非常轻量——每个线程只做两次加法，没有同步、没有 shared memory。但需要**重读 input**（阶段一没存），这是三阶段方案的固有开销，可用 fused scan 优化。
-
-### 4.6 完整可编译代码（含 Host）
-
-以下是完整版本，可本地编译运行自测。阶段二采用了修正后的正确实现。
-
-> 📎 完整可编译代码（含 Host）已整理到 <a href="./16-prefix-sum.cu" download><code>16-prefix-sum.cu</code></a>（编译与运行命令见文件头注释，用于本地自测与 profiling）。
-
-> 💡 提交给 LeetGPU 平台时，把三个 kernel 填进 `solve` 函数、按顺序 launch 即可。带 `main()` 的版本用于本地自测。
-
-> ⚠️ **阶段二的 numBlocks 处理**：当 `N ≤ 1e8`、`BLOCK_SIZE = 256` 时 `numBlocks` 可达 390625。阶段二的 `scan_offsets_kernel` 用 grid-stride 迭代处理：每轮一个 block scan `BLOCK_SIZE` 个 `block_sums`，累积 running offset 到下一轮。生产代码中若 `numBlocks` 极大，可对阶段二递归调用三阶段算法（即 block_sums 再分块），或用 `cooperative_groups` 的 `cg::this_grid().sync()` 在单 kernel 内做 grid 级同步。本题为教学清晰起见保留 grid-stride 版本。
-
-### 4.7 LeetGPU 提交版代码
+### 4.1 LeetGPU 提交版代码
 
 LeetGPU 平台的 `16-prefix-sum.cu` 只需实现 `extern "C" void solve(const float* input, float* output, int N)` 函数。平台会传入 device pointer `input`/`output` 和数组长度 `N`，函数内部启动 kernel 即可。以下是直接可提交的完整代码：
 
@@ -749,6 +434,321 @@ extern "C" void solve(const float* input, float* output, int N) {
 
 > 🐛 **已修复的 bug**：旧版在 `N` 不是 `BLOCK_SIZE` 倍数时，最后不完整 block 的部分线程会提前 `return`，导致 `block_sums` 未写入且 `__syncthreads()` 不完整；同时 `scan_offsets_kernel` 用局部变量 `chunk_total` 接 `block_exclusive_scan` 的总和，但只在 `threadIdx.x == BLOCK_SIZE-1` 时写入，后续 `tid==0` 读到的是垃圾值，造成 `s_running` 错误、后续 block 偏移整体漂移（如 `N=250000` 时结果后部完全错误）。上方代码已修复这两个问题。
 
+### 4.2 公共头文件与宏定义
+
+```cuda
+// 16-prefix-sum.cu —— 三阶段分块 scan：warp shuffle + block scan + 全局偏移加回
+// 编译命令: nvcc -O3 -arch=sm_120 16-prefix-sum.cu -o prefix_sum
+// 运行:     ./prefix_sum 16777216
+
+    #include <cstdio>
+    #include <cstdlib>
+    #include <cmath>
+    #include <cuda_runtime.h>
+
+    #define CHECK_CUDA(call)                                                                                               \
+    do {                                                                                                               \
+        cudaError_t e = (call);                                                                                        \
+        if (e != cudaSuccess) {                                                                                        \
+            fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e));                      \
+            exit(EXIT_FAILURE);                                                                                        \
+        }                                                                                                              \
+    } while (0)
+
+#define BLOCK_SIZE 256
+#define WARP_SIZE 32
+#define NUM_WARPS (BLOCK_SIZE / WARP_SIZE) // 8
+```
+
+### 4.3 `warp_inclusive_scan`：Warp 内 5 步蝶形前缀扫描
+
+**作用**：在一个 warp（32 个 lane）内做 inclusive prefix sum。每个 lane 最终持有 `input[0] + input[1] + ... + input[lane]`。
+
+**原理**：Hillis-Steele 蝶形扫描——每步用 `__shfl_up_sync` 从 `lane - offset` 处取值并累加，`offset = 1, 2, 4, 8, 16`，共 5 步（`log₂32`）。所有 lane 全程活跃，无需 `__syncthreads`。
+
+![warp_inclusive_scan 函数图解：32 lane 5 步蝶形前缀扫描](/images/prefix_sum_warp_inclusive_scan.svg)
+
+**代码**：
+
+```cuda
+// ============================================================
+// warp 内 inclusive scan：__shfl_up_sync，5 步蝶形
+// ============================================================
+__inline__ __device__ float warp_inclusive_scan(float val) {
+    for (int offset = 1; offset < WARP_SIZE; offset <<= 1) {
+        float n = __shfl_up_sync(0xffffffff, val, offset);
+        if ((threadIdx.x & (WARP_SIZE - 1)) >= offset) {
+            val += n;
+        }
+    }
+    return val; // lane i 持有本 warp 内 [0..i] 的前缀和
+}
+```
+
+**详解**：
+
+| 步骤 | offset | `__shfl_up_sync` 取的来源 | 谁加 | 效果 |
+|------|--------|--------------------------|------|------|
+| 1 | 1 | lane(i-1) | lane ≥ 1 | 每 lane 加左边 1 个 |
+| 2 | 2 | lane(i-2) | lane ≥ 2 | 每 lane 加左边 2 个 |
+| 3 | 4 | lane(i-4) | lane ≥ 4 | 每 lane 加左边 4 个 |
+| 4 | 8 | lane(i-8) | lane ≥ 8 | 每 lane 加左边 8 个 |
+| 5 | 16 | lane(i-16) | lane ≥ 16 | 每 lane 加左边 16 个 |
+
+5 步后，lane `i` 持有 `input[0] + ... + input[i]`（本 warp 内前缀和）。
+
+> 💡 `if (lane >= offset)` 保证前 `offset` 个 lane 不加（它们没有足够的左侧数据）。`__shfl_up_sync` 在 `lane - offset < 0` 时返回原值不变，但加不加由 `if` 控制。
+
+### 4.4 `block_exclusive_scan`：Block 内 exclusive scan（warp scan + shared 汇总）
+
+**作用**：在 256 线程（8 个 warp）的 block 内做 **exclusive** prefix scan（不含自身）。同时输出整个 block 的总和。
+
+**原理**：block 内 scan 分两步——① 每 warp 各自 `warp_inclusive_scan`；② 每 warp 的 lane 31 把 warp 总和写入 shared memory，warp 0 对这些总和再做一次 scan 得到每 warp 的起始偏移；③ 每 warp 把偏移加回，得到 block 内 exclusive。
+
+![block_exclusive_scan 函数图解：warp scan + shared memory 汇总 + 偏移加回](/images/prefix_sum_block_exclusive_scan.svg)
+
+**代码**：
+
+```cuda
+// ============================================================
+// block 内 exclusive scan：warp scan + shared 汇总 + 偏移加回
+// 返回每线程对应的 exclusive 前缀和；block 总和由 lane (BLOCK_SIZE-1) 写入 *block_sum
+// ============================================================
+__inline__ __device__ float block_exclusive_scan(float val, float* block_sum) {
+    __shared__ float warp_sums[NUM_WARPS];
+    int lane = threadIdx.x & (WARP_SIZE - 1);
+    int warpId = threadIdx.x >> 5;
+
+    // ① 每 warp 各自 inclusive scan
+    float inclusive = warp_inclusive_scan(val);
+
+    // ② 每 warp 的 lane 31 记录本 warp 总和
+    if (lane == WARP_SIZE - 1) {
+        warp_sums[warpId] = inclusive; // inclusive 的最后一个 = 该 warp 总和
+    }
+    __syncthreads();
+
+    // ③ 第一个 warp 对 warp_sums 做 inclusive scan，得到每 warp 的起始偏移
+    if (warpId == 0) {
+        float v = (lane < NUM_WARPS) ? warp_sums[lane] : 0.0f;
+        v = warp_inclusive_scan(v);
+        if (lane < NUM_WARPS)
+            warp_sums[lane] = v; // 改写为 inclusive prefix
+    }
+    __syncthreads();
+
+    // ④ 当前 warp 之前所有 warp 的总和 = exclusive 起始偏移
+    float warp_offset = (warpId == 0) ? 0.0f : warp_sums[warpId - 1];
+
+    // ⑤ exclusive = warp_offset + (本 warp 内 inclusive 减去自身)
+    float exclusive = warp_offset + (inclusive - val);
+
+    // ⑥ block 总和 = 最后一个线程的 inclusive（warp_offset + inclusive）
+    if (threadIdx.x == BLOCK_SIZE - 1) {
+        *block_sum = warp_offset + inclusive;
+    }
+    return exclusive;
+}
+```
+
+**详解**：
+
+| 步骤 | 操作 | 数据流 |
+|------|------|--------|
+| ① | 每 warp 各自 `warp_inclusive_scan` | register 内，无 smem |
+| ② | lane 31 写 warp 总和到 `warp_sums[]` | register → shared memory |
+| ③ | warp 0 对 `warp_sums[0..7]` 做 inclusive scan | shared memory 内 |
+| ④ | 读取 `warp_sums[warpId - 1]` 作为本 warp 偏移 | shared memory → register |
+| ⑤ | `exclusive = warp_offset + (inclusive - val)` | register 内计算 |
+| ⑥ | 最后一个线程写 block 总和到 `*block_sum` | register → global |
+
+> 💡 **exclusive vs inclusive**：`inclusive[i] = input[0] + ... + input[i]`（含自身），`exclusive[i] = input[0] + ... + input[i-1]`（不含自身）。`exclusive = inclusive - val`。阶段一用 exclusive 是为了让阶段三加回 `input[i]` 时正好得到 inclusive。
+
+### 4.5 阶段一 `scan_block_kernel`：每 block 独立 exclusive scan
+
+**作用**：每个 block 对自己负责的 `BLOCK_SIZE` 个元素做 exclusive scan，结果暂存到 `output[]`，同时把 block 总和写入 `block_sums[blockIdx.x]`。
+
+**原理**：grid 的每个 block 独立工作，互不依赖。block 内调用 `block_exclusive_scan` 完成扫描。
+
+![阶段一 scan_block_kernel 图解：每 block 独立 exclusive scan，输出 + block 总和](/images/prefix_sum_phase1_block_scan.svg)
+
+**代码**：
+
+```cuda
+// ============================================================
+// 阶段一：每 block 对自己那段做 exclusive scan，结果存 output，总和写 block_sums
+// ============================================================
+__global__ void scan_block_kernel(const float* input, float* output, float* block_sums, int N) {
+    int tid = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    bool valid = (tid < N);
+    float val = valid ? input[tid] : 0.0f;
+    float exclusive = block_exclusive_scan(val, &block_sums[blockIdx.x]);
+    if (valid)
+        output[tid] = exclusive; // 暂存 exclusive，阶段三再加回 input + offset
+}
+```
+
+**详解**：
+
+- **输入**：`input[tid]`，每个线程读一个元素
+- **输出**：`output[tid] = exclusive prefix sum`（不含自身），`block_sums[blockIdx.x] = 本 block 总和`
+- **注意**：`output` 此时存的是 exclusive（不含 `input[i]`），阶段三需要加回 `input[i] + 全局偏移` 才得到最终 inclusive
+
+> ⚠️ 每个 block 的 exclusive scan 是局部的——block 1 的 exclusive 不知道 block 0 的总和。阶段二就是算这个跨 block 偏移。
+>
+> ⚠️ **不要对越界线程提前** `return`：`block_exclusive_scan` 内部含 `__syncthreads()`，且只有 `threadIdx.x == BLOCK_SIZE-1` 会写 `block_sums`。若提前 `return`，最后不完整 block 的 `block_sums` 不会被写入，且部分线程跳过同步会导致未定义行为。这里用 `valid` 标志让全部线程参与 scan，只对有效位置写 `output`。
+
+### 4.6 阶段二 `scan_offsets_kernel`：对 block_sums 做前缀和 → 全局偏移
+
+**作用**：对 `block_sums[]`（每 block 一个总和）做 exclusive prefix sum，得到每个 block 的**全局起始偏移** `block_offsets[]`。用 grid-stride 迭代支持 `numBlocks > BLOCK_SIZE` 的场景。
+
+**原理**：用单 block 迭代处理所有 `block_sums`。每轮处理 `BLOCK_SIZE` 个，累积 running offset 到 shared memory，下一轮继续。
+
+![阶段二+三 scan_offsets_kernel + add_offset_kernel 图解：全局偏移计算与加回](/images/prefix_sum_phase23_offset_addback.svg)
+
+**代码**：
+
+```cuda
+// ============================================================
+// 阶段二：对 block_sums[] 做 exclusive prefix sum → block_offsets[]
+// 使用 grid-stride 迭代，支持 numBlocks > BLOCK_SIZE 的场景
+// 每轮处理 BLOCK_SIZE 个 block_sums，累积到 running_offset
+// ============================================================
+__global__ void scan_offsets_kernel(const float* block_sums, float* block_offsets, int M) {
+    __shared__ float s_chunk_total;
+    __shared__ float s_running;
+    int tid = threadIdx.x;
+
+    if (tid == 0) {
+        s_running = 0.0f;
+    }
+    __syncthreads();
+
+    for (int chunk = 0; chunk < M; chunk += BLOCK_SIZE) {
+        int idx = chunk + tid;
+        float val = (idx < M) ? block_sums[idx] : 0.0f;
+
+        float exclusive = block_exclusive_scan(val, &s_chunk_total);
+
+        if (idx < M) {
+            block_offsets[idx] = exclusive + s_running;
+        }
+
+        __syncthreads();
+        if (tid == 0)
+            s_running += s_chunk_total;
+        __syncthreads();
+    }
+}
+```
+
+> ⚠️ 核心思路：每轮把本 chunk 的总和累加到 running offset，下一轮的 exclusive 再加上这个 running offset。
+>
+> ⚠️ **实现陷阱**：`block_exclusive_scan` 只在 `threadIdx.x == BLOCK_SIZE-1` 时写 `*block_sum`。若用局部变量 `float chunk_total` 接这个值，再在 `tid == 0` 时读取，thread 0 读到的是未初始化的寄存器垃圾，导致 `s_running` 累积错误，后续所有 block 的偏移都会错（例如 LeetGPU 上 `N=250000` 时后部结果完全偏离）。正确做法是把它放进 `__shared__ float s_chunk_total`，由 thread 0 在 `__syncthreads()` 后读取。
+
+#### `s_running` 与 `s_chunk_total` 的作用详解
+
+阶段二需要处理 `numBlocks`（可能远大于 `BLOCK_SIZE`）个 `block_sums`，但单个 block 一次只能 scan `BLOCK_SIZE` 个元素。解决办法是**分 chunk 迭代**，每轮处理一个 chunk（`BLOCK_SIZE` 个元素），用两个 shared 变量在 chunk 之间传递状态：
+
+![s_running 与 s_chunk_total：grid-stride 迭代 scan](/images/prefix_sum_srunning_schunktotal.svg)
+
+`s_chunk_total`**：本 chunk 的总和（chunk 内 → chunk 间）**
+
+- **谁写**：`block_exclusive_scan` 内部，只有 `threadIdx.x == BLOCK_SIZE-1`（最后一个线程）写 `*block_sum = s_chunk_total`，值为本 chunk 所有元素之和。
+- **谁读**：`tid == 0` 在 `__syncthreads()` 后读取，用于累加到 `s_running`。
+- **生命周期**：单轮 chunk 内有效，每轮被 `block_exclusive_scan` 覆写。
+- **为什么用 shared 而非寄存器**：写入者（thread 255）和读取者（thread 0）是不同线程，寄存器是线程私有的，无法跨线程传递。必须经 shared memory + `__syncthreads` 可见化。
+
+`s_running`**：跨 chunk 的累积偏移（chunk 间累积器）**
+
+- **谁写**：`tid == 0` 在每轮 chunk 结束时执行 `s_running += s_chunk_total`，把本 chunk 总和累加进去。
+- **谁读**：所有线程在每轮 chunk 开始时读取 `s_running`，加到本 chunk 的 exclusive scan 结果上（`block_offsets[idx] = exclusive + s_running`）。
+- **生命周期**：贯穿整个 kernel，初始化为 0，每轮递增，最终 = 所有 block_sums 的总和。
+- **作用**：把"chunk 内的局部 exclusive scan"修正为"全局 exclusive scan"。第 `k` 轮的 `s_running` = 前 `k` 个 chunk 的总和 = 第 `k` 轮所有元素的全局起始偏移。
+
+**两者协作的数据流**（以 `numBlocks = 700, BLOCK_SIZE = 256` 为例，需 3 轮）：
+
+```
+初始化:  s_running = 0
+
+轮次 0 (chunk 0: block_sums[0..255]):
+  block_exclusive_scan → exclusive[0..255]（chunk 内 exclusive scan）
+  s_chunk_total = Σ block_sums[0..255]                  ← thread 255 写
+  block_offsets[0..255] = exclusive[0..255] + s_running(=0)
+  s_running += s_chunk_total                             ← s_running = Σ[0..255]
+
+轮次 1 (chunk 1: block_sums[256..511]):
+  block_exclusive_scan → exclusive[256..511]
+  s_chunk_total = Σ block_sums[256..511]
+  block_offsets[256..511] = exclusive[256..511] + s_running(=Σ[0..255])
+  s_running += s_chunk_total                             ← s_running = Σ[0..511]
+
+轮次 2 (chunk 2: block_sums[512..699], 不足 256):
+  block_exclusive_scan → exclusive[512..699]（越界线程 val=0）
+  s_chunk_total = Σ block_sums[512..699]
+  block_offsets[512..699] = exclusive[512..699] + s_running(=Σ[0..511])
+  s_running += s_chunk_total                             ← s_running = Σ[0..699]（总和）
+```
+
+> 💡 **一句话总结**：`s_chunk_total` 是"chunk 内的总和"，每轮由最后一个线程算出并经 shared memory 传给 thread 0；`s_running` 是"前序所有 chunk 的累积和"，每轮由 thread 0 更新并广播给所有线程，用于把 chunk 内的局部 scan 修正为全局 scan。两者配合实现了 `numBlocks > BLOCK_SIZE` 时的 grid-stride 迭代 scan。
+
+#### 为什么 `s_running += s_chunk_total` 只由 `tid == 0` 执行
+
+```cuda
+__syncthreads(); // ① 确保 s_chunk_total 已写入且对 thread 0 可见
+if (tid == 0)
+    s_running += s_chunk_total; //    只有 thread 0 更新，无竞态
+__syncthreads();                // ② 确保更新后的 s_running 对下一轮所有线程可见
+```
+
+**原因一：避免数据竞争**。`s_running` 是单个 `__shared__` 变量。若 256 个线程同时执行 `s_running += s_chunk_total`，就是 256 个线程对同一地址做 read-modify-write，属于数据竞争，结果未定义。只让 `tid == 0` 写一次即可。
+
+**原因二：只需加一次**。`s_chunk_total` 在 `__syncthreads()` 后对所有线程可见且值相同（它由 `block_exclusive_scan` 内部的最后一个线程写入 shared memory）。所有线程加的都是同一个值，让一个线程加一次就够了。
+
+> ⚠️ **为什么不用** `atomicAdd`**？** 若改用 `atomicAdd(&s_running, s_chunk_total)` 让所有线程都执行，则 256 个线程会把**同一个值加 256 次**，结果错误。所以这里**不是**用 atomic 解决竞态的问题，而是用"单线程写 + syncthreads 广播"的正确模式：thread 0 独占写入，两道 `__syncthreads` 分别保证"写前 s_chunk_total 可见"和"写后 s_running 可见"。
+
+### 4.7 阶段三 `add_offset_kernel`：加回全局偏移 + input → inclusive
+
+**作用**：每个元素最终值 = 阶段一的 exclusive + 本 block 全局偏移 + `input[i]`。一行公式搞定。
+
+**原理**：`output[i]`（阶段一存的 exclusive）+ `block_offsets[blockIdx.x]`（阶段二算的全局偏移）+ `input[i]`（自身）= `input[0] + ... + input[i]`（inclusive prefix sum）。
+
+**代码**：
+
+```cuda
+// ============================================================
+// 阶段三：每元素 = 阶段一的 exclusive + 本 block 偏移 + input[i]
+// ============================================================
+__global__ void add_offset_kernel(float* output, const float* input, const float* block_offsets, int N) {
+    int tid = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    if (tid >= N)
+        return;
+    output[tid] = output[tid] + block_offsets[blockIdx.x] + input[tid];
+}
+```
+
+**详解**：
+
+```
+output[tid] (阶段一 exclusive)  = input[block_start] + ... + input[tid-1]   (本 block 内, 不含自身)
+block_offsets[blockIdx.x]       = sum of all previous blocks                 (阶段二全局偏移)
+input[tid]                      = 自身                                       (原始输入)
+─────────────────────────────────────────────────────────────────────────────
+三者相加 = 全局 inclusive prefix sum = input[0] + input[1] + ... + input[tid]
+```
+
+> 💡 阶段三非常轻量——每个线程只做两次加法，没有同步、没有 shared memory。但需要**重读 input**（阶段一没存），这是三阶段方案的固有开销，可用 fused scan 优化。
+
+### 4.8 完整可编译代码（含 Host）
+
+以下是完整版本，可本地编译运行自测。阶段二采用了修正后的正确实现。
+
+> 📎 完整可编译代码（含 Host）已整理到 <a href="./16-prefix-sum.cu" download><code>16-prefix-sum.cu</code></a>（编译与运行命令见文件头注释，用于本地自测与 profiling）。
+
+> 💡 提交给 LeetGPU 平台时，把三个 kernel 填进 `solve` 函数、按顺序 launch 即可。带 `main()` 的版本用于本地自测。
+
+> ⚠️ **阶段二的 numBlocks 处理**：当 `N ≤ 1e8`、`BLOCK_SIZE = 256` 时 `numBlocks` 可达 390625。阶段二的 `scan_offsets_kernel` 用 grid-stride 迭代处理：每轮一个 block scan `BLOCK_SIZE` 个 `block_sums`，累积 running offset 到下一轮。生产代码中若 `numBlocks` 极大，可对阶段二递归调用三阶段算法（即 block_sums 再分块），或用 `cooperative_groups` 的 `cg::this_grid().sync()` 在单 kernel 内做 grid 级同步。本题为教学清晰起见保留 grid-stride 版本。
+
 ## 5. 性能分析与优化
 
 ### 5.1 编译与运行
@@ -823,7 +823,7 @@ ncu --metrics gpu__time_duration.sum, \
 
 ### 7.1 两个版本的核心差异
 
-| 维度 | 三阶段方案（本文 4.7 节） | `16-prefix-sum.cu`（优化版） |
+| 维度 | 三阶段方案（本文 4.1 节） | `16-prefix-sum.cu`（优化版） |
 |------|--------------------------|------------------------|
 | **阶段一 scan 类型** | exclusive（不含自身） | **inclusive**（含自身） |
 | **kernel 数量** | 3 个（block scan + offsets scan + add offset） | **2 个**（intra_block_reduce + inter_block_reduce） |
