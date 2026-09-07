@@ -54,14 +54,14 @@ __global__ void naive_atomic_reduce(const float* input, float* sum, int N) {
 
 ### 3.1 并行化策略：两阶段树形归约
 
-核心思想是**两阶段归约**：block 归约 → final 归约。
+核心思想是**两阶段归约**：block 归约 → final 归约，两个阶段共用同一个 kernel。
 
 1. **block 归约**：每个 block 处理 `BLOCK_SIZE` 个元素，内部先做 warp 级归约，再跨 warp 归约，每个 block 产出一个部分和写到中间缓冲区 `partial[blockIdx.x]`（LeetGPU 的 `output` 只有 1 个 float 的空间，不能直接写）。
-2. **final 归约**：单个 block 对所有部分和再归约一次，得到全局总和。
+2. **final 归约**：用同一个 kernel 以单 block 再启动一次，对所有部分和归约得到全局总和。
 
 warp 内用 `__shfl_down_sync`（寄存器内、无 bank conflict），warp 间用 shared memory（需保证同步）。`BLOCK_SIZE=256` 时每 block 含 8 个 warp，warp 间只需归约 8 个值。
 
-**两阶段流程**（每个 block 产出一个部分和，再由 final kernel 聚合）：
+**两阶段流程**（每个 block 产出一个部分和，再由同一 kernel 以单 block 聚合）：
 
 ![两阶段归约流程](/images/reduction_two_level.svg)
 
@@ -88,7 +88,7 @@ warp 内用 `__shfl_down_sync`（寄存器内、无 bank conflict），warp 间�
 ### 4.1 LeetGPU 提交版本
 
 ```cuda
-// reduction.cu —— Warp shuffle 两阶段归约
+// reduction.cu —— Warp shuffle 两阶段归约（两阶段共用同一 kernel）
 #include <cuda_runtime.h>
 
 #define BLOCK_SIZE 256
@@ -107,7 +107,11 @@ __global__ void reduce_kernel(const float* input, float* output, int N) {
     int warp_id = tid / WARP_SIZE;
     int lane = tid % WARP_SIZE;
 
-    float val = (gid < N) ? input[gid] : 0.0f;
+    // grid-stride：第一阶段覆盖全数组；第二阶段 gridDim.x=1，stride 退化为 BLOCK_SIZE
+    float val = 0.0f;
+    for (int i = gid; i < N; i += gridDim.x * BLOCK_SIZE)
+        val += input[i];
+
     val = warp_reduce(val);
     if (lane == 0)
         warp_sums[warp_id] = val;
@@ -121,33 +125,17 @@ __global__ void reduce_kernel(const float* input, float* output, int N) {
     }
 }
 
-__global__ void final_reduce(const float* input, float* output, int N) {
-    __shared__ float warp_sums[BLOCK_SIZE / WARP_SIZE];
-    int tid = threadIdx.x;
-    float val = 0.0f;
-    for (int i = tid; i < N; i += BLOCK_SIZE)
-        val += input[i];
-    val = warp_reduce(val);
-    if (tid % WARP_SIZE == 0)
-        warp_sums[tid / WARP_SIZE] = val;
-    __syncthreads();
-    if (tid < WARP_SIZE) {
-        val = (tid < BLOCK_SIZE / WARP_SIZE) ? warp_sums[tid] : 0.0f;
-        val = warp_reduce(val);
-        if (tid == 0)
-            output[0] = val;
-    }
-}
-
 extern "C" void solve(const float* input, float* output, int N) {
     int gridSize = (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
     float* partial = nullptr;
-    cudaMalloc(&partial, gridSize * sizeof(float));   // 部分和缓冲区
-    reduce_kernel<<<gridSize, BLOCK_SIZE>>>(input, partial, N);
-    final_reduce<<<1, BLOCK_SIZE>>>(partial, output, gridSize);
+    cudaMalloc(&partial, gridSize * sizeof(float));            // 部分和缓冲区
+    reduce_kernel<<<gridSize, BLOCK_SIZE>>>(input, partial, N);   // 第一阶段：大 grid
+    reduce_kernel<<<1, BLOCK_SIZE>>>(partial, output, gridSize);  // 第二阶段：单 block
     cudaFree(partial);
 }
 ```
+
+> 💡 **为什么两个阶段能共用同一个 kernel**：第二阶段的"每线程跨 stride 累加多个部分和"（grid-stride 循环）正是第一阶段"每线程读 1 个元素"的推广——stride 写成 `gridDim.x * BLOCK_SIZE` 后，第一阶段大 grid 下循环只迭代 0/1 次（越界线程不进循环，`val` 保持 0，与 `gid < N` 判断等价），第二阶段 `gridDim.x == 1` 时 stride 自动退化为 `BLOCK_SIZE`。两阶段的访存地址序列完全一致（连续线程读连续地址），合并后性能差异在测量噪声内；grid-stride 形式还顺带保留了调小 grid、让每线程累加多元素的优化空间（见 §5.4）。
 
 > ⚠️ **为什么不能直接把部分和写进 `output`**：LeetGPU 评测端只为 `output` 分配 **1 个 float** 的空间。第一阶段若写 `output[blockIdx.x]`，`blockIdx.x > 0` 时就是越界写，提交会报 `Out of bounds write detected`。必须另开一块 `gridSize` 大小的中间缓冲区 `partial` 暂存部分和，最终结果才写 `output[0]`。
 >
@@ -160,12 +148,12 @@ extern "C" void solve(const float* input, float* output, int N) {
 | 步骤 | 代码 | 说明 |
 |------|------|------|
 | **坐标计算** | `gid = blockIdx.x * BLOCK_SIZE + tid` | thread → 全局输入下标 |
-| **加载** | `val = (gid < N) ? input[gid] : 0.0f` | 每线程读 1 元素，越界补 0 不污染求和 |
+| **加载** | `for (i = gid; i < N; i += gridDim.x * BLOCK_SIZE) val += input[i]` | grid-stride 循环；第一阶段每线程读 1 元素，越界线程不进循环（等价补 0）；第二阶段每线程跨 stride 累加多个部分和 |
 | **warp 归约** | `val = warp_reduce(val)` | 32 lane shuffle 归约，lane 0 持该 warp 和 |
 | **写 shared** | `warp_sums[warp_id] = val`（lane 0） | 8 个 warp 部分和写入 shared memory |
 | **同步** | `__syncthreads()` | 等 8 个 warp 全部写完才允许第一个 warp 读 |
 | **warp 间归约** | 第一个 warp 加载 `warp_sums` 再 `warp_reduce` | 8 个部分和收敛到 1 个 block 和 |
-| **写回** | `output[blockIdx.x] = val` | block 部和写到 global，供 final kernel 聚合 |
+| **写回** | `output[blockIdx.x] = val` | block 部和写到 global；第一阶段写 `partial`，第二阶段（单 block）即写 `output[0]` |
 
 **关键索引关系**：
 
@@ -174,6 +162,7 @@ extern "C" void solve(const float* input, float* output, int N) {
 - `warp_id = tid / WARP_SIZE` — block 内 warp 编号，`[0, 8)`
 - `lane = tid % WARP_SIZE` — warp 内 lane 编号，`[0, 32)`
 - `offset = WARP_SIZE/2 → 1` — `__shfl_down_sync` 下移距离，每步减半
+- `stride = gridDim.x * BLOCK_SIZE` — grid-stride 步长；第一阶段覆盖全局，第二阶段 `gridDim.x=1` 时退化为 `BLOCK_SIZE`
 
 **`__syncthreads()` 的作用**：阶段 A 中只有每个 warp 的 lane 0 写了 `warp_sums`，阶段 B 由第一个 warp 读取 `warp_sums`。屏障保证所有 warp 都完成写入后，第一个 warp 才开始读——否则会读到未初始化的数据。这是 **warp 间同步的必要屏障**（warp 内的 `warp_reduce` 不需要它，因为 warp 内天然同步）。
 
@@ -202,10 +191,10 @@ extern "C" void solve(const float* input, float* output, int N) {
    - `warp_sums = [32, 32, 32, 32, 32, 32, 32, 32]`，`__syncthreads()`。
    - 第一个 warp：前 8 个 lane 加载 `[32,...,32]`，`warp_reduce` → lane 0 得到 `32×8 = 256`。
    - `output[blockIdx.x] = 256`。4 个 block 各写入 256 → `output = [256, 256, 256, 256]`。
-3. `final_reduce`**（1 个 block，输入 4 个部分和）**：
-   - 前 4 个线程加载 `[256, 256, 256, 256]`，其余线程加载 0。
+3. 再次调用 `reduce_kernel`**（1 个 block，输入 4 个部分和）**：
+   - `gridDim.x = 1`，stride = `BLOCK_SIZE`，前 4 个线程加载 `[256, 256, 256, 256]`，其余线程循环不执行（`val` 保持 0）。
    - `warp_reduce`：lane 0 得到 `256×4 = 1024`。
-   - `output[0] = 1024`。✓
+   - `output[blockIdx.x] = output[0] = 1024`。✓
 
 > 💡 **关键洞察**：归约的本质是**用 $\log_2$ 层并行配对换取"唯一结果"的串行性**——朴素 `atomicAdd` 把所有竞争压到一个地址（O(N) 串行化），而树形归约让每层都有 $N/2^k$ 个独立加法并行执行。warp shuffle 把最内层 32 路归约从 shared memory（有 bank conflict 风险）移到寄存器（零冲突、零同步），这就是 GPU 归约的标准范式，也是 LayerNorm/Softmax 内部 reduction 的同款骨架。
 
@@ -215,7 +204,7 @@ extern "C" void solve(const float* input, float* output, int N) {
 
 #### 全矩阵求和：flatten 成 1D
 
-GPU 内存中 `M × N` 的 row-major 矩阵就是 `input[row * N + col]` 连续排布，`gid` 遍历 `[0, M*N)` 天然覆盖全部元素，且访问依然**完全合并（coalesced）**。`reduce_kernel` / `final_reduce` / `warp_reduce` 原封不动，只需把 `solve` 的规模从 `N` 换成 `M * N`：
+GPU 内存中 `M × N` 的 row-major 矩阵就是 `input[row * N + col]` 连续排布，`gid` 遍历 `[0, M*N)` 天然覆盖全部元素，且访问依然**完全合并（coalesced）**。`reduce_kernel` / `warp_reduce` 原封不动，只需把 `solve` 的规模从 `N` 换成 `M * N`：
 
 ```cuda
 extern "C" void solve(const float* input, float* output, int M, int N) {
@@ -224,7 +213,7 @@ extern "C" void solve(const float* input, float* output, int M, int N) {
     float* partial = nullptr;
     cudaMalloc(&partial, gridSize * sizeof(float));
     reduce_kernel<<<gridSize, BLOCK_SIZE>>>(input, partial, total);
-    final_reduce<<<1, BLOCK_SIZE>>>(partial, output, gridSize);
+    reduce_kernel<<<1, BLOCK_SIZE>>>(partial, output, gridSize);
     cudaFree(partial);
 }
 ```
@@ -267,7 +256,7 @@ extern "C" void solve_rows(const float* input, float* row_sums, int M, int N) {
 注意点：
 
 - 行 reduction 时 `row = blockIdx.x` 替代了原来的 `gid`，block 内线程只负责**行内列方向**的归约。
-- 因为每个 block 直接产出最终结果 `row_sums[row]`，**不再需要 `partial` 缓冲区和 `final_reduce`**，也绕开了 `output` 空间不足的问题（`row_sums` 有 `M` 个空间）。
+- 因为每个 block 直接产出最终结果 `row_sums[row]`，**不再需要 `partial` 缓冲区和第二次 launch**，也绕开了 `output` 空间不足的问题（`row_sums` 有 `M` 个空间）。
 - 若行很短（`N < 32`），用一个 block 处理一行会浪费线程，可降级为**一个 warp 处理一行**：`int row = blockIdx.x * (BLOCK_SIZE/WARP_SIZE) + warp_id`，只用 `warp_reduce` 即可。
 
 | 场景 | 改动量 | 做法 |
@@ -321,10 +310,10 @@ ncu --set full --target-processes all ./reduction 10000000 \
 
 ### 5.4 优化方向
 
-- **grid-stride loop**：当 $N$ 远大于 `gridDim.x * BLOCK_SIZE` 时，让每个线程跨 stride 串行累加多个元素再归约，减少 block 数量与 final kernel 开销，提升每元素算术强度。
+- **调小 grid 让每线程累加多元素**：kernel 已是 grid-stride 形式，直接把 `gridSize` 调小（如 SM 数 × 每 SM block 数），每个线程跨 stride 串行累加多个元素再归约，减少 block 数量与第二次 launch 的工作量，提升每元素算术强度。
 - **增大 `BLOCK_SIZE`**：512/1024 配合更多 warp，摊薄 block 间归约的固定开销（需同步检查 occupancy 与 shared memory 上限）。
 - **vectorized load**：用 `float4` 每线程读 4 元素，减少 load 指令数、提升带宽利用率。
-- **单 kernel + 原子尾聚合**：对中等规模 $N$，可让最后一组 block 直接 `atomicAdd` 到全局标量，省去 final kernel 的二次 launch。
+- **单 kernel + 原子尾聚合**：对中等规模 $N$，可让最后一组 block 直接 `atomicAdd` 到全局标量，省去第二次 launch。
 
 > 💡 Reduction 是 **memory-bound** 的极致案例：算术强度仅 $0.25\ \text{FLOP/B}$（1 次加法 / 4 B 读取），性能上限由 HBM 读带宽决定。优化的所有方向都在"减少访存次数 / 提高带宽利用率"上，而非"算得更快"。
 
